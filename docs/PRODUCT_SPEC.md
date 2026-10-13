@@ -24,7 +24,7 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - A toolchain local precisará considerar ARM64, memória, armazenamento, temperatura e tempo de build. Não afirmar que foi testada no Poco F6 sem um teste real nele.
 
 ## Design e interação
-- Tema escuro preto/branco com azul/ciano neon e detalhes verde-azulados discretos.
+- Tema escuro preto/branco com **azul-neon elétrico** como cor dominante (azul forte, não verde-esmeralda/turquesa), ciano apenas como brilho complementar e detalhes verdes mínimos.
 - Chat principal com status do núcleo que mostra estados honestos: planejando, gerando, compilando, testando, concluído ou erro.
 - Órbita/mascote flutuante discreto é uma meta visual, não algo já concluído.
 - Abaixo de cada resposta da IA: ícone pequeno de folha/páginas com “Copiar”, copiando a resposta inteira.
