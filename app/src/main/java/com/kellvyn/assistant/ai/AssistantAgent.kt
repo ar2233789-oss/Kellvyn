@@ -177,7 +177,7 @@ class AgentToolRouter(
         onStatus: (String) -> Unit = {}
     ): String = withContext(Dispatchers.IO) {
             when (name) {
-            "build_project_apk" -> {
+                "build_project_apk" -> {
                     val compiler = requireNotNull(localCompiler) {
                         "O construtor local não foi conectado ao agente desta sessão."
                     }
@@ -977,6 +977,7 @@ class AssistantAgent(
             engine.displayName.contains("LiteRT", ignoreCase = true) ||
             engine.displayName.contains("on-device", ignoreCase = true)
         val maxToolResultChars = if (localModel) MAX_LOCAL_TOOL_RESULT_CHARS else MAX_TOOL_RESULT_CHARS
+        val maxBuildToolResultChars = MAX_BUILD_TOOL_RESULT_CHARS
         val maxPreflightChars = if (localModel) MAX_LOCAL_PREFLIGHT_CHARS else MAX_PREFLIGHT_CHARS
         val preflight = when {
             !hasExternalLinkRequest && looksLikeLocalApkBuildRequest(lastUser) -> {
@@ -1162,7 +1163,7 @@ class AssistantAgent(
                     onToolStatus(toolStatus(name))
                     val result = runCatching { tools.execute(name, args, internetAllowed, onToolStatus) }
                         .fold(
-                            onSuccess = { it.take(maxToolResultChars) },
+                            onSuccess = { resultText -> resultText.take(if (name == "build_project_apk") maxBuildToolResultChars else maxToolResultChars) },
                             onFailure = { "A ferramenta falhou: ${it.message ?: it.javaClass.simpleName}" }
                         )
                     turns.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, modelResult.text))
@@ -1486,6 +1487,7 @@ class AssistantAgent(
         const val MAX_RETRY_ASSISTANT_CHARS = 2_000
         const val MAX_TOOL_RESULT_CHARS = 6_000
         const val MAX_LOCAL_TOOL_RESULT_CHARS = 2_000
+        const val MAX_BUILD_TOOL_RESULT_CHARS = 4_500
         const val MAX_LOCAL_PREFLIGHT_CHARS = 2_500
         const val MAX_USER_CONTEXT_CHARS = 5_000
         const val MAX_MEMORY_CONTEXT_CHARS = 3_000
