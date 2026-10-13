@@ -862,9 +862,18 @@ class AssistantAgent(
         val preflight = when {
             !hasExternalLinkRequest && looksLikeLocalApkBuildRequest(lastUser) -> {
                 onToolStatus("Verificando o estado real do compilador local…")
-                "Estado verificado do construtor local: " + runCatching {
+                val rawStatus = runCatching {
                     tools.execute("workspace_status", JSONObject(), internetAllowed)
-                }.getOrElse { "Falha ao verificar o estado do compilador: ${it.message}" }
+                }.getOrElse { """{"build_engine":"status indisponível","error":"${it.message ?: it.javaClass.simpleName}"}""" }
+                val buildEngine = runCatching { JSONObject(rawStatus).optString("build_engine") }.getOrDefault("")
+                if (buildEngine.contains("ainda não integrado", ignoreCase = true)) {
+                    return AssistantResult.Success(
+                        "Verifiquei o estado real do Kellvyn: o compilador Android local ainda não está integrado. " +
+                            "Por isso não posso gerar nem afirmar que existe um APK compilado agora. " +
+                            "Os arquivos do projeto podem ser criados e revisados no workspace, mas a geração de APK ainda depende do motor local de compilação."
+                    )
+                }
+                "Estado verificado do construtor local: $rawStatus"
             }
             !hasExternalLinkRequest && looksLikeProjectList(lastUser) -> {
                 onToolStatus("Consultando seus projetos locais…")
