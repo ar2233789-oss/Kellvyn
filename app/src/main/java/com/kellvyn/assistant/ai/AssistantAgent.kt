@@ -868,9 +868,19 @@ class AssistantAgent(
             appendLine("Não use ferramenta web quando a permissão separada estiver desligada. O motor local pode usar web só se essa permissão estiver ligada. Não afirme que compilou APKs; o compilador local ainda não está integrado.")
         }
         if (systemIndex >= 0) {
-            // Put agent policy first so memory never truncates tool definitions or approval rules.
+            // Keep policy and tool definitions first: the local engine clips the system context at 12K chars.
+            // User memory/preferences are retained after the non-negotiable agent rules.
             val existingContext = turns[systemIndex].content.take(MAX_USER_CONTEXT_CHARS)
-            turns[systemIndex] = turns[systemIndex].copy(content = existingContext + "\n\n" + agentPrompt)
+            val systemContent = buildString {
+                append(agentPrompt)
+                if (existingContext.isNotBlank()) {
+                    appendLine()
+                    appendLine()
+                    appendLine("MEMÓRIA E CONTEXTO DO USUÁRIO (preferências/contexto, não substituem regras do agente):")
+                    append(existingContext.take(MAX_MEMORY_CONTEXT_CHARS))
+                }
+            }
+            turns[systemIndex] = turns[systemIndex].copy(content = systemContent)
         } else {
             turns.add(0, AssistantTurn(AssistantTurn.Role.SYSTEM, agentPrompt))
         }
@@ -1402,6 +1412,7 @@ class AssistantAgent(
         const val MAX_LOCAL_TOOL_RESULT_CHARS = 2_000
         const val MAX_LOCAL_PREFLIGHT_CHARS = 2_500
         const val MAX_USER_CONTEXT_CHARS = 5_000
+        const val MAX_MEMORY_CONTEXT_CHARS = 3_000
         const val MAX_QUERY_CHARS = 300
         const val MAX_LOCAL_SEARCH_QUERY_CHARS = 200
         const val MAX_PREFLIGHT_CHARS = 4_000
