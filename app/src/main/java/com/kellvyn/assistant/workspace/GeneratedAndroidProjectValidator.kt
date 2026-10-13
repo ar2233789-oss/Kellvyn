@@ -85,6 +85,9 @@ internal object GeneratedAndroidProjectValidator {
         ) {
             problems += "MainActivity.kt precisa declarar o pacote correto, a classe MainActivity e uma UI Compose via setContent"
         }
+        if (Regex("""(?s)setContent\s*\{\s*\}""").containsMatchIn(activity)) {
+            problems += "MainActivity.kt não pode ter setContent vazio; inclua conteúdo real na UI Compose"
+        }
         if (readme.length < 80) {
             problems += "README.md precisa explicar como configurar e executar o projeto"
         }
