@@ -19,7 +19,7 @@ Os pedidos comuns de diagnóstico do terminal são tratados primeiro com leitura
 | Editar ou excluir arquivo | Atua apenas dentro de um projeto registrado no workspace | Confirmação explícita |
 | Excluir projeto | Apaga um projeto inteiro e seus arquivos | Confirmação explícita |
 | Pesquisa web / ler página HTTPS | Consulta DuckDuckGo ou lê texto de página HTTPS pública | Permissão separada de internet ligada |
-| Pesquisa GitHub | Busca repositórios públicos e retorna nome, descrição, linguagem, estrelas, branch e link, sem chave API | Permissão separada de internet ligada |
+| Pesquisa GitHub | Busca repositórios públicos e retorna metadados/links, e pode ler um arquivo textual de um repo por branch/tag/commit, sem chave API | Permissão separada de internet ligada |
 
 ## Limites de segurança
 
