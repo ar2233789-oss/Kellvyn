@@ -11,7 +11,7 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 - Memória explícita controlada pelo usuário: guardar, visualizar e apagar fatos.
 - Adaptador inicial LiteRT-LM, importação de modelo compatível e fluxo de download verificado de um modelo pequeno.
 - Modo online opcional para respostas do assistente, com endpoint HTTPS configurado pelo usuário.
-- Construtor que gera arquivos de código, workspace privado, editor de arquivos, exportação ZIP secundária e console limitado ao workspace.
+- Construtor que gera arquivos de código, workspace privado, editor, exportação ZIP secundária e terminal local para navegar, ler/editar arquivos e operar Git via JGit.
 
 ## Requisitos que não podem ser violados
 
@@ -25,7 +25,7 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 
 A IA local ainda precisa de teste com um modelo real no Poco F6. O modelo pequeno baixado é uma opção de entrada para tarefas básicas, não um modelo avançado de programação. A qualidade, RAM, calor e velocidade ainda não foram medidos no aparelho.
 
-O construtor atual gera, valida, guarda, permite editar e exportar arquivos de código, mas **ainda não compila projetos gerados em APK no próprio telefone**. A interface recém-alterada ainda precisa passar por build e teste; não há captura do aplicativo rodando que confirme o resultado. O próximo bloco central é uma toolchain de compilação Android local e compatível com o ambiente ARM64 do telefone, sem serviço remoto; ela ainda não está implementada ou validada.
+O construtor atual gera, valida, guarda, permite editar e exportar arquivos de código; o terminal executa operações locais de arquivo e Git com comandos permitidos, sem shell irrestrito. Ele **ainda não compila projetos gerados em APK no próprio telefone**. A interface recém-alterada ainda precisa passar por build e teste; não há captura do aplicativo rodando que confirme o resultado. O próximo bloco central é uma toolchain de compilação Android local e compatível com o ambiente ARM64 do telefone, sem serviço remoto; ela ainda não está implementada ou validada.
 
 O modo online opcional é separado da compilação. Se for configurado, a conversa/contexto vai ao endpoint HTTPS escolhido; a compilação de projetos não usará esse endpoint.
 
