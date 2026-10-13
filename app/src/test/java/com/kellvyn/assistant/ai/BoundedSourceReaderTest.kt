@@ -71,6 +71,21 @@ class BoundedSourceReaderTest {
     }
 
     @Test
+    fun normalizesCrLfAndCrLineEndingsForExcerpts() {
+        val result = BoundedSourceReader.render(
+            projectId = "project-1",
+            path = "src/Main.kt",
+            text = "one\r\ntwo\rthree\n",
+            startLine = 2,
+            maxLines = 2
+        )
+
+        assertTrue(result.contains("linhas 2-4 de 4"))
+        assertTrue(result.contains("\ntwo\nthree\n"))
+        assertTrue(!result.contains("\r"))
+    }
+
+    @Test
     fun returnsSmallFileInFullWhenNoRangeIsRequested() {
         val result = BoundedSourceReader.render("project-1", "a.kt", "one\ntwo")
         assertTrue(result.contains("(arquivo completo)"))
