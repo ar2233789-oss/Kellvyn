@@ -171,7 +171,7 @@ class AgentToolRouter(
                     readGithubFile(
                         required(args, "repository"),
                         required(args, "path"),
-                        args.optString("ref").ifBlank { "main" }
+                        args.optString("ref").ifBlank { "default" }
                     )
                 }
                 else -> throw IllegalArgumentException("Ferramenta desconhecida: $name")
@@ -735,7 +735,7 @@ class AssistantAgent(
             appendLine("- web_search {query}: pesquisa pública na internet; só quando a permissão separada de internet das ferramentas está ligada")
             appendLine("- github_search {query}: pesquisa repositórios públicos do GitHub; só quando a permissão de internet está ligada")
             appendLine("- github_tree {repository,ref}: lista caminhos de arquivos de código/texto em um repositório público; ref opcional, só com internet autorizada")
-            appendLine("- github_file {repository,path,ref}: lê até 12 mil caracteres de um arquivo de repositório público do GitHub; só com internet autorizada")
+            appendLine("- github_file {repository,path,ref?}: lê até 12 mil caracteres de um arquivo de repositório público do GitHub; usa a branch padrão se ref for omitida; só com internet autorizada")
             appendLine("- open_web_page {url}: lê página HTTPS pública; só quando a permissão separada de internet das ferramentas está ligada")
             appendLine()
             appendLine("Responda SOMENTE com um JSON de uma destas formas, sem markdown:")
