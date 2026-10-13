@@ -43,6 +43,35 @@ class ManualShellExecutorTest {
     }
 
     @Test
+    fun executesWithinWorkspaceAndReportsExitCode() {
+        val parent = Files.createTempDirectory("kellvyn-shell-run-test").toFile()
+        try {
+            val workspace = File(parent, "workspace").apply { mkdirs() }
+            val executor = ManualShellExecutor(workspace, "/bin/sh")
+            val output = executor.execute("printf 'hello\\n'; exit 7", workspace)
+            assertTrue(output.contains("hello"))
+            assertTrue(output.contains("exit code: 7"))
+        } finally {
+            parent.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun capsCapturedOutputAndStillReturnsProcessStatus() {
+        val parent = Files.createTempDirectory("kellvyn-shell-output-test").toFile()
+        try {
+            val workspace = File(parent, "workspace").apply { mkdirs() }
+            val executor = ManualShellExecutor(workspace, "/bin/sh")
+            val output = executor.execute("yes x | head -c 70000", workspace)
+            assertTrue(output.length < 70_000)
+            assertTrue(output.contains("saída limitada a 64 KB"))
+            assertTrue(output.contains("exit code: 0"))
+        } finally {
+            parent.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rejectsOversizedCommandBeforeStartingProcess() {
         val parent = Files.createTempDirectory("kellvyn-shell-long-test").toFile()
         try {
