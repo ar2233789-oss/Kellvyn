@@ -77,9 +77,43 @@ fun WorkspaceConsoleDialog(
         )
     }
 
+    fun executeManualShell(raw: String) {
+        val shellLine = raw.trim()
+        if (shellLine.isBlank() || terminalBusy) return
+        pendingShellCommand = null
+        command = ""
+        terminalBusy = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    if (shellLine == "cd" || shellLine.startsWith("cd ")) {
+                        terminal.execute(shellLine)
+                    } else {
+                        manualShell.execute(shellLine, terminal.currentDirectoryFile())
+                    }
+                }.getOrElse { "ERRO no shell manual: ${it.message ?: it.javaClass.simpleName}" }
+            }
+            output = (output + "\\n\\n! ${shellLine}\\n${result}").takeLast(MAX_OUTPUT_CHARS)
+            terminal.saveOutput(output)
+            terminalBusy = false
+        }
+    }
+
     fun execute(raw: String) {
         val line = raw.trim()
         if (line.isBlank() || terminalBusy) return
+        if (line.startsWith("!")) {
+            val shellLine = line.removePrefix("!").trim()
+            if (shellLine.isBlank()) {
+                output = (output + "\\n\\nDigite ! seguido do comando que deseja executar manualmente.").takeLast(MAX_OUTPUT_CHARS)
+                terminal.saveOutput(output)
+                command = ""
+            } else {
+                pendingShellCommand = shellLine
+                command = ""
+            }
+            return
+        }
         if (line.equals("clear", ignoreCase = true)) {
             output = ""
             terminal.saveOutput("")
