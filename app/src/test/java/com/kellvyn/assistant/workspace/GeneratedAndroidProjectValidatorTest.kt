@@ -7,185 +7,74 @@ import org.junit.Test
 
 class GeneratedAndroidProjectValidatorTest {
     @Test
-    fun acceptsMinimalConsistentComposeProject() {
+    fun acceptsMinimalNativeJavaProject() {
         assertNull(GeneratedAndroidProjectValidator.validate(validProject()))
     }
 
     @Test
-    fun rejectsNamespaceAndKotlinPackageMismatch() {
+    fun rejectsWrongPackage() {
         val files = validProject().toMutableMap()
-        files["app/build.gradle.kts"] = files.getValue("app/build.gradle.kts")
-            .replace("namespace = \"com.example.app\"", "namespace = \"com.wrong.package\"")
-        files["app/src/main/java/com/example/app/MainActivity.kt"] =
-            files.getValue("app/src/main/java/com/example/app/MainActivity.kt")
-                .replace("package com.example.app", "package com.wrong.package")
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("namespace"))
-        assertTrue(issue.contains("pacote correto"))
+        files["app/src/main/java/com/example/app/MainActivity.java"] =
+            files.getValue("app/src/main/java/com/example/app/MainActivity.java")
+                .replace("package com.example.app;", "package com.other.app;")
+        assertTrue(GeneratedAndroidProjectValidator.validate(files).orEmpty().contains("MainActivity.java"))
     }
 
     @Test
-    fun rejectsInconsistentJavaAndKotlinTargets() {
-        val files = validProject().toMutableMap()
-        files["app/build.gradle.kts"] = files.getValue("app/build.gradle.kts")
-            .replace("JavaVersion.VERSION_17", "JavaVersion.VERSION_1_8")
-            .replace("JvmTarget.JVM_17", "JvmTarget.JVM_1_8")
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("JVM 17"))
-    }
-
-    @Test
-    fun rejectsKotlinAndComposeVersionMismatch() {
-        val files = validProject().toMutableMap()
-        files["build.gradle.kts"] = files.getValue("build.gradle.kts")
-            .replace(
-                "id(\"org.jetbrains.kotlin.plugin.compose\") version \"2.4.0\"",
-                "id(\"org.jetbrains.kotlin.plugin.compose\") version \"2.3.0\""
-            )
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("Kotlin/Compose"))
-    }
-
-    @Test
-    fun rejectsLauncherWithoutMainLauncherIntent() {
+    fun rejectsMissingLauncherIntent() {
         val files = validProject().toMutableMap()
         files["app/src/main/AndroidManifest.xml"] =
-            files.getValue("app/src/main/AndroidManifest.xml")
-                .replace("android.intent.action.MAIN", "android.intent.action.VIEW")
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("MAIN/LAUNCHER"))
+            files.getValue("app/src/main/AndroidManifest.xml").replace("android.intent.action.MAIN", "android.intent.action.VIEW")
+        assertTrue(GeneratedAndroidProjectValidator.validate(files).orEmpty().contains("MAIN/LAUNCHER"))
     }
 
     @Test
-    fun rejectsLauncherWithoutExportedFlag() {
+    fun rejectsNonExportedLauncher() {
         val files = validProject().toMutableMap()
         files["app/src/main/AndroidManifest.xml"] =
             files.getValue("app/src/main/AndroidManifest.xml").replace("android:exported=\"true\"", "")
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("AndroidManifest.xml"))
+        assertTrue(GeneratedAndroidProjectValidator.validate(files).orEmpty().contains("exported=true"))
     }
 
     @Test
-    fun allowsLegitimatePlaceholderVariableInUiSource() {
+    fun rejectsKotlinSourceForFirstLocalCompiler() {
         val files = validProject().toMutableMap()
-        files["app/src/main/java/com/example/app/SecondActivity.kt"] = """
-            package com.example.app
-            val placeholder = "Digite seu nome"
-            val label = "Campo de busca"
-        """.trimIndent()
-
-        assertNull(GeneratedAndroidProjectValidator.validate(files))
+        files["app/src/main/java/com/example/app/Other.kt"] = "package com.example.app"
+        assertTrue(GeneratedAndroidProjectValidator.validate(files).orEmpty().contains("fontes Java"))
     }
 
     @Test
-    fun allowsCommentsThatMerelyMentionPlaceholderText() {
+    fun rejectsExternalDependenciesForFirstCompiler() {
         val files = validProject().toMutableMap()
-        files["app/src/main/java/com/example/app/SecondActivity.kt"] = """
-            package com.example.app
-            // A placeholder hint is shown until the person types.
-            val hint = "Enter text"
-        """.trimIndent()
-
-        assertNull(GeneratedAndroidProjectValidator.validate(files))
+        files["app/build.gradle.kts"] = files.getValue("app/build.gradle.kts") +
+            "\ndependencies { implementation(\"some:library:1.0\") }\n"
+        assertTrue(GeneratedAndroidProjectValidator.validate(files).orEmpty().contains("dependências externas"))
     }
 
     @Test
-    fun rejectsFixmeCommentsAndNotImplementedCalls() {
+    fun rejectsWebView() {
         val files = validProject().toMutableMap()
-        files["app/src/main/java/com/example/app/SecondActivity.kt"] = """
-            package com.example.app
-            // FIXME: wire this screen to storage
-            fun pending() = TODO("implement later")
-        """.trimIndent()
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("placeholder"))
+        files["app/src/main/java/com/example/app/MainActivity.java"] =
+            files.getValue("app/src/main/java/com/example/app/MainActivity.java")
+                .replace("package com.example.app;", "package com.example.app;\nimport android.webkit.WebView;")
+        assertTrue(GeneratedAndroidProjectValidator.validate(files).orEmpty().contains("WebView"))
     }
 
     @Test
-    fun rejectsTodoCommentsInAndroidXml() {
+    fun rejectsEmptyActivityWithoutNativeControls() {
         val files = validProject().toMutableMap()
-        files["app/src/main/res/layout/activity_main.xml"] = """
-            <!-- TODO connect the buttons -->
-            <LinearLayout />
-        """.trimIndent()
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("placeholder"))
+        files["app/src/main/java/com/example/app/MainActivity.java"] =
+            "package com.example.app; public class MainActivity extends Activity { }"
+        assertTrue(GeneratedAndroidProjectValidator.validate(files).orEmpty().contains("setContentView"))
     }
 
     @Test
-    fun rejectsAProjectThatOnlyDelegatesToAnEmptyScreen() {
+    fun rejectsPlaceholderComments() {
         val files = validProject().toMutableMap()
-        files["app/src/main/java/com/example/app/MainActivity.kt"] = """
-            package com.example.app
-            import androidx.activity.ComponentActivity
-            import androidx.activity.compose.setContent
-            class MainActivity : ComponentActivity() {
-                fun onCreate() { setContent { AppScreen() } }
-            }
-        """.trimIndent()
-        files["app/src/main/java/com/example/app/AppScreen.kt"] = """
-            package com.example.app
-            @Composable fun AppScreen() {
-                // Text("This comment is not a real UI control")
-                val note = "Button(\"not really a control\")"
-            }
-        """.trimIndent()
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("componente visual Compose"))
-    }
-
-    @Test
-    fun rejectsWebViewInGeneratedNativeInterface() {
-        val files = validProject().toMutableMap()
-        files["app/src/main/java/com/example/app/MainActivity.kt"] =
-            files.getValue("app/src/main/java/com/example/app/MainActivity.kt")
-                .replace(
-                    "package com.example.app",
-                    "package com.example.app\nimport android.webkit.WebView"
-                )
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("não deve usar WebView"))
-    }
-
-    @Test
-    fun rejectsEmptyComposeContent() {
-        val files = validProject().toMutableMap()
-        files["app/src/main/java/com/example/app/MainActivity.kt"] =
-            files.getValue("app/src/main/java/com/example/app/MainActivity.kt")
-                .replace("setContent { Text(\"Hello Kellvyn\") }", "setContent { }")
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("setContent vazio"))
-    }
-
-    @Test
-    fun rejectsObviousCodePlaceholdersAnywhereInSourceFiles() {
-        val files = validProject().toMutableMap()
-        files["app/src/main/java/com/example/app/SecondActivity.kt"] =
-            "package com.example.app\n// TODO implement screen"
-
-        val issue = GeneratedAndroidProjectValidator.validate(files)
-        assertNotNull(issue)
-        assertTrue(issue!!.contains("placeholder"))
+        files["app/src/main/java/com/example/app/MainActivity.java"] =
+            files.getValue("app/src/main/java/com/example/app/MainActivity.java")
+                .replace("public class MainActivity", "// TODO connect storage\npublic class MainActivity")
+        assertTrue(GeneratedAndroidProjectValidator.validate(files).orEmpty().contains("placeholder"))
     }
 
     private fun validProject(): Map<String, String> = mapOf(
@@ -198,22 +87,15 @@ class GeneratedAndroidProjectValidatorTest {
         "build.gradle.kts" to """
             plugins {
                 id("com.android.application") version "8.7.3" apply false
-                id("org.jetbrains.kotlin.android") version "2.4.0" apply false
-                id("org.jetbrains.kotlin.plugin.compose") version "2.4.0" apply false
             }
         """.trimIndent(),
         "gradle.properties" to """
             org.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8
             org.gradle.parallel=false
             org.gradle.workers.max=2
-            kotlin.compiler.execution.strategy=in-process
         """.trimIndent(),
         "app/build.gradle.kts" to """
-            plugins {
-                id("com.android.application")
-                id("org.jetbrains.kotlin.android")
-                id("org.jetbrains.kotlin.plugin.compose")
-            }
+            plugins { id("com.android.application") }
             android {
                 namespace = "com.example.app"
                 compileSdk = 35
@@ -222,24 +104,11 @@ class GeneratedAndroidProjectValidatorTest {
                     minSdk = 26
                     targetSdk = 35
                 }
-                compileOptions {
-                    sourceCompatibility = JavaVersion.VERSION_17
-                    targetCompatibility = JavaVersion.VERSION_17
-                }
-            }
-            kotlin {
-                compilerOptions {
-                    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-                }
-            }
-            dependencies {
-                implementation(platform("androidx.compose:compose-bom:2024.12.01"))
-                implementation("androidx.activity:activity-compose:1.10.0")
             }
         """.trimIndent(),
         "app/src/main/AndroidManifest.xml" to """
             <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-                <application>
+                <application android:label="Demo">
                     <activity android:name=".MainActivity" android:exported="true">
                         <intent-filter>
                             <action android:name="android.intent.action.MAIN" />
@@ -249,19 +118,20 @@ class GeneratedAndroidProjectValidatorTest {
                 </application>
             </manifest>
         """.trimIndent(),
-        "app/src/main/java/com/example/app/MainActivity.kt" to """
-            package com.example.app
-            import android.os.Bundle
-            import androidx.activity.ComponentActivity
-            import androidx.activity.compose.setContent
-            import androidx.compose.material3.Text
-            class MainActivity : ComponentActivity() {
-                override fun onCreate(savedInstanceState: Bundle?) {
-                    super.onCreate(savedInstanceState)
-                    setContent { Text("Hello Kellvyn") }
+        "app/src/main/java/com/example/app/MainActivity.java" to """
+            package com.example.app;
+            import android.app.Activity;
+            import android.os.Bundle;
+            import android.widget.TextView;
+            public class MainActivity extends Activity {
+                @Override public void onCreate(Bundle savedInstanceState) {
+                    super.onCreate(savedInstanceState);
+                    TextView title = new TextView(this);
+                    title.setText("Hello Kellvyn");
+                    setContentView(title);
                 }
             }
         """.trimIndent(),
-        "README.md" to "A simple demo Android application. Open the project in a compatible Android IDE, sync Gradle, then build and install it."
+        "README.md" to "Projeto Demo. Compile o APK nativo usando o construtor local do Kellvyn; esta aplicação tem uma Activity Java."
     )
 }
