@@ -1,6 +1,10 @@
 package com.kellvyn.assistant
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -146,6 +150,23 @@ fun KellvynApp() {
             is AssistantResult.Failure -> {
                 modelReady = false
                 if (!onlineMode) status = result.reason
+            }
+        }
+    }
+
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spoken = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                .orEmpty()
+            if (spoken.isNotBlank()) {
+                draft = (draft + " " + spoken).trim().take(MAX_INPUT_CHARS)
+                status = "Texto reconhecido. Revise antes de enviar."
+            } else {
+                status = "Nenhuma fala foi reconhecida."
             }
         }
     }
@@ -429,6 +450,60 @@ fun KellvynApp() {
                     )
                 )
                 Spacer(Modifier.width(8.dp))
+                IconButton(
+                    enabled = !isGenerating,
+                    onClick = {
+                        try {
+                            speechLauncher.launch(
+                                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                    putExtra(
+                                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                                    )
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale sua mensagem para o Kellvyn IA")
+                                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                                }
+                            )
+                        } catch (_: ActivityNotFoundException) {
+                            status = "Nenhum reconhecedor de voz está instalado ou disponível."
+                        } catch (e: Exception) {
+                            status = "Não foi possível abrir o microfone: " + (e.message ?: "erro")
+                        }
+                    }
+                ) {
+                    Canvas(modifier = Modifier.size(20.dp)) {
+                        val stroke = Stroke(width = 1.8.dp.toPx())
+                        val micWidth = size.width * 0.28f
+                        drawRoundRect(
+                            color = Neon,
+                            topLeft = Offset((size.width - micWidth) / 2f, size.height * 0.08f),
+                            size = Size(micWidth, size.height * 0.52f),
+                            cornerRadius = CornerRadius(micWidth / 2f)
+                        )
+                        drawArc(
+                            color = Neon,
+                            startAngle = 0f,
+                            sweepAngle = 180f,
+                            useCenter = false,
+                            topLeft = Offset(size.width * 0.24f, size.height * 0.22f),
+                            size = Size(size.width * 0.52f, size.height * 0.54f),
+                            style = stroke
+                        )
+                        drawLine(
+                            color = Neon,
+                            start = Offset(size.width * 0.5f, size.height * 0.75f),
+                            end = Offset(size.width * 0.5f, size.height * 0.92f),
+                            strokeWidth = 1.8.dp.toPx()
+                        )
+                        drawLine(
+                            color = Neon,
+                            start = Offset(size.width * 0.34f, size.height * 0.92f),
+                            end = Offset(size.width * 0.66f, size.height * 0.92f),
+                            strokeWidth = 1.8.dp.toPx()
+                        )
+                    }
+                }
                 Button(
                     enabled = !isGenerating,
                     onClick = {
