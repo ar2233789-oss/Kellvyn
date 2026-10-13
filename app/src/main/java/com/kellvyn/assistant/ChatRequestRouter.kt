@@ -13,6 +13,24 @@ object ChatRequestRouter {
     fun shouldBuild(text: String, buildModeSelected: Boolean): Boolean =
         isExplicitAppBuildRequest(text) || (buildModeSelected && isBuildBrief(text))
 
+    fun shouldCompileExistingProject(text: String): Boolean {
+        val t = text.trim().lowercase(Locale.ROOT)
+        if (listOf(
+                "como ", "me explique", "explique como", "tutorial", "passo a passo",
+                "o que é", "o que e", "por que", "você consegue", "voce consegue"
+            ).any { it in t }) return false
+        return listOf(
+            "compile o projeto", "compila o projeto", "compilar o projeto",
+            "compile esse projeto", "compile este projeto", "compile meu projeto",
+            "compilar meu projeto", "compilar esse projeto", "compilar este projeto",
+            "gere o apk", "gera o apk", "gerar o apk", "crie o apk", "criar o apk",
+            "compile o apk", "compilar o apk", "compilar apk", "compile apk",
+            "build apk", "faça o build", "faca o build", "gerar apk do projeto",
+            "gere apk do projeto", "transforme em apk", "compila meu app",
+            "compile meu app", "construa o apk", "construir o apk"
+        ).any { it in t }
+    }
+
     fun shouldPreferCoder(text: String): Boolean {
         val t = text.lowercase(Locale.ROOT)
         if (shouldBuild(text, buildModeSelected = false)) return true
