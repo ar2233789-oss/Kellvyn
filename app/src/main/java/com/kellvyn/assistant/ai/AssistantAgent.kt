@@ -155,6 +155,15 @@ class AgentToolRouter(
                     }
                     githubSearch(required(args, "query"))
                 }
+                "github_tree" -> {
+                    require(internetAllowed) {
+                        "A internet das ferramentas está desligada. Ative-a no seletor do chat."
+                    }
+                    githubTree(
+                        required(args, "repository"),
+                        args.optString("ref").ifBlank { "main" }
+                    )
+                }
                 "github_file" -> {
                     require(internetAllowed) {
                         "A internet das ferramentas está desligada. Ative-a no seletor do chat."
