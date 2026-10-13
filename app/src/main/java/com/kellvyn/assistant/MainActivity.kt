@@ -1476,7 +1476,9 @@ fun KellvynApp() {
                 onlineConfigured = onlineConfigured,
                 onDismiss = { showConsoleDialog = false },
                 onAskAgent = { request ->
-                    if (onlineMode && !onlineConfigured) {
+                    if (isGenerating) {
+                        "O agente principal já está processando outra solicitação. Aguarde terminar antes de pedir ajuda pelo terminal."
+                    } else if (onlineMode && !onlineConfigured) {
                         "O provedor online não está configurado. Configure-o no menu antes de pedir ajuda ao agente."
                     } else if (!onlineMode && !modelReady) {
                         "Nenhum modelo local está carregado. Carregue um modelo .litertlm ou selecione o provedor online para usar o agente."
