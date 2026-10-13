@@ -603,6 +603,122 @@ fun KellvynApp() {
             )
         }
 
+        if (showEditorDialog) {
+            AlertDialog(
+                onDismissRequest = { if (!isSavingFile) showEditorDialog = false },
+                title = { Text(activeEditProject?.name ?: "Editor de código") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Editor local de arquivos. Salvar não executa nem compila o código.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        Text("ARQUIVOS", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        editablePaths.forEach { path ->
+                            TextButton(
+                                onClick = {
+                                    val project = activeEditProject
+                                    if (project != null) {
+                                        try {
+                                            val fileText = workspaceStore.readFile(project.id, path)
+                                            if (fileText.length > MAX_EDITOR_CHARS) {
+                                                editorStatus = "Arquivo grande demais para editar nesta tela. Exporte o ZIP para editá-lo fora do app."
+                                            } else {
+                                                activeFilePath = path
+                                                editorContent = fileText
+                                                editorStatus = ""
+                                            }
+                                        } catch (e: Exception) {
+                                            editorStatus = "Falha ao abrir arquivo: " + (e.message ?: e.javaClass.simpleName)
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    (if (path == activeFilePath) "▸ " else "") + path,
+                                    color = if (path == activeFilePath) Neon else Color.White,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                        if (activeFilePath.isNotBlank()) {
+                            Text(activeFilePath, color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            OutlinedTextField(
+                                value = editorContent,
+                                onValueChange = { if (it.length <= MAX_EDITOR_CHARS) editorContent = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 8,
+                                maxLines = 16,
+                                label = { Text("Conteúdo do arquivo") },
+                                placeholder = { Text("Código do arquivo…") }
+                            )
+                        }
+                        if (editorStatus.isNotBlank()) {
+                            Text(editorStatus, color = if (editorStatus.startsWith("Salvo")) Neon else Warning, fontSize = 12.sp)
+                        }
+                        if (isSavingFile) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text("Salvando arquivo…", color = Muted, fontSize = 11.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = !isSavingFile && activeEditProject != null && activeFilePath.isNotBlank(),
+                        onClick = {
+                            val project = activeEditProject
+                            if (project != null) {
+                                isSavingFile = true
+                                editorStatus = "Salvando…"
+                                scope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) {
+                                            workspaceStore.addOrReplaceFiles(
+                                                project.id,
+                                                listOf(ProjectFileInput(activeFilePath, editorContent))
+                                            )
+                                        }
+                                        existingProjects.clear()
+                                        existingProjects.addAll(workspaceStore.listProjects())
+                                        activeEditProject = workspaceStore.getProject(project.id)
+                                        editorStatus = "Salvo localmente. Exporte o ZIP para compilar e testar."
+                                    } catch (e: Exception) {
+                                        editorStatus = "Falha ao salvar: " + (e.message ?: e.javaClass.simpleName)
+                                    } finally {
+                                        isSavingFile = false
+                                    }
+                                }
+                            }
+                        }
+                    ) { Text("Salvar arquivo") }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(
+                            enabled = !isSavingFile,
+                            onClick = {
+                                val project = activeEditProject
+                                if (project != null) {
+                                    pendingExportProject = project
+                                    zipExportPicker.launch("${project.id}.zip")
+                                }
+                            }
+                        ) { Text("Exportar ZIP") }
+                        TextButton(
+                            enabled = !isSavingFile,
+                            onClick = { showEditorDialog = false }
+                        ) { Text("Fechar") }
+                    }
+                }
+            )
+        }
+
         if (showProjectsDialog) {
             AlertDialog(
                 onDismissRequest = { showProjectsDialog = false },
