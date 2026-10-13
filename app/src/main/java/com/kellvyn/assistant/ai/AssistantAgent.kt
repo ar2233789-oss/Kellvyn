@@ -808,8 +808,14 @@ class AssistantAgent(
             appendLine("- list_files {project_id}: lista arquivos do projeto")
             appendLine("- read_file {project_id,path}: lê um arquivo de projeto")
             appendLine("- search_workspace {query}: busca texto nos arquivos locais")
-            appendLine("- terminal_read {command}: executa comandos permitidos somente de leitura")
-            appendLine("- terminal_command {command}: operação de escrita no terminal; precisa de aprovação do usuário")
+            appendLine("- git_status {project_id}: consulta o estado Git local diretamente pelo workspace")
+            appendLine("- git_diff {project_id}: lê diferenças locais do projeto")
+            appendLine("- git_log {project_id}: lista commits locais")
+            appendLine("- git_branch {project_id}: lista branches locais")
+            appendLine("- git_init {project_id}: inicializa Git local; precisa de aprovação")
+            appendLine("- git_stage_all {project_id}: prepara arquivos locais para commit; precisa de aprovação")
+            appendLine("- git_commit {project_id,message}: cria commit local; precisa de aprovação")
+            appendLine("As ferramentas do agente acessam diretamente o workspace e o Git. Elas não usam a tela Terminal nem executam comandos de shell. Para explicar comandos ao usuário, responda no chat; o terminal manual é opcional.")
             appendLine("- write_file {project_id,path,content}: grava ou substitui um arquivo; precisa de aprovação")
             appendLine("- patch_file {project_id,path,old_text,new_text}: substitui uma única ocorrência exata de um trecho; precisa de aprovação e falha sem gravar se o trecho não for único")
             appendLine("Ao editar código, prefira patch_file para mudanças pontuais; old_text precisa identificar uma única ocorrência. Use write_file para substituição completa somente quando for necessário. Depois de uma escrita, leia novamente o trecho ou arquivo para conferir quando possível.")
@@ -859,14 +865,6 @@ class AssistantAgent(
                 "Estado verificado do construtor local: " + runCatching {
                     tools.execute("workspace_status", JSONObject(), internetAllowed)
                 }.getOrElse { "Falha ao verificar o estado do compilador: ${it.message}" }
-            }
-            !hasExternalLinkRequest && looksLikeTerminalHelp(lastUser) -> {
-                onToolStatus("Conectando ao terminal local para diagnosticar o problema…")
-                val status = runCatching { tools.execute("terminal_read", JSONObject().put("command", "status"), internetAllowed) }
-                    .getOrElse { "Falha no status do terminal: ${it.message}" }
-                val help = runCatching { tools.execute("terminal_read", JSONObject().put("command", "help"), internetAllowed) }
-                    .getOrElse { "Falha ao ler ajuda do terminal: ${it.message}" }
-                "Diagnóstico automático do terminal local (somente leitura):\nSTATUS:\n$status\nAJUDA:\n$help"
             }
             !hasExternalLinkRequest && looksLikeProjectList(lastUser) -> {
                 onToolStatus("Consultando seus projetos locais…")
@@ -1247,7 +1245,7 @@ class AssistantAgent(
             "adicione", "adicionar", "inclua", "incluir", "melhore", "melhorar", "ajuste", "ajustar",
             "mude", "mudar", "continue", "importe", "importar", "apague", "apagar", "remova", "remover",
             "liste", "listar", "leia", "ler ", "busque", "buscar", "pesquise", "pesquisar",
-            "procure", "encontre", "execute", "rode o", "terminal", "arquivo", "projeto", "github",
+            "procure", "encontre", "execute", "rode o", "arquivo", "projeto", "github", "git status",
             "compilar", "compile"
         )
         return action.any { it in t } && !listOf(
@@ -1319,17 +1317,9 @@ class AssistantAgent(
         ).any { it in t }
     }
 
-    private fun looksLikeTerminalHelp(text: String): Boolean {
-        val t = text.lowercase(Locale.ROOT)
-        val terminal = listOf("terminal", "console", "linha de comando", "comando").any { it in t }
-        val help = listOf("ajuda", "problema", "erro", "não funciona", "nao funciona", "conecta", "conexão", "conexao", "usar", "travou", "falha").any { it in t }
-        return terminal && help
-    }
-
     private fun toolStatus(name: String): String = when (name) {
         "workspace_status", "list_projects", "list_files", "read_file", "search_workspace" ->
             "Consultando workspace local…"
-        "terminal_read", "terminal_command" -> "Conectando ao terminal local…"
         "write_file" -> "Gravando arquivo autorizado no workspace local…"
         "patch_file" -> "Validando e aplicando patch autorizado no workspace…"
         "delete_file", "delete_project" -> "Executando ação local autorizada…"
