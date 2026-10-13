@@ -80,7 +80,7 @@ class BoundedSourceReaderTest {
             maxLines = 2
         )
 
-        assertTrue(result.contains("linhas 2-4 de 4"))
+        assertTrue(result.contains("linhas 2-3 de 4"))
         assertTrue(result.contains("\ntwo\nthree\n"))
         assertTrue(!result.contains("\r"))
     }
