@@ -9,7 +9,7 @@
 - [x] Memória explícita controlada pelo usuário.
 - [x] Terminal local com comandos de arquivos, navegação no workspace, busca textual e Git local via JGit (sem shell arbitrário).
 - [x] Agente do chat consegue consultar o terminal e inspecionar status/ajuda automaticamente para pedidos comuns de suporte.
-- [x] Pesquisa web HTTPS opcional conectada ao agente somente quando o modo online está ativo; páginas externas são tratadas como dados não confiáveis.
+- [x] Pesquisa web HTTPS opcional conectada ao agente quando a permissão de internet das ferramentas estiver ligada; essa permissão é separada do motor local/online, e páginas externas são tratadas como dados não confiáveis.
 - [ ] Testar instalação e uso no Poco F6 real.
 
 ## Fase 2 — Motor de IA local
