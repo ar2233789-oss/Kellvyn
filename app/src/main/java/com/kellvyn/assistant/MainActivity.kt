@@ -77,13 +77,35 @@ private const val MAX_EDITOR_CHARS = 80_000
 private fun isExplicitAppBuildRequest(text: String): Boolean {
     val t = text.lowercase(Locale.ROOT)
     if (isExistingProjectModification(text)) return false
+
     val action = listOf(
-        "crie", "criar", "construa", "construir", "desenvolva", "desenvolver", "gere", "gerar",
-        "faça", "faca", "monta", "monte", "implemente", "build ", "create ", "make ", "develop ", "implement "
+        "crie", "criar", "cria ", "construa", "construir", "constrói", "constroi",
+        "desenvolva", "desenvolver", "desenvolve", "gere", "gerar", "gera ",
+        "faça", "faca", "faz ", "fazer ", "monta", "monte", "montar",
+        "implemente", "implementar", "programe", "programar", "escreva", "escrever",
+        "build ", "create ", "make ", "develop ", "implement "
     ).any { it in t }
-    val target = listOf("aplicativo", "app android", "apk", "aplicação android", "aplicacao android", "projeto android", "app com", "aplicativo com")
-        .any { it in t } || t.split(Regex("[^a-z0-9]+")).contains("app")
-    return action && target && !listOf("como criar", "como faço", "como faco", "me explique", "explique como").any { it in t }
+    val target = listOf(
+        "aplicativo", "app android", "apk", "aplicação android", "aplicacao android",
+        "projeto android", "app com", "aplicativo com", "assistente virtual",
+        "assistente de ia", "inteligência artificial", "inteligencia artificial",
+        "chatbot", "chat bot", "jogo android", "jogo para android", "minha ia", "ia local"
+    ).any { it in t } ||
+        t.split(Regex("[^a-z0-9]+")).contains("app") ||
+        Regex("(^|[^a-z0-9])ia([^a-z0-9]|$)").containsMatchIn(t)
+
+    val directCreationIntent = listOf(
+        "quero um app", "quero uma app", "quero um aplicativo", "quero uma aplicação",
+        "preciso de um app", "preciso de um aplicativo", "preciso de uma aplicação",
+        "quero minha ia", "faça minha ia", "faca minha ia", "crie minha ia"
+    ).any { it in t }
+    val instructionalQuestion = listOf(
+        "como criar", "como faço", "como faco", "me explique", "explique como",
+        "tutorial de", "passo a passo para", "você consegue", "voce consegue",
+        "é possível", "e possivel", "qual aplicativo devo usar"
+    ).any { it in t }
+
+    return (action || directCreationIntent) && target && !instructionalQuestion
 }
 
 private fun isExistingProjectModification(text: String): Boolean {
