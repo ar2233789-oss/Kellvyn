@@ -49,8 +49,8 @@ private val ConsoleMuted = Color(0xFF91B8AD)
 private val ConsoleBorder = Color(0xFF164638)
 
 /**
- * A workspace terminal for local project files and local Git operations. Commands are parsed
- * by WorkspaceTerminal; arbitrary shell code is never passed to Android's shell.
+ * A native workspace terminal with a confirmed manual-shell shortcut. The chat agent only uses
+ * WorkspaceTerminal's fixed command allowlist; it cannot invoke the manual shell.
  */
 @Composable
 fun WorkspaceConsoleDialog(
@@ -70,8 +70,8 @@ fun WorkspaceConsoleDialog(
     var output by remember(terminal) {
         mutableStateOf(
             terminal.storedOutput().ifBlank {
-                "KELLVYN WORKSPACE TERMINAL v2\\n" +
-                    "Pasta inicial: /workspace\\n" +
+                "KELLVYN WORKSPACE TERMINAL v2\n" +
+                    "Pasta inicial: /workspace\n" +
                     "Digite help; use ! comando para executar manualmente após confirmação. Para um projeto: projects e cd <id>."
             }
         )
@@ -93,7 +93,7 @@ fun WorkspaceConsoleDialog(
                     }
                 }.getOrElse { "ERRO no shell manual: ${it.message ?: it.javaClass.simpleName}" }
             }
-            output = (output + "\\n\\n! ${shellLine}\\n${result}").takeLast(MAX_OUTPUT_CHARS)
+            output = (output + "\n\n! ${shellLine}\n${result}").takeLast(MAX_OUTPUT_CHARS)
             terminal.saveOutput(output)
             terminalBusy = false
         }
@@ -105,7 +105,7 @@ fun WorkspaceConsoleDialog(
         if (line.startsWith("!")) {
             val shellLine = line.removePrefix("!").trim()
             if (shellLine.isBlank()) {
-                output = (output + "\\n\\nDigite ! seguido do comando que deseja executar manualmente.").takeLast(MAX_OUTPUT_CHARS)
+                output = (output + "\n\nDigite ! seguido do comando que deseja executar manualmente.").takeLast(MAX_OUTPUT_CHARS)
                 terminal.saveOutput(output)
                 command = ""
             } else {
@@ -140,16 +140,16 @@ fun WorkspaceConsoleDialog(
                         "projects" -> {
                             val projects = workspace.listProjects()
                             if (projects.isEmpty()) "Nenhum projeto local."
-                            else projects.joinToString("\\n") { "${it.id} — ${it.name} (${it.fileCount} arquivos)" }
+                            else projects.joinToString("\n") { "${it.id} — ${it.name} (${it.fileCount} arquivos)" }
                         }
                         "memories" -> {
                             val facts = memories.list()
                             if (facts.isEmpty()) "Nenhuma memória salva."
-                            else facts.mapIndexed { index, fact -> "${index + 1}. ${fact.text}" }.joinToString("\\n")
+                            else facts.mapIndexed { index, fact -> "${index + 1}. ${fact.text}" }.joinToString("\n")
                         }
                         "files" -> {
                             if (parts.size < 2) "Uso: files <id>"
-                            else workspace.listFiles(parts[1]).joinToString("\\n").ifBlank { "O projeto não tem arquivos." }
+                            else workspace.listFiles(parts[1]).joinToString("\n").ifBlank { "O projeto não tem arquivos." }
                         }
                         "read" -> {
                             if (parts.size < 3) "Uso: read <id> <path>"
@@ -161,7 +161,7 @@ fun WorkspaceConsoleDialog(
                     "ERRO: " + (e.message ?: e.javaClass.simpleName)
                 }
             }
-            output = (output + "\\n\\n> ${line}\\n${result}").takeLast(MAX_OUTPUT_CHARS)
+            output = (output + "\n\n> ${line}\n${result}").takeLast(MAX_OUTPUT_CHARS)
             terminal.saveOutput(output)
             terminalBusy = false
         }
