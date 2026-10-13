@@ -39,10 +39,14 @@ class WorkspaceGitService(private val workspace: ProjectWorkspaceStore) {
     }
 
     fun log(projectId: String): String = withGit(projectId) { git ->
-        val commits = git.log().setMaxCount(20).call().toList()
-        if (commits.isEmpty()) "(ainda não há commits locais)"
-        else commits.joinToString("\n") { "${it.name.take(8)}  ${it.shortMessage}" }
-            .take(MAX_RESULT_CHARS)
+        if (git.repository.resolve("HEAD") == null) {
+            "(ainda não há commits locais)"
+        } else {
+            val commits = git.log().setMaxCount(20).call().toList()
+            if (commits.isEmpty()) "(ainda não há commits locais)"
+            else commits.joinToString("\n") { "${it.name.take(8)}  ${it.shortMessage}" }
+                .take(MAX_RESULT_CHARS)
+        }
     }
 
     fun branches(projectId: String): String = withGit(projectId) { git ->
