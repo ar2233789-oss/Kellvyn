@@ -76,6 +76,32 @@ class GeneratedAndroidProjectValidatorTest {
     }
 
     @Test
+    fun allowsLegitimatePlaceholderVariableInUiSource() {
+        val files = validProject().toMutableMap()
+        files["app/src/main/java/com/example/app/SecondActivity.kt"] = """
+            package com.example.app
+            val placeholder = "Digite seu nome"
+            val label = "Campo de busca"
+        """.trimIndent()
+
+        assertNull(GeneratedAndroidProjectValidator.validate(files))
+    }
+
+    @Test
+    fun rejectsFixmeCommentsAndNotImplementedCalls() {
+        val files = validProject().toMutableMap()
+        files["app/src/main/java/com/example/app/SecondActivity.kt"] = """
+            package com.example.app
+            // FIXME: wire this screen to storage
+            fun pending() = TODO("implement later")
+        """.trimIndent()
+
+        val issue = GeneratedAndroidProjectValidator.validate(files)
+        assertNotNull(issue)
+        assertTrue(issue!!.contains("placeholder"))
+    }
+
+    @Test
     fun rejectsObviousCodePlaceholdersAnywhereInSourceFiles() {
         val files = validProject().toMutableMap()
         files["app/src/main/java/com/example/app/SecondActivity.kt"] =
