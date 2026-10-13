@@ -601,6 +601,7 @@ class AssistantAgent(
             appendLine("- terminal_command {command}: operação de escrita no terminal; precisa de aprovação do usuário")
             appendLine("- write_file {project_id,path,content}: grava ou substitui um arquivo; precisa de aprovação")
             appendLine("- patch_file {project_id,path,old_text,new_text}: substitui uma única ocorrência exata de um trecho; precisa de aprovação e falha sem gravar se o trecho não for único")
+            appendLine("Ao editar código, prefira patch_file para mudanças pontuais; old_text precisa identificar uma única ocorrência. Use write_file para substituição completa somente quando for necessário. Depois de uma escrita, leia novamente o trecho ou arquivo para conferir quando possível.")
             appendLine("- delete_file {project_id,path}: exclui um arquivo; precisa de aprovação")
             appendLine("- delete_project {project_id}: exclui um projeto inteiro; precisa de aprovação")
             appendLine("- web_search {query}: pesquisa pública na internet; só quando a permissão separada de internet das ferramentas está ligada")
