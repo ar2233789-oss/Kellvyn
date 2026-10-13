@@ -73,6 +73,8 @@ class OpenAiCompatibleAssistantEngine(
                     requestMethod = "POST"
                     connectTimeout = CONNECT_TIMEOUT_MS
                     readTimeout = READ_TIMEOUT_MS
+                    instanceFollowRedirects = false
+                    useCaches = false
                     doOutput = true
                     setRequestProperty("Accept", "application/json")
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
