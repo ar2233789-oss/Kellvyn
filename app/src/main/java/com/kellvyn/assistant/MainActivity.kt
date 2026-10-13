@@ -68,8 +68,8 @@ private val Panel = Color(0xFF071713)
 private val Neon = Color(0xFF38E6BC)
 private val Muted = Color(0xFF91B8AD)
 private val Warning = Color(0xFFFFC857)
-private const val MAX_CONTEXT_MESSAGES = 10
-private const val MAX_HISTORY_MESSAGE_CHARS = 1_200
+private const val MAX_CONTEXT_MESSAGES = 8
+private const val MAX_HISTORY_MESSAGE_CHARS = 800
 private const val MAX_INPUT_CHARS = 12_000
 private const val MAX_EDITOR_CHARS = 80_000
 
