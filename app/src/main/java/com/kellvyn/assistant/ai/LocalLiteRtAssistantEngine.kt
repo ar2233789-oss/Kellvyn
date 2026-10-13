@@ -31,6 +31,14 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
 
     fun hasSavedModel(): Boolean = modelFile.isFile && modelFile.length() > 0L
 
+    fun savedModelSizeBytes(): Long = if (hasSavedModel()) modelFile.length() else 0L
+
+    /** Closes native inference and removes the locally stored model to release disk space. */
+    fun removeSavedModel(): Boolean {
+        close()
+        return !modelFile.exists() || modelFile.delete()
+    }
+
     suspend fun importAndLoad(uri: Uri): AssistantResult {
         return try {
             val copiedFile = withContext(Dispatchers.IO) {
