@@ -2,9 +2,9 @@ package com.kellvyn.assistant.ai
 
 import android.net.Uri
 import android.text.Html
-import com.kellvyn.assistant.tools.WorkspaceTerminal
 import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
+import com.kellvyn.assistant.workspace.WorkspaceGitService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -23,9 +23,9 @@ import java.util.Locale
  * its arguments and invokes only explicit local/network capabilities. It never invokes a shell.
  */
 class AgentToolRouter(
-    private val workspace: ProjectWorkspaceStore,
-    private val terminal: WorkspaceTerminal
+    private val workspace: ProjectWorkspaceStore
 ) {
+    private val git = WorkspaceGitService(workspace)
     fun explicitProjectFileListArguments(text: String): JSONObject? {
         val lower = text.lowercase(Locale.ROOT)
         val intent = listOf(
@@ -102,12 +102,15 @@ class AgentToolRouter(
     }
 
     fun approvalRequired(name: String): Boolean = name in setOf(
-        "terminal_command", "write_file", "patch_file", "delete_file", "delete_project", "github_import"
+        "git_init", "git_stage_all", "git_commit",
+        "write_file", "patch_file", "delete_file", "delete_project", "github_import"
     )
 
     fun approvalSummary(name: String, args: JSONObject): String = when (name) {
         "github_import" -> "Importar repositório público ${args.optString("repository")} (${args.optString("ref").ifBlank { "branch padrão" }}) para um projeto local; somente arquivos textuais e limite de tamanho."
-        "terminal_command" -> "Executar no terminal local: ${args.optString("command")}"
+        "git_init" -> "Inicializar Git local no projeto ${args.optString("project_id")}"
+        "git_stage_all" -> "Preparar os arquivos locais para commit no projeto ${args.optString("project_id")}"
+        "git_commit" -> "Criar commit Git local em ${args.optString("project_id")}: ${args.optString("message").take(120)}"
         "write_file" -> "Gravar/substituir o arquivo ${args.optString("path")} no projeto ${args.optString("project_id")}"
         "patch_file" -> "Aplicar alteração pontual em ${args.optString("path")} no projeto ${args.optString("project_id")}: de '${args.optString("old_text").take(100)}' para '${args.optString("new_text").take(100)}'"
         "delete_file" -> "Apagar o arquivo ${args.optString("path")} do projeto ${args.optString("project_id")}"
@@ -123,8 +126,13 @@ class AgentToolRouter(
                 "list_files" -> listFiles(required(args, "project_id"))
                 "read_file" -> readFile(required(args, "project_id"), required(args, "path"))
                 "search_workspace" -> searchWorkspace(required(args, "query"))
-                "terminal_read" -> runTerminalRead(required(args, "command"))
-                "terminal_command" -> runTerminalCommand(required(args, "command"))
+                "git_status" -> git.status(required(args, "project_id"))
+                "git_diff" -> git.diff(required(args, "project_id"))
+                "git_log" -> git.log(required(args, "project_id"))
+                "git_branch" -> git.branches(required(args, "project_id"))
+                "git_init" -> git.init(required(args, "project_id"))
+                "git_stage_all" -> git.stageAll(required(args, "project_id"))
+                "git_commit" -> git.commit(required(args, "project_id"), required(args, "message"))
                 "write_file" -> writeFile(
                     required(args, "project_id"),
                     required(args, "path"),
@@ -195,7 +203,8 @@ class AgentToolRouter(
             .put("projects", projects.size)
             .put("project_names", JSONArray().apply { projects.take(50).forEach { put(it.name) } })
             .put("build_engine", "compilador Android local ainda não integrado")
-            .put("terminal", terminal.pathLabel())
+            .put("workspace_access", "API direta de arquivos e projetos; não depende da tela Terminal")
+            .put("git_support", "JGit local; sem shell e sem conexão remota")
             .toString()
     }
 
@@ -263,42 +272,6 @@ class AgentToolRouter(
             .put("matches", matches)
             .put("truncated", found >= MAX_SEARCH_MATCHES || scanned >= MAX_FILES_SCANNED)
             .toString()
-    }
-
-    private fun runTerminalRead(command: String): String {
-        validateTerminalCommand(command)
-        val commandName = command.trim().split(Regex("\\s+")).firstOrNull()?.lowercase(Locale.ROOT).orEmpty()
-        val allowed = setOf("help", "pwd", "cd", "ls", "dir", "tree", "find", "cat", "head", "tail", "grep", "wc", "stat", "status", "projects")
-        val gitRead = command.trim().matches(Regex("git\\s+(status|diff|log|branch)"))
-        require(commandName in allowed || gitRead) {
-            "Essa operação não é somente leitura. Para alterar arquivos ou o Git, solicite a ferramenta terminal_command; ela pedirá confirmação."
-        }
-        return terminal.execute(command)
-    }
-
-    private fun runTerminalCommand(command: String): String {
-        validateTerminalCommand(command)
-        val head = command.trim().split(Regex("\\s+")).firstOrNull()?.lowercase(Locale.ROOT).orEmpty()
-        val allowed = setOf("cd", "mkdir", "touch", "write", "append", "cp", "mv", "rm")
-        val gitMutation = command.trim().matches(Regex("git\\s+(init|add\\s+\\.|commit\\s+.+)"))
-        require(head in allowed || gitMutation) {
-            "Comando não permitido para alteração automática. O terminal aceita apenas uma lista explícita de operações locais."
-        }
-        return terminal.execute(command)
-    }
-
-    private fun validateTerminalCommand(command: String) {
-        val trimmed = command.trim()
-        require(trimmed.isNotBlank() && trimmed.length <= MAX_TERMINAL_COMMAND_CHARS) {
-            "Comando vazio ou longo demais."
-        }
-        require(trimmed.none { it == '\n' || it == '\r' || it == '\u0000' }) {
-            "Um comando por vez; quebras de linha não são permitidas."
-        }
-        require(listOf(";", "&&", "||", "|", ">", "<", '$' + "{", "$(").none { it in trimmed }) {
-            "Encadeamento, redirecionamento e substituição de comandos não são permitidos."
-        }
-        require(!trimmed.contains("..")) { "Caminhos com '..' não são permitidos no terminal do agente." }
     }
 
     private fun writeFile(projectId: String, path: String, content: String): String {
