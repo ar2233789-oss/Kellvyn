@@ -57,13 +57,13 @@ class AgentToolRouter(
                 "delete_project" -> deleteProject(required(args, "project_id"))
                 "web_search" -> {
                     require(internetAllowed) {
-                        "A pesquisa na internet está desligada. Selecione o modo online para autorizá-la."
+                        "A pesquisa na internet está desligada. Ative a permissão de internet das ferramentas no seletor do chat."
                     }
                     webSearch(required(args, "query"))
                 }
                 "open_web_page" -> {
                     require(internetAllowed) {
-                        "O acesso à internet está desligado. Selecione o modo online para autorizá-lo."
+                        "O acesso à internet está desligado. Ative a permissão de internet das ferramentas no seletor do chat."
                     }
                     openWebPage(required(args, "url"))
                 }
