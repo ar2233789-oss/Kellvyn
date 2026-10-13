@@ -42,15 +42,23 @@ class OpenAiCompatibleAssistantEngine(
             try {
                 val url = endpointUrl(settings.endpoint)
                 val messages = JSONArray()
-                messages.put(
-                    JSONObject()
-                        .put("role", "system")
-                        .put(
-                            "content",
-                            "Você é Kellvyn IA, assistente útil e honesto. Responda em português brasileiro por padrão. " +
-                                "Não invente ações realizadas nem capacidades indisponíveis."
-                        )
-                )
+                val savedMemoryContext = conversation
+                    .firstOrNull { it.role == AssistantTurn.Role.SYSTEM }
+                    ?.content
+                    ?.take(MAX_SYSTEM_CONTEXT_CHARS)
+                    .orEmpty()
+                val systemMessage = buildString {
+                    append(
+                        "Você é Kellvyn IA, assistente útil e honesto. Responda em português brasileiro por padrão. " +
+                            "Não invente ações realizadas nem capacidades indisponíveis."
+                    )
+                    if (savedMemoryContext.isNotBlank()) {
+                        appendLine()
+                        appendLine()
+                        append(savedMemoryContext)
+                    }
+                }
+                messages.put(JSONObject().put("role", "system").put("content", systemMessage))
                 conversation.take(lastUserIndex + 1).forEach { turn ->
                     if (turn.role != AssistantTurn.Role.SYSTEM) {
                         val role = when (turn.role) {
@@ -154,5 +162,6 @@ class OpenAiCompatibleAssistantEngine(
         const val CONNECT_TIMEOUT_MS = 15_000
         const val READ_TIMEOUT_MS = 120_000
         const val MAX_ERROR_CHARS = 500
+            const val MAX_SYSTEM_CONTEXT_CHARS = 12_000
     }
 }
