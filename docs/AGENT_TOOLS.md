@@ -4,7 +4,7 @@
 
 O chat do Kellvyn recebe uma solicitação e pode responder diretamente ou propor uma chamada de ferramenta estruturada. O agente executa a ferramenta na aplicação, acrescenta o resultado real ao contexto e deixa o modelo formular a resposta. Há limite de cinco rodadas de ferramenta por resposta para evitar loops sem fim.
 
-Os pedidos comuns de diagnóstico do terminal são tratados primeiro com leituras automáticas de `status` e `help`. Consultas comuns de lista de projetos também recebem uma leitura automática do workspace. Quando a pessoa menciona um arquivo local existente e pede para ler/revisar/corrigir, o agente tenta resolver projeto e caminho sem usar o terminal e lê o arquivo antes de formular a resposta. O restante das ferramentas é escolhido pelo modelo conforme o pedido.
+O agente principal não usa a tela Terminal nem executa comandos por ela. Ele consulta o workspace e os arquivos diretamente por APIs do aplicativo; operações Git são feitas por uma camada JGit própria, sem shell. Quando alguém pede ajuda na tela Terminal, o contexto fornecido pelo usuário (pergunta e saída recente) é enviado ao mesmo agente para análise, sem dar ao agente acesso ao shell manual.
 
 ## Ferramentas
 
