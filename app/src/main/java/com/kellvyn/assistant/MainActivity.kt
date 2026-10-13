@@ -42,6 +42,7 @@ import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantAgent
 import com.kellvyn.assistant.ai.AgentToolRouter
 import com.kellvyn.assistant.ai.AssistantResult
+import com.kellvyn.assistant.ai.reasonOrText
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
 import com.kellvyn.assistant.ai.OpenAiCompatibleAssistantEngine
