@@ -12,7 +12,7 @@ O agente principal não usa a tela Terminal nem executa comandos por ela. Ele co
 |---|---|---|
 | Estado do workspace | Lista quantos projetos existem e informa se o compilador local existe | Automática |
 | Projetos e arquivos | Lista projetos e arquivos do workspace privado | Automática |
-| Ler arquivo / pesquisar código | Lê arquivos de texto limitados e busca ocorrências | Automática |
+| Ler arquivo / pesquisar código | Lê arquivos completos até 12 mil caracteres ou trechos de até 120 linhas com `start_line`/`max_lines`, e busca ocorrências | Automática |
 | Workspace de leitura | Estado do workspace, listar projetos/arquivos, ler arquivo e busca de texto | Automática |
 | Workspace de alteração | Criar/editar/apagar arquivos, apagar projeto | Confirmação explícita |
 | Git via JGit | Status/diff/log/branch diretamente no projeto; init/stage/commit são operações diretas sem shell | Leitura automática; alterações com confirmação |
