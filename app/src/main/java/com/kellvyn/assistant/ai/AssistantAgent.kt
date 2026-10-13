@@ -574,6 +574,9 @@ class AssistantAgent(
         // fails to emit a structured tool call. All these operations are read-only.
         val lastUser = conversation.lastOrNull { it.role == AssistantTurn.Role.USER }?.content.orEmpty()
         val githubFileRequest = if (internetAllowed) parseGitHubBlobRequest(lastUser) else null
+        val localFileRequest = withContext(Dispatchers.IO) {
+            tools.explicitLocalFileReadArguments(lastUser)
+        }
         val preflight = when {
             looksLikeTerminalHelp(lastUser) -> {
                 onToolStatus("Conectando ao terminal local para diagnosticar o problema…")
@@ -597,6 +600,12 @@ class AssistantAgent(
                         tools.execute("search_workspace", JSONObject().put("query", needle), internetAllowed)
                     }.getOrElse { "Falha na busca local: ${it.message}" }
                 }
+            }
+            localFileRequest != null -> {
+                onToolStatus("Lendo o arquivo do workspace diretamente, sem usar o terminal…")
+                "Conteúdo do arquivo local: " + runCatching {
+                    tools.execute("read_file", localFileRequest, internetAllowed)
+                }.getOrElse { "Falha ao ler o arquivo local: ${it.message}" }
             }
             githubFileRequest != null -> {
                 onToolStatus("Lendo o arquivo público indicado no GitHub…")
