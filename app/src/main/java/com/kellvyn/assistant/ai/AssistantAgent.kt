@@ -895,6 +895,12 @@ class AssistantAgent(
                     tools.execute("list_projects", JSONObject(), internetAllowed)
                 }.getOrElse { "Falha ao listar projetos: ${it.message}" }
             }
+            !hasExternalLinkRequest && localFileRequest != null -> {
+                onToolStatus("Lendo o arquivo do workspace diretamente, sem usar o terminal…")
+                "Arquivo local identificado: " + runCatching {
+                    tools.execute("read_file", localFileRequest, internetAllowed)
+                }.getOrElse { "Falha ao ler o arquivo local: ${it.message}" }
+            }
             !hasExternalLinkRequest && looksLikeLocalCodeSearch(lastUser) -> {
                 val needle = extractLocalSearchQuery(lastUser)
                 if (needle.length < 2) null else {
