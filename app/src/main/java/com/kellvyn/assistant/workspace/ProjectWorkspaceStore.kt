@@ -125,6 +125,26 @@ class ProjectWorkspaceStore(context: Context) {
         return projectFile.readText(Charsets.UTF_8)
     }
 
+    @Synchronized
+    fun deleteFile(projectId: String, relativePath: String): Boolean {
+        validateProjectId(projectId)
+        val directory = File(root, projectId).canonicalFile
+        val project = readProject(projectId) ?: throw IllegalArgumentException("Projeto não encontrado.")
+        val target = safeFile(directory, relativePath)
+        require(target.name != PROJECT_METADATA) { "Os metadados internos do projeto são protegidos." }
+        if (!target.exists()) return false
+        require(target.isFile) { "Apenas arquivos comuns podem ser removidos por esta função." }
+        require(target.delete()) { "Não foi possível remover o arquivo $relativePath." }
+
+        val metadata = JSONObject()
+            .put("id", project.id)
+            .put("name", project.name)
+            .put("description", project.description)
+            .put("updatedAt", System.currentTimeMillis())
+        File(directory, PROJECT_METADATA).writeText(metadata.toString(), Charsets.UTF_8)
+        return true
+    }
+
     fun listFiles(projectId: String): List<String> {
         validateProjectId(projectId)
         val directory = File(root, projectId)
