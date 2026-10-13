@@ -487,13 +487,11 @@ class AgentToolRouter(
     private fun isReadableSourcePath(path: String): Boolean {
         val normalized = path.lowercase(Locale.ROOT)
         if (normalized.split("/").any { it in setOf(".git", ".gradle", "build", "node_modules", "vendor") }) return false
-        return normalized.endsWith(
-            listOf(
-                ".kt", ".kts", ".java", ".xml", ".gradle", ".md", ".json", ".properties",
-                ".toml", ".yaml", ".yml", ".txt", ".py", ".js", ".ts", ".tsx", ".jsx",
-                ".html", ".css", ".sql", ".sh", ".rb", ".go", ".rs", ".swift", ".php"
-            ).toTypedArray()
-        )
+        return listOf(
+            ".kt", ".kts", ".java", ".xml", ".gradle", ".md", ".json", ".properties",
+            ".toml", ".yaml", ".yml", ".txt", ".py", ".js", ".ts", ".tsx", ".jsx",
+            ".html", ".css", ".sql", ".sh", ".rb", ".go", ".rs", ".swift", ".php"
+        ).any { normalized.endsWith(it) }
     }
 
     private fun importGithubProject(repository: String, rawRef: String): String {
