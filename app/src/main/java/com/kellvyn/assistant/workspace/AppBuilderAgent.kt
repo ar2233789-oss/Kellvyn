@@ -56,11 +56,60 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             when (val response = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, prompt)))) {
                 is AssistantResult.Unavailable -> AppBuildResult.Failure(response.reason)
                 is AssistantResult.Failure -> AppBuildResult.Failure(response.reason)
-                is AssistantResult.Success -> parseAndSave(response.text, idea)
+                is AssistantResult.Success -> {
+                    val firstAttempt = parseAndSave(response.text, idea)
+                    if (firstAttempt !is AppBuildResult.Failure || !isRecoverableGenerationFailure(firstAttempt.reason)) {
+                        firstAttempt
+                    } else {
+                        val repairPrompt = buildString {
+                            appendLine("A geração anterior não passou pela validação automática do construtor.")
+                            appendLine("Erro detectado: ${firstAttempt.reason}")
+                            appendLine("Gere uma versão corrigida completa do projeto Android para o pedido original abaixo.")
+                            appendLine("Retorne SOMENTE JSON válido no esquema definido, sem markdown. Inclua todos os arquivos obrigatórios.")
+                            appendLine("Não descreva o que faria; entregue o conteúdo de cada arquivo.")
+                            appendLine()
+                            appendLine("REGRAS TÉCNICAS E ESQUEMA:")
+                            appendLine(prompt.substringBefore("PEDIDO DO USUÁRIO:"))
+                            appendLine("PEDIDO ORIGINAL DO USUÁRIO:")
+                            appendLine(idea)
+                        }
+                        when (val retry = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, repairPrompt)))) {
+                            is AssistantResult.Unavailable -> AppBuildResult.Failure(
+                                "A primeira geração falhou na validação (${firstAttempt.reason}) e o modelo ficou indisponível na tentativa de correção: ${retry.reason}"
+                            )
+                            is AssistantResult.Failure -> AppBuildResult.Failure(
+                                "A primeira geração falhou na validação (${firstAttempt.reason}); a tentativa automática de correção também falhou: ${retry.reason}"
+                            )
+                            is AssistantResult.Success -> {
+                                val corrected = parseAndSave(retry.text, idea)
+                                if (corrected is AppBuildResult.Failure) {
+                                    AppBuildResult.Failure(
+                                        "O construtor tentou corrigir automaticamente, mas o projeto ainda não passou pela validação. Primeiro erro: ${firstAttempt.reason}. Segunda tentativa: ${corrected.reason}"
+                                    )
+                                } else corrected
+                            }
+                        }
+                    }
+                }
             }
         } catch (e: Exception) {
             AppBuildResult.Failure("O construtor falhou: " + (e.message ?: e.javaClass.simpleName))
         }
+    }
+
+    private fun isRecoverableGenerationFailure(reason: String): Boolean {
+        val text = reason.lowercase()
+        return listOf(
+            "não retornou um projeto estruturado",
+            "não contém uma lista de arquivos",
+            "formato inválido",
+            "está sem caminho ou conteúdo",
+            "precisa retornar entre",
+            "projeto gerado está incompleto",
+            "ultrapassou o limite seguro",
+            "json",
+            "estrutura"
+        ).any { it in text }
     }
 
     private suspend fun parseAndSave(raw: String, idea: String): AppBuildResult =
