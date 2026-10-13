@@ -74,85 +74,6 @@ private const val MAX_HISTORY_MESSAGE_CHARS = 800
 private const val MAX_INPUT_CHARS = 12_000
 private const val MAX_EDITOR_CHARS = 80_000
 
-private fun isExplicitAppBuildRequest(text: String): Boolean {
-    val t = text.lowercase(Locale.ROOT)
-    if (isExistingProjectModification(text)) return false
-
-    val action = listOf(
-        "crie", "criar", "cria ", "construa", "construir", "constrói", "constroi",
-        "desenvolva", "desenvolver", "desenvolve", "gere", "gerar", "gera ",
-        "faça", "faca", "faz ", "fazer ", "monta", "monte", "montar",
-        "implemente", "implementar", "programe", "programar", "escreva", "escrever",
-        "build ", "create ", "make ", "develop ", "implement "
-    ).any { it in t }
-    val target = listOf(
-        "aplicativo", "app android", "apk", "aplicação android", "aplicacao android",
-        "aplicativo móvel", "aplicativo movel", "app móvel", "app movel",
-        "projeto android", "app com", "aplicativo com", "assistente virtual",
-        "assistente de ia", "inteligência artificial", "inteligencia artificial",
-        "chatbot", "chat bot", "jogo", "sistema", "software", "programa", "ferramenta",
-        "minha ia", "ia local"
-    ).any { it in t } ||
-        t.split(Regex("[^a-z0-9]+")).contains("app") ||
-        Regex("(^|[^a-z0-9])ia([^a-z0-9]|$)").containsMatchIn(t)
-
-    val directCreationIntent = listOf(
-        "quero um app", "quero uma app", "quero um aplicativo", "quero uma aplicação",
-        "preciso de um app", "preciso de um aplicativo", "preciso de uma aplicação",
-        "quero uma ia", "quero minha ia", "preciso de uma ia", "preciso da minha ia",
-        "faça minha ia", "faca minha ia", "crie minha ia", "quero um assistente",
-        "preciso de um assistente", "quero um chatbot", "preciso de um chatbot",
-        "quero um jogo", "preciso de um jogo", "quero um sistema", "preciso de um sistema",
-        "quero um software", "quero um programa", "quero uma ferramenta",
-        "quero um jogo android", "preciso de um app android"
-    ).any { it in t }
-    val instructionalQuestion = listOf(
-        "como criar", "como faço", "como faco", "me explique", "explique como",
-        "tutorial de", "passo a passo para", "você consegue", "voce consegue",
-        "é possível", "e possivel", "qual aplicativo devo usar", "você pode",
-        "voce pode", "consegue criar", "será que", "sera que", "tem como"
-    ).any { it in t }
-    val startsWithAnalysisOrReview = listOf(
-        "faça uma análise", "faca uma analise", "analise ", "analisa ",
-        "avalie ", "avalia ", "revise ", "revisar ", "explique minha ia",
-        "explique meu app", "me fale sobre minha ia", "me fale sobre meu app"
-    ).any { t.trimStart().startsWith(it) }
-
-    return (action || directCreationIntent) && target &&
-        !instructionalQuestion && !startsWithAnalysisOrReview
-}
-
-private fun isExistingProjectModification(text: String): Boolean {
-    val t = text.lowercase(Locale.ROOT)
-    val modifying = listOf(
-        "corrija", "corrigir", "conserte", "consertar", "arrume", "arrumar", "altere", "alterar",
-        "modifique", "modificar", "edite", "editar", "atualize", "atualizar", "melhore", "melhorar",
-        "adicione", "adicionar", "inclua", "incluir", "remova", "remover", "troque", "trocar",
-        "ajuste", "ajustar", "continue", "implemente", "implementar", "mude", "mudar"
-    ).any { it in t }
-    val existingReference = listOf(
-        "projeto existente", "projeto atual", "projeto salvo", "projeto anterior",
-        "último projeto", "ultimo projeto", "projeto que você criou", "projeto que criou",
-        "nesse projeto", "neste projeto", "naquele projeto",
-        "aplicativo existente", "aplicativo atual", "aplicativo que você criou", "aplicativo que criou",
-        "app existente", "app atual", "app que você criou", "app que criou",
-        "no meu app", "no meu aplicativo", "meu projeto", "meu app", "meu aplicativo",
-        "já criado", "ja criado", "que já existe", "que ja existe"
-    ).any { it in t }
-    return modifying && existingReference
-}
-
-private fun isBuildBrief(text: String): Boolean {
-    val t = text.trim().lowercase(Locale.ROOT)
-    if (isExistingProjectModification(text)) return false
-    if (t.length < 30 || '?' in t) return false
-    if (listOf("terminal", "console", "problema", "erro", "ajuda", "me ajuda", "não consigo", "nao consigo", "estou com", "preciso de ajuda", "explique", "me explica", "o que é", "o que e", "quem é", "quem e", "por que", "como funciona", "olá", "ola", "bom dia", "boa tarde", "boa noite").any { it in t }) return false
-    val features = listOf("tela", "login", "cadastro", "botão", "botao", "salvar", "banco de dados", "offline", "notificação", "notificacao", "gerenciador", "usuários", "usuarios", "funções", "funcoes", "interface", "categorias", "busca")
-    val featureCount = features.count { it in t }
-    val hasProjectNoun = listOf("aplicativo", "sistema", "gerenciador", "aplicação", "aplicacao", "projeto").any { it in t } || t.split(Regex("[^a-z0-9]+")).contains("app")
-    return featureCount >= 2 || (hasProjectNoun && featureCount >= 1)
-}
-
 data class ChatMessage(val text: String, val fromUser: Boolean)
 
 class MainActivity : ComponentActivity() {
@@ -324,8 +245,7 @@ fun KellvynApp() {
         messages.add(ChatMessage(text, true))
         saveHistory()
         draft = ""
-        val wantsBuild = isExplicitAppBuildRequest(text) ||
-            (interactionMode == "Build" && isBuildBrief(text))
+        val wantsBuild = ChatRequestRouter.shouldBuild(text, buildModeSelected = interactionMode == "Build")
         isGenerating = true
         status = if (wantsBuild) {
             "Planejando e gerando arquivos do projeto com o motor selecionado…"
