@@ -204,6 +204,7 @@ class AgentToolRouter(
                                 .toString()
                         }
                     }
+                }
                                 "workspace_status" -> workspaceStatus()
                 "list_projects" -> listProjects()
                 "list_files" -> listFiles(required(args, "project_id"))
