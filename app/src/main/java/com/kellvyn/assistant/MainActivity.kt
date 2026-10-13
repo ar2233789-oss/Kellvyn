@@ -308,13 +308,15 @@ fun KellvynApp() {
                     val editorProjectIdBefore = activeEditProject?.id
                     val editorPathBefore = activeFilePath
                     val editorDraftBefore = editorContent
-                    val savedEditorBefore = if (editorProjectIdBefore != null && editorPathBefore.isNotBlank()) {
+                    val editorPathWasListedBefore = editorPathBefore in editablePaths
+                    val savedEditorBeforeResult = if (editorProjectIdBefore != null && editorPathBefore.isNotBlank()) {
                         runCatching {
                             withContext(Dispatchers.IO) {
                                 workspaceStore.readFile(editorProjectIdBefore, editorPathBefore)
                             }
-                        }.getOrNull()
+                        }
                     } else null
+                    val savedEditorBefore = savedEditorBeforeResult?.getOrNull()
                     val agentResult = assistantAgent.respond(
                         engine = selectedEngine,
                         conversation = turns,
@@ -336,37 +338,56 @@ fun KellvynApp() {
                         activeFilePath == editorPathBefore
                     ) {
                         activeEditProject = editorProjectAfter
-                        editablePaths = withContext(Dispatchers.IO) {
-                            workspaceStore.listFiles(editorProjectAfter.id)
-                        }
-                        val savedEditorAfter = runCatching {
+                        val refreshedEditablePaths = runCatching {
                             withContext(Dispatchers.IO) {
-                                workspaceStore.readFile(editorProjectAfter.id, editorPathBefore)
+                                workspaceStore.listFiles(editorProjectAfter.id)
                             }
                         }.getOrNull()
-                        when (
-                            EditorSyncPolicy.decide(
-                                savedBefore = savedEditorBefore,
-                                savedAfter = savedEditorAfter,
-                                draftBefore = editorDraftBefore,
-                                draftNow = editorContent
-                            )
-                        ) {
-                            EditorSyncPolicy.Action.NO_CHANGE -> Unit
-                            EditorSyncPolicy.Action.REFRESH_SAVED_CONTENT -> {
-                                editorContent = savedEditorAfter.orEmpty().take(MAX_EDITOR_CHARS)
-                                editorStatus = "Arquivo sincronizado após edição pelo chat. O editor mostra a versão salva mais recente."
+                        if (refreshedEditablePaths != null) editablePaths = refreshedEditablePaths
+                        val editorPathStillListed = editorPathBefore in (refreshedEditablePaths ?: editablePaths)
+                        val savedEditorAfterResult = if (editorPathStillListed) {
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    workspaceStore.readFile(editorProjectAfter.id, editorPathBefore)
+                                }
                             }
-                            EditorSyncPolicy.Action.PRESERVE_LOCAL_DRAFT -> {
-                                editorStatus = "A IA alterou a versão salva deste arquivo, mas mantive seu rascunho aberto para não apagar alterações não salvas. Reabra o arquivo para comparar."
+                        } else null
+                        val savedEditorAfter = savedEditorAfterResult?.getOrNull()
+
+                        when {
+                            editorPathWasListedBefore && savedEditorBeforeResult?.isFailure == true -> {
+                                editorStatus = "Não consegui ler com segurança a versão salva antes da resposta; preservei o rascunho e não sincronizei automaticamente."
                             }
-                            EditorSyncPolicy.Action.CLEAR_REMOVED_FILE -> {
-                                activeFilePath = ""
-                                editorContent = ""
-                                editorStatus = "O agente removeu o arquivo salvo após a autorização; selecione outro arquivo na lista."
+                            editorPathStillListed && savedEditorAfterResult?.isFailure == true -> {
+                                editorStatus = "Não consegui reler a versão salva após a resposta. Preservei o conteúdo aberto; tente reabrir o arquivo para sincronizar."
                             }
-                            EditorSyncPolicy.Action.PRESERVE_DRAFT_FOR_REMOVED_FILE -> {
-                                editorStatus = "O agente removeu o arquivo salvo, mas preservei seu rascunho não salvo. Não salve novamente sem conferir se deseja recriar o arquivo."
+                            refreshedEditablePaths == null && editorPathWasListedBefore && !editorPathStillListed -> {
+                                editorStatus = "Não consegui atualizar a lista de arquivos; preservei o editor porque não foi possível confirmar se o arquivo foi removido."
+                            }
+                            else -> when (
+                                EditorSyncPolicy.decide(
+                                    savedBefore = savedEditorBefore,
+                                    savedAfter = savedEditorAfter,
+                                    draftBefore = editorDraftBefore,
+                                    draftNow = editorContent
+                                )
+                            ) {
+                                EditorSyncPolicy.Action.NO_CHANGE -> Unit
+                                EditorSyncPolicy.Action.REFRESH_SAVED_CONTENT -> {
+                                    editorContent = savedEditorAfter.orEmpty().take(MAX_EDITOR_CHARS)
+                                    editorStatus = "Arquivo sincronizado após edição pelo chat. O editor mostra a versão salva mais recente."
+                                }
+                                EditorSyncPolicy.Action.PRESERVE_LOCAL_DRAFT -> {
+                                    editorStatus = "A IA alterou a versão salva deste arquivo, mas mantive seu rascunho aberto para não apagar alterações não salvas. Reabra o arquivo para comparar."
+                                }
+                                EditorSyncPolicy.Action.CLEAR_REMOVED_FILE -> {
+                                    activeFilePath = ""
+                                    editorContent = ""
+                                    editorStatus = "O agente removeu o arquivo salvo após a autorização; selecione outro arquivo na lista."
+                                }
+                                EditorSyncPolicy.Action.PRESERVE_DRAFT_FOR_REMOVED_FILE -> {
+                                    editorStatus = "O agente removeu o arquivo salvo, mas preservei seu rascunho não salvo. Não salve novamente sem conferir se deseja recriar o arquivo."
+                                }
                             }
                         }
                     }
