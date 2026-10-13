@@ -5,6 +5,7 @@ import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.Locale
 import org.json.JSONObject
 
 sealed interface AppBuildResult {
@@ -108,6 +109,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             "precisa retornar entre",
             "projeto gerado está incompleto",
             "falhou na validação estrutural",
+            "caminho inválido ou reservado",
             "repetiu caminhos de arquivo",
             "ultrapassou o limite seguro",
             "json",
@@ -149,9 +151,29 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 }
 
                 // Require the core app sources to avoid saving a misleading "complete" Android app.
+                val invalidPaths = files.filter { file ->
+                    val path = file.path.trim()
+                    val segments = path.split("/")
+                    path.isBlank() || path.startsWith("/") || path.startsWith("\\\\") ||
+                        path.contains("\\\\") ||
+                        segments.any { segment ->
+                            segment.isBlank() || segment == "." || segment == ".." ||
+                                segment.contains(":") || segment.any { it.code < 32 } ||
+                                segment.equals(".git", ignoreCase = true) ||
+                                segment.equals(".gradle", ignoreCase = true) ||
+                                segment.equals(".kellvyn-project.json", ignoreCase = true)
+                        } ||
+                        (segments.size == 1 && path.equals("KELLVYN_PROJECT.md", ignoreCase = true))
+                }
+                if (invalidPaths.isNotEmpty()) {
+                    return@withContext AppBuildResult.Failure(
+                        "O projeto gerado contém caminho inválido ou reservado: ${invalidPaths.take(3).joinToString { it.path }}."
+                    )
+                }
+
                 val normalizedPathList = files.map { it.path.replace('\\', '/') }
-                val duplicatePaths = normalizedPathList.groupingBy { it }.eachCount()
-                    .filterValues { it > 1 }.keys
+                val duplicatePaths = normalizedPathList.groupingBy { it.lowercase(Locale.ROOT) }
+                    .eachCount().filterValues { it > 1 }.keys
                 if (duplicatePaths.isNotEmpty()) {
                     return@withContext AppBuildResult.Failure(
                         "O modelo repetiu caminhos de arquivo: ${duplicatePaths.take(4).joinToString(", ")}. A geração será tentada novamente sem duplicatas."
