@@ -130,7 +130,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             )
             activeEngine.createConversation(config).use { chat ->
                 chat.sendMessageAsync(conversation[lastUserIndex].content).collect { part ->
-                    answer.append(part.text)
+                    answer.append(part.contents.toString())
                 }
             }
             val text = answer.toString().trim()
