@@ -691,6 +691,19 @@ fun KellvynApp() {
                         }
                     )
                     DropdownMenuItem(
+                        text = { Text("Instalar APK gerado") },
+                        enabled = latestBuiltApk?.isFile == true,
+                        onClick = { showQuickMenu = false; installLatestApk() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Pasta do APK gerado") },
+                        enabled = latestBuiltApk?.isFile == true,
+                        onClick = {
+                            showQuickMenu = false
+                            status = "APK salvo com segurança no armazenamento privado do Kellvyn. Use 'Instalar APK gerado' para abrir o instalador do Android."
+                        }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Carregar modelo local (.litertlm)") },
                         onClick = { showQuickMenu = false; modelPicker.launch(arrayOf("*/*")) }
                     )
@@ -1756,6 +1769,67 @@ fun KellvynApp() {
                             isGenerating = false
                         }
                     }
+                }
+            )
+        }
+
+        if (showSdkLicenseDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showSdkLicenseDialog = false
+                    pendingLicenseProjectId = null
+                    status = "Licença não aceita; o download da plataforma e a compilação foram cancelados."
+                },
+                title = { Text("Licença oficial do Android SDK") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Leia os termos completos abaixo. O Kellvyn só baixa a plataforma Android se você aceitar explicitamente.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            sdkLicenseText,
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val projectId = pendingLicenseProjectId
+                            localAndroidCompiler.acceptSdkLicense()
+                            showSdkLicenseDialog = false
+                            pendingLicenseProjectId = null
+                            val project = projectId?.let { workspaceStore.getProject(it) }
+                            if (project == null) {
+                                status = "O projeto que aguardava a licença não foi encontrado."
+                            } else {
+                                scope.launch {
+                                    isGenerating = true
+                                    try {
+                                        buildProjectAndReport(project)
+                                    } finally {
+                                        isGenerating = false
+                                    }
+                                }
+                            }
+                        }
+                    ) { Text("Li e aceito", color = Neon) }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showSdkLicenseDialog = false
+                            pendingLicenseProjectId = null
+                            status = "Licença não aceita; nenhum download foi iniciado."
+                        }
+                    ) { Text("Não aceitar", color = Warning) }
                 }
             )
         }
