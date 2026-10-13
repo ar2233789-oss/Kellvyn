@@ -13,7 +13,7 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 - Modo online opcional para respostas do assistente, com endpoint HTTPS configurado pelo usuário.
 - Agente conversacional com ciclo limitado de ferramentas: consulta projetos/arquivos, pesquisa na web, descobre repositórios públicos do GitHub, lista caminhos e lê arquivos por branch; pode importar até 30 arquivos textuais de um repositório público ao workspace após confirmação. A internet das ferramentas precisa estar autorizada. Para suporte opcional ao terminal, o usuário pode encaminhar a saída recente ao mesmo agente; o chat principal não usa nem precisa da tela Terminal. Para editar arquivos locais, pode aplicar patches exatos após confirmação, evitando reescrever o arquivo inteiro. Essa permissão é separada do motor de inferência: o modelo local continua local, mas a consulta/página solicitada é acessada externamente. Gravação, exclusão e comandos que alteram arquivos/Git pedem confirmação.
 - Terminal manual opcional com atalho `! comando`, confirmação e limites de tempo/saída; dentro dele há um botão para enviar a saída recente ao agente principal pelo chat. O shell manual não é acessível ao agente automático.
-- Construtor que gera arquivos de código pela seleção Build no chat, workspace privado, editor de arquivos, lista de abas locais, navegador externo sem WebView, terminal de workspace e Git local via JGit.
+- Construtor que gera arquivos de código pela seleção Build no chat, workspace privado, editor, navegador externo sem WebView e Git local via JGit. Antes de salvar, valida caminhos, estrutura mínima, versões esperadas, namespace/pacote, manifest e Compose; isso não substitui a compilação real.
 
 ## Requisitos que não podem ser violados
 
