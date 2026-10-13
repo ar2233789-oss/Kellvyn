@@ -1221,9 +1221,11 @@ class AssistantAgent(
         val action = listOf(
             "corrija", "corrigir", "conserte", "consertar", "arrume", "arrumar", "altere", "alterar",
             "modifique", "modificar", "edite", "editar", "atualize", "atualizar", "crie", "criar",
-            "apague", "apagar", "remova", "remover", "liste", "listar", "leia", "ler ",
-            "busque", "buscar", "pesquise", "pesquisar", "procure", "encontre", "execute",
-            "rode o", "terminal", "arquivo", "projeto", "github", "compilar", "compile"
+            "adicione", "adicionar", "inclua", "incluir", "melhore", "melhorar", "ajuste", "ajustar",
+            "mude", "mudar", "continue", "importe", "importar", "apague", "apagar", "remova", "remover",
+            "liste", "listar", "leia", "ler ", "busque", "buscar", "pesquise", "pesquisar",
+            "procure", "encontre", "execute", "rode o", "terminal", "arquivo", "projeto", "github",
+            "compilar", "compile"
         )
         return action.any { it in t } && !listOf(
             "como corrigir", "como consertar", "como criar", "como usar", "me explique", "explique como"
