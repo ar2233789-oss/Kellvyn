@@ -70,7 +70,7 @@ class AgentToolRouter(
         }
         val project = when {
             namedProjects.size == 1 -> namedProjects.first()
-            namedProjects.size > 1 -> namedProjects.maxByOrNull { it.id.length + it.name.length } ?: return null
+            namedProjects.size > 1 -> return null
             projects.size == 1 -> projects.first()
             else -> return null
         }
