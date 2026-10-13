@@ -511,7 +511,10 @@ fun KellvynApp() {
                 Text("◉", color = Neon, fontSize = 13.sp)
                 Spacer(Modifier.width(7.dp))
                 Text(
-                    if (isGenerating) "Pensando" else if (isLoadingModel) "Inicializando núcleo" else "Núcleo",
+                    if (isGenerating && interactionMode == "Build") "Planejando projeto"
+                    else if (isGenerating) "Pensando"
+                    else if (isLoadingModel) "Inicializando núcleo"
+                    else "Núcleo",
                     color = Neon,
                     fontSize = 11.sp,
                     modifier = Modifier.weight(1f)
@@ -527,6 +530,8 @@ fun KellvynApp() {
                 Text(
                     when {
                         isDownloadingModel -> "Instalando modelo local · " + modelDownloadPercent + "%"
+                        isGenerating && interactionMode == "Build" && onlineMode -> "Gerando arquivos do projeto · modo online"
+                        isGenerating && interactionMode == "Build" -> "Gerando arquivos do projeto · modo local"
                         isGenerating && onlineMode -> "Resposta em andamento · modo online"
                         isGenerating -> "Resposta em andamento · modo local"
                         onlineMode && onlineConfigured -> "Provedor online configurado"
