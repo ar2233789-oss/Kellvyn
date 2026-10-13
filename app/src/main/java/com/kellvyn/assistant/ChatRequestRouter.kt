@@ -25,9 +25,12 @@ object ChatRequestRouter {
             "compilar meu projeto", "compilar esse projeto", "compilar este projeto",
             "gere o apk", "gera o apk", "gerar o apk", "crie o apk", "criar o apk",
             "compile o apk", "compilar o apk", "compilar apk", "compile apk",
-            "build apk", "faça o build", "faca o build", "gerar apk do projeto",
-            "gere apk do projeto", "transforme em apk", "compila meu app",
-            "compile meu app", "construa o apk", "construir o apk"
+            "compile o app", "compila o app", "compilar o app", "gere apk desse projeto",
+            "gerar apk desse projeto", "gere o apk desse projeto", "gere apk desse app",
+            "gerar apk desse app", "compile o projeto existente", "compila o projeto existente",
+            "gerar apk do projeto existente", "build desse projeto", "build desse app",
+            "faça o build", "faca o build", "gerar apk do projeto", "gere apk do projeto",
+            "transforme em apk", "compila meu app", "compile meu app", "construa o apk", "construir o apk"
         ).any { it in t }
     }
 
