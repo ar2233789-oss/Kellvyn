@@ -129,15 +129,11 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                     if (!backup.renameTo(modelFile)) {
                         throw IllegalStateException("A importação falhou e o backup não pôde ser restaurado.")
                     }
-                } else if (!hasActiveModel() && modelFile.exists()) {
-                    modelFile.delete()
                 }
             }
             AssistantResult.Failure(e.message ?: "Falha ao importar o modelo local.")
         }
     }
-
-    private fun hasActiveModel(): Boolean = engine != null
 
     private fun recoverPreviousModelFile(backup: File) {
         if (!backup.exists()) return
