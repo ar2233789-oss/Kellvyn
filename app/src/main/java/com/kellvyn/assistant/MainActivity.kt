@@ -13,9 +13,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kellvyn.assistant.data.ChatHistoryStore
 
 private val Night = Color(0xFF080B12)
 private val Panel = Color(0xFF121925)
@@ -33,11 +35,28 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun KellvynApp() {
+    val context = LocalContext.current.applicationContext
+    val historyStore = remember(context) { ChatHistoryStore(context) }
     var draft by remember { mutableStateOf("") }
-    val messages = remember {
-        mutableStateListOf(
-            ChatMessage("Kellvyn IA — estrutura inicial carregada. O motor de IA ainda precisa ser conectado; não vou fingir que esta interface já pensa ou responde com um modelo real.", false)
-        )
+    var status by remember { mutableStateOf("Motor de IA ainda não conectado") }
+    val messages = remember(historyStore) {
+        mutableStateListOf<ChatMessage>().apply {
+            val saved = historyStore.load()
+            if (saved.isEmpty()) {
+                add(
+                    ChatMessage(
+                        "Kellvyn IA — interface inicial carregada. Suas mensagens podem ser salvas neste aparelho. O modelo de IA ainda não está conectado.",
+                        false
+                    )
+                )
+            } else {
+                addAll(saved.map { ChatMessage(it.text, it.fromUser) })
+            }
+        }
+    }
+
+    fun saveHistory() {
+        historyStore.save(messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) })
     }
 
     MaterialTheme(
@@ -62,7 +81,13 @@ fun KellvynApp() {
                     Text("KELLVYN IA", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     Text("ASSISTENTE • NÚCLEO EM CONSTRUÇÃO", fontSize = 10.sp, color = Neon)
                 }
-                Text("●", color = Color(0xFFFFC857), fontSize = 12.sp)
+                TextButton(onClick = {
+                    historyStore.clear()
+                    messages.clear()
+                    status = "Histórico local apagado"
+                }) {
+                    Text("Limpar", color = Muted, fontSize = 12.sp)
+                }
             }
             Spacer(Modifier.height(18.dp))
             Surface(color = Panel, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
@@ -80,8 +105,13 @@ fun KellvynApp() {
                     }
                     Spacer(Modifier.height(5.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Histórico local", color = Color.White, modifier = Modifier.weight(1f))
+                        Text("ATIVO", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Build APK", color = Color.White, modifier = Modifier.weight(1f))
-                        Text("NÃO TESTADA", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("CI CONFIGURADA", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -107,7 +137,8 @@ fun KellvynApp() {
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
+            Text(status, color = Muted, fontSize = 10.sp)
+            Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = draft,
@@ -130,8 +161,9 @@ fun KellvynApp() {
                         val text = draft.trim()
                         if (text.isNotEmpty()) {
                             messages.add(ChatMessage(text, true))
-                            messages.add(ChatMessage("Mensagem registrada na interface. O mecanismo de resposta inteligente ainda não está conectado.", false))
+                            saveHistory()
                             draft = ""
+                            status = "Mensagem salva neste aparelho. A IA ainda não responde até o modelo ser integrado."
                         }
                     },
                     shape = RoundedCornerShape(14.dp),
@@ -139,7 +171,7 @@ fun KellvynApp() {
                 ) { Text("➤") }
             }
             Spacer(Modifier.height(6.dp))
-            Text("Versão 0.1.0 • respostas inteligentes ainda não ativadas", color = Muted, fontSize = 10.sp)
+            Text("Versão 0.1.1 • armazenamento local ativo • IA não conectada", color = Muted, fontSize = 10.sp)
         }
     }
 }
