@@ -54,21 +54,23 @@ private val ConsoleBorder = Color(0xFF164638)
 @Composable
 fun WorkspaceConsoleDialog(
     workspace: ProjectWorkspaceStore,
+    terminal: WorkspaceTerminal,
     memories: UserMemoryStore,
     localModelReady: Boolean,
     onlineMode: Boolean,
     onlineConfigured: Boolean,
     onDismiss: () -> Unit
 ) {
-    val terminal = remember(workspace) { WorkspaceTerminal(workspace) }
     val scope = rememberCoroutineScope()
     var command by remember { mutableStateOf("help") }
     var terminalBusy by remember { mutableStateOf(false) }
-    var output by remember {
+    var output by remember(terminal) {
         mutableStateOf(
-            "KELLVYN WORKSPACE TERMINAL v2\n" +
-                "Pasta inicial: /workspace\n" +
-                "Digite help para ver comandos. Para trabalhar num projeto, use: projects e depois cd <id>."
+            terminal.storedOutput().ifBlank {
+                "KELLVYN WORKSPACE TERMINAL v2\\n" +
+                    "Pasta inicial: /workspace\\n" +
+                    "Digite help para ver comandos. Para trabalhar num projeto, use: projects e depois cd <id>."
+            }
         )
     }
 
@@ -77,6 +79,7 @@ fun WorkspaceConsoleDialog(
         if (line.isBlank() || terminalBusy) return
         if (line.equals("clear", ignoreCase = true)) {
             output = ""
+            terminal.saveOutput("")
             command = ""
             return
         }
@@ -122,6 +125,7 @@ fun WorkspaceConsoleDialog(
                 }
             }
             output = (output + "\\n\\n> ${line}\\n${result}").takeLast(MAX_OUTPUT_CHARS)
+            terminal.saveOutput(output)
             terminalBusy = false
         }
     }
