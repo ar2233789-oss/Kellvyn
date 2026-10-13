@@ -676,7 +676,7 @@ class AssistantAgent(
         var query = normalized.substring((index + marker.length).coerceAtMost(normalized.length)).trim()
         query = query.trimStart(':', '-', ' ')
         if (query.startsWith("por ", ignoreCase = true)) query = query.drop(4).trimStart()
-        query = query.removeSurrounding("\\\"").removeSurrounding("'").trim().trimEnd('.', '?', '!')
+        query = query.removeSurrounding("\"").removeSurrounding("'").trim().trimEnd('.', '?', '!')
         return query.ifBlank { normalized }.take(MAX_QUERY_CHARS)
     }
 
