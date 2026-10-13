@@ -916,6 +916,23 @@ class AssistantAgent(
             githubRepositoryRequest != null && !internetAllowed -> {
                 "Não acessei o repositório do GitHub porque a permissão de internet das ferramentas está desligada. Ative-a no seletor do chat para listar os arquivos."
             }
+            githubRepositoryRequest != null && looksLikeGitHubImport(lastUser) -> {
+                if (!internetAllowed) {
+                    "Não importei o repositório porque a permissão de internet das ferramentas está desligada. Ative-a e tente novamente."
+                } else {
+                    val approved = requestApproval(
+                        tools.approvalSummary("github_import", githubRepositoryRequest)
+                    )
+                    if (!approved) {
+                        "Importação cancelada. Nenhum arquivo do repositório foi copiado."
+                    } else {
+                        onToolStatus("Importando arquivos públicos autorizados para o workspace local…")
+                        runCatching {
+                            tools.execute("github_import", githubRepositoryRequest, internetAllowed)
+                        }.getOrElse { "Falha na importação do repositório: ${it.message}" }
+                    }
+                }
+            }
             githubRepositoryRequest != null -> {
                 onToolStatus("Explorando a estrutura do repositório público do GitHub…")
                 runCatching {
@@ -1125,6 +1142,17 @@ class AssistantAgent(
     private fun String.indexOfFirstFrom(start: Int, predicate: (Char) -> Boolean): Int {
         for (index in start until length) if (predicate(this[index])) return index
         return -1
+    }
+
+    private fun looksLikeGitHubImport(text: String): Boolean {
+        val lower = text.lowercase(Locale.ROOT)
+        if ("github.com/" !in lower) return false
+        return listOf(
+            "importe", "importar", "importa ", "importa o", "importa esse",
+            "clonar", "clone ", "faça clone", "faca clone", "baixe o repositório",
+            "baixe o repositorio", "baixe esse repo", "copie o repositório",
+            "copie o repositorio", "traga para meus projetos", "salve esse repo"
+        ).any { it in lower }
     }
 
     private fun parseGitHubRepositoryRequest(text: String): JSONObject? {
