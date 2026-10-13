@@ -161,7 +161,7 @@ fun KellvynApp() {
     val onlineEngine = remember(onlineSettingsStore) { OpenAiCompatibleAssistantEngine(onlineSettingsStore) }
     val workspaceStore = remember(context) { ProjectWorkspaceStore(context) }
     val workspaceTerminal = remember(workspaceStore) { WorkspaceTerminal(workspaceStore) }
-    val assistantAgent = remember(workspaceStore, workspaceTerminal) { AssistantAgent(AgentToolRouter(workspaceStore, workspaceTerminal)) }
+    val assistantAgent = remember(workspaceStore) { AssistantAgent(AgentToolRouter(workspaceStore)) }
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
