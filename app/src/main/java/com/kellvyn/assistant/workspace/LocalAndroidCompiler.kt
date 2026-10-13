@@ -143,9 +143,15 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                     return@withContext LocalApkBuildResult.Failure("O D8 não gerou classes.dex.")
                 }
                 report(onProgress, "Montando APK e manifesto Android…")
+                val appLabel = workspace.getProject(projectId)?.name
+                    ?.trim()?.take(100)?.ifBlank { APP_LABEL } ?: APP_LABEL
                 val unsigned = File(jobDir, "app-unsigned.apk")
                 ZipOutputStream(BufferedOutputStream(FileOutputStream(unsigned))).use { zip ->
-                    writeEntry(zip, "AndroidManifest.xml", BinaryAndroidManifest.create(applicationId, activityName, APP_LABEL, MIN_SDK, TARGET_SDK, requestedPermissions))
+                    writeEntry(
+                        zip,
+                        "AndroidManifest.xml",
+                        BinaryAndroidManifest.create(applicationId, activityName, appLabel, MIN_SDK, TARGET_SDK, requestedPermissions)
+                    )
                     dexFiles.forEach { dex ->
                         zip.putNextEntry(ZipEntry(dex.name))
                         dex.inputStream().buffered().use { it.copyTo(zip) }
@@ -153,15 +159,28 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                     }
                 }
                 report(onProgress, "Assinando e verificando o APK…")
-                val signed = File(buildRoot, projectId + ".apk")
-                signApk(unsigned, signed)
-                val verification = ApkVerifier.Builder(signed).build().verify()
+                val output = File(buildRoot, projectId + ".apk")
+                val signedTemp = File(buildRoot, projectId + ".apk.tmp")
+                val previous = File(buildRoot, projectId + ".apk.previous")
+                signedTemp.delete()
+                previous.delete()
+                signApk(unsigned, signedTemp)
+                val verification = ApkVerifier.Builder(signedTemp).build().verify()
                 if (!verification.isVerified) {
-                    signed.delete()
+                    signedTemp.delete()
                     val details = verification.errors.take(8).joinToString("; ")
                     return@withContext LocalApkBuildResult.Failure(("A verificação da assinatura falhou: " + details).take(MAX_LOG_CHARS))
                 }
-                LocalApkBuildResult.Success(signed, applicationId, (System.nanoTime() - startedAt) / 1_000_000)
+                if (output.exists()) {
+                    check(output.renameTo(previous)) { "O APK anterior não pôde ser preservado antes de publicar a nova versão." }
+                }
+                if (!signedTemp.renameTo(output)) {
+                    if (previous.exists()) previous.renameTo(output)
+                    signedTemp.delete()
+                    error("O APK foi assinado, mas não pôde ser publicado no workspace privado.")
+                }
+                previous.delete()
+                LocalApkBuildResult.Success(output, applicationId, (System.nanoTime() - startedAt) / 1_000_000)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -174,7 +193,8 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
         }
 
     private suspend fun ensureAndroidPlatform(onProgress: (String) -> Unit): File {
-        if (androidJar.isFile && androidJar.length() > MIN_ANDROID_JAR_BYTES) return androidJar
+        if (isUsableAndroidJar()) return androidJar
+        if (androidJar.exists()) androidJar.delete()
         platformDir.mkdirs()
         val archive = File(platformDir, "platform-36.zip")
         val partial = File(platformDir, "platform-36.zip.part")
@@ -235,6 +255,16 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
         }
         archive.delete()
         return androidJar
+    }
+
+    private fun isUsableAndroidJar(): Boolean {
+        if (!androidJar.isFile || androidJar.length() <= MIN_ANDROID_JAR_BYTES) return false
+        return runCatching {
+            ZipFile(androidJar).use { zip ->
+                zip.getEntry("android/app/Activity.class") != null &&
+                    zip.getEntry("java/lang/Object.class") != null
+            }
+        }.getOrDefault(false)
     }
 
     private suspend fun report(callback: (String) -> Unit, message: String) {
