@@ -44,7 +44,6 @@ import com.kellvyn.assistant.data.ChatHistoryStore
 import com.kellvyn.assistant.data.OnlineProviderSettingsStore
 import com.kellvyn.assistant.data.MemoryFact
 import com.kellvyn.assistant.data.UserMemoryStore
-import com.kellvyn.assistant.tools.BrowserDialog
 import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
 import com.kellvyn.assistant.workspace.AppBuilderAgent
 import com.kellvyn.assistant.workspace.AppBuildResult
@@ -113,7 +112,6 @@ fun KellvynApp() {
     var onlineMode by remember { mutableStateOf(false) }
     var onlineConfigured by remember { mutableStateOf(initialOnlineSettings.isConfigured) }
     var showOnlineSettings by remember { mutableStateOf(false) }
-    var showBrowserDialog by remember { mutableStateOf(false) }
     var showConsoleDialog by remember { mutableStateOf(false) }
     var endpointInput by remember { mutableStateOf(initialOnlineSettings.endpoint) }
     var modelInput by remember { mutableStateOf(initialOnlineSettings.model) }
@@ -355,15 +353,10 @@ fun KellvynApp() {
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(
-                    onClick = { showBrowserDialog = true },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) { Text("NAVEGADOR", fontSize = 10.sp) }
-                OutlinedButton(
                     onClick = { showConsoleDialog = true },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
-                ) { Text("CONSOLE", fontSize = 10.sp) }
+                ) { Text("CONSOLE DO PROJETO", fontSize = 10.sp) }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -1098,10 +1091,6 @@ fun KellvynApp() {
                     }
                 }
             )
-        }
-
-        if (showBrowserDialog) {
-            BrowserDialog(onDismiss = { showBrowserDialog = false })
         }
 
         if (showConsoleDialog) {
