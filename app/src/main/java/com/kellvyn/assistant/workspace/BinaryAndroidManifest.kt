@@ -55,7 +55,7 @@ internal object BinaryAndroidManifest {
         permissions: List<String> = emptyList()
     ): ByteArray {
         require(validPackage(packageName)) { "applicationId inválido para o manifesto." }
-        require(activityName.matches(Regex("[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+"))) {
+        require(activityName.matches(Regex("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+"))) {
             "Nome de Activity inválido para o manifesto."
         }
         require(appLabel.isNotBlank() && appLabel.length <= 100) { "Rótulo do aplicativo inválido." }
