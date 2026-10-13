@@ -98,6 +98,11 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 val applicationId = Regex("""applicationId\s*=\s*["']([^"']+)["']""")
                     .find(gradleText)?.groupValues?.getOrNull(1)?.takeIf(::isValidPackage) ?: packageName
                 val activityName = packageName + ".MainActivity"
+                val declaredManifest = File(projectDir, "app/src/main/AndroidManifest.xml")
+                    .takeIf { it.isFile }?.readText().orEmpty()
+                val requestedPermissions = Regex(
+                    """(?is)<uses-permission\\b[^>]*android:name\\s*=\\s*["']([^"']+)["'][^>]*>"""
+                ).findAll(declaredManifest).map { it.groupValues[1].trim() }.distinct().toList()
 
                 val jobDir = File(buildRoot, projectId).apply {
                     if (exists()) deleteRecursively()
@@ -146,7 +151,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 report(onProgress, "Montando APK e manifesto Android…")
                 val unsigned = File(jobDir, "app-unsigned.apk")
                 ZipOutputStream(BufferedOutputStream(FileOutputStream(unsigned))).use { zip ->
-                    writeEntry(zip, "AndroidManifest.xml", BinaryAndroidManifest.create(applicationId, activityName, APP_LABEL, MIN_SDK, TARGET_SDK))
+                    writeEntry(zip, "AndroidManifest.xml", BinaryAndroidManifest.create(applicationId, activityName, APP_LABEL, MIN_SDK, TARGET_SDK, requestedPermissions))
                     dexFiles.forEach { dex ->
                         zip.putNextEntry(ZipEntry(dex.name))
                         dex.inputStream().buffered().use { it.copyTo(zip) }
