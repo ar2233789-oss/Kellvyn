@@ -39,13 +39,15 @@
 - [x] Validar caminhos/tamanho e salvar dentro do workspace privado.
 - [x] Validar previamente a consistência estrutural e versões do projeto gerado, e tentar uma correção automática quando essa validação falha.
 - [x] Listar, editar, apagar e exportar projetos em ZIP.
-- [ ] **Implementar toolchain de compilação Android local no aparelho ARM64**, seguindo uma arquitetura de mini IDE local (toolchains verificadas e instaladas no aparelho, engine de build local, logs e APK assinado).
+- [x] Adicionar o primeiro pipeline de compilação local (ECJ → D8 → manifesto binário → APK assinado/verificado) e ligá-lo ao Build do chat, ao construtor interno e à ferramenta do agente. O pipeline inicial compila apps Java nativos sem bibliotecas externas.
 - [ ] Nenhuma compilação de projeto criado deverá depender de GitHub Actions, token, servidor remoto, Replit ou outro serviço de build.
-- [ ] Identificar versões/compatibilidade de Android SDK, Kotlin/Java compiler, AAPT2, D8/R8, zipalign e assinatura.
-- [ ] Executar a toolchain sob limites de CPU, RAM, armazenamento e tempo.
+- [x] Fixar o perfil inicial Java/framework Android e as dependências ECJ, D8/R8, apksig; obter `android.jar` por download consentido e verificado. Kotlin/Compose, recursos e bibliotecas de terceiros ficam fora do primeiro perfil.
+- [x] Limitar fontes Java e resultados de build; executar compilação fora da UI e publicar progresso/diagnósticos no chat.
+- [ ] Medir CPU, RAM, temperatura, duração e armazenamento no Poco F6.
 - [ ] Recolher erros reais de build e permitir correções automáticas controladas.
-- [ ] Validar APK produzido, package ID, assinatura e instalabilidade.
-- [ ] Apresentar APK como resultado principal; ZIP fica como opção secundária.
+- [x] Implementar verificação de assinatura e identificador de pacote antes de anunciar sucesso, e ação de instalação via FileProvider/instalador Android.
+- [ ] Executar builds reais e instalar APKs gerados no aparelho de destino.
+- [x] Fazer o fluxo de Build do chat iniciar a geração e a compilação local automaticamente; manter ZIP como exportação secundária e APK como resultado principal.
 
 ## Fase 4 — Ferramentas nativas
 - [x] Editor local de código para arquivos gerados.
