@@ -200,7 +200,7 @@ fun WorkspaceConsoleDialog(
         terminalBusy = true
         scope.launch {
             val answer = try {
-                onAskAgent(request)
+                onAskAgent(request, { summary -> requestAgentApproval(summary) })
             } catch (e: Exception) {
                 "O agente do terminal falhou: ${e.message ?: e.javaClass.simpleName}"
             }
