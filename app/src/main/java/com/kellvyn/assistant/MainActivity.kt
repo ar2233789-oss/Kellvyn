@@ -100,7 +100,6 @@ fun KellvynApp() {
     val onlineEngine = remember(onlineSettingsStore) { OpenAiCompatibleAssistantEngine(onlineSettingsStore) }
     val workspaceStore = remember(context) { ProjectWorkspaceStore(context) }
     val workspaceTerminal = remember(workspaceStore) { WorkspaceTerminal(workspaceStore) }
-    val assistantAgent = remember(workspaceStore) { AssistantAgent(AgentToolRouter(workspaceStore)) }
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
     val localAndroidCompiler = remember(context, workspaceStore) { LocalAndroidCompiler(context, workspaceStore) }
     val scope = rememberCoroutineScope()
@@ -191,6 +190,16 @@ fun KellvynApp() {
                 addAll(saved.map { ChatMessage(it.text, it.fromUser) })
             }
         }
+    }
+
+    val assistantAgent = remember(workspaceStore, localAndroidCompiler) {
+        AssistantAgent(
+            AgentToolRouter(workspaceStore, localAndroidCompiler) { projectId ->
+                pendingLicenseProjectId = projectId
+                showSdkLicenseDialog = true
+                status = "O agente quer compilar um projeto. Leia a licença oficial do Android SDK antes do primeiro download."
+            }
+        )
     }
 
     fun saveHistory() {
@@ -323,10 +332,13 @@ fun KellvynApp() {
         saveHistory()
         draft = ""
         val wantsBuild = ChatRequestRouter.shouldBuild(text, buildModeSelected = interactionMode == "Build")
-        val wantsCoder = wantsBuild || ChatRequestRouter.shouldPreferCoder(text)
+        val wantsExistingBuild = !wantsBuild && ChatRequestRouter.shouldCompileExistingProject(text)
+        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text)
         isGenerating = true
         status = if (wantsBuild) {
             "Planejando e gerando arquivos do projeto com o motor selecionado…"
+        } else if (wantsExistingBuild) {
+            "Selecionando o projeto e iniciando a compilação local…"
         } else if (onlineSelected) {
             "Enviando ao endpoint online escolhido…"
         } else {
@@ -380,6 +392,31 @@ fun KellvynApp() {
                             status = result.reason
                         }
                     }
+                } else if (wantsExistingBuild) {
+                    val projects = withContext(Dispatchers.IO) { workspaceStore.listProjects() }
+                    val lowerRequest = text.lowercase(Locale.ROOT)
+                    val named = projects.filter { project ->
+                        lowerRequest.contains(project.id.lowercase(Locale.ROOT)) ||
+                            (project.name.isNotBlank() && lowerRequest.contains(project.name.lowercase(Locale.ROOT)))
+                    }
+                    val selectedProject = when {
+                        named.size == 1 -> named.first()
+                        named.size > 1 -> null
+                        projects.size == 1 -> projects.first()
+                        else -> null
+                    }
+                    if (selectedProject == null) {
+                        val reply = when {
+                            projects.isEmpty() -> "Ainda não há projeto salvo para compilar. Peça ao Kellvyn para criar um aplicativo pelo chat."
+                            else -> "Há vários projetos. Escreva o nome ou ID do projeto que deseja compilar, por exemplo: 'compile o APK de " + projects.first().name + "'."
+                        }
+                        messages.add(ChatMessage(reply, false))
+                        status = reply
+                    } else {
+                        builtProject = selectedProject
+                        messages.add(ChatMessage("Encontrei o projeto \"" + selectedProject.name + "\". Iniciando o build local em segundo plano.", false))
+                        buildProjectAndReport(selectedProject)
+                    }
                 } else {
                     val turns = buildConversationTurns()
                     val editorProjectIdBefore = activeEditProject?.id
@@ -402,6 +439,7 @@ fun KellvynApp() {
                         requestApproval = { summary -> requestAgentApproval(summary) }
                     )
                     val refreshedProjects = withContext(Dispatchers.IO) { workspaceStore.listProjects() }
+                    latestBuiltApk = localAndroidCompiler.mostRecentApk() ?: latestBuiltApk
                     existingProjects.clear()
                     existingProjects.addAll(refreshedProjects)
 
