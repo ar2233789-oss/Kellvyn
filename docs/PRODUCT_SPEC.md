@@ -5,8 +5,9 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 ## Identidade e objetivo
 - Nome: **Kellvyn IA**. Não usar Brian/Brain como nome e não apresentar o app como produto oficial da OpenAI.
 - Assistente Android nativo com IA real, planejamento, geração/revisão de código e, como objetivo central, capacidade de criar aplicativos instaláveis.
-- A montagem de oito telas gerada pelo assistente em 13/10/2026 é a especificação visual fechada do produto: reproduzir sua composição, estilo, hierarquia, ícones, painéis e navegação; não substituir por um design genérico nem por outra paleta.
-- A imagem é também uma lista de áreas de produto a construir, mas não comprova que suas funções existam. Só mostrar sucesso, progresso de compilação, tamanho de APK ou aprendizado de jogo quando a função real tiver sido implementada e executada.
+- A imagem verde-esmeralda enviada pelo usuário é a referência obrigatória de aparência: fundo escuro, brilho verde-esmeralda/turquesa, barra superior, lista da conversa, compositor inferior e navegação no rodapé. A interface não deve ser azul-neon dominante.
+- A montagem posterior de oito telas gerada pelo assistente serve **somente como inventário de funções desejadas** (projetos, chat com plano, editor, console, resultado de APK, jogos e configurações); sua aparência azul e seus resultados ilustrativos não devem ser copiados como se fossem os requisitos visuais ou recursos já existentes.
+- Nenhuma imagem de conceito comprova que uma função está implementada. Só mostrar sucesso, progresso de compilação, tamanho de APK ou aprendizado de jogo quando a função real tiver sido implementada e executada.
 - Nada de demo disfarçada: controles, status e respostas precisam corresponder a funções reais.
 
 ## Restrições obrigatórias
@@ -25,10 +26,10 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - A toolchain local precisará considerar ARM64, memória, armazenamento, temperatura e tempo de build. Não afirmar que foi testada no Poco F6 sem um teste real nele.
 
 ## Design e interação
-- Paleta visual conforme a montagem gerada: preto profundo, azul-neon elétrico dominante, branco/cinza para texto e ciano apenas como brilho secundário; não usar verde-esmeralda como cor dominante.
-- Reproduzir a montagem de oito telas: (1) chat/início com mascote/órbita e atalhos; (2) chat com plano e checklist de tarefas; (3) projetos e arquivos; (4) editor de código; (5) console/terminal de build local; (6) resultado real do APK com baixar/compartilhar e detalhes verificáveis; (7) área de assistente de jogos; (8) configurações de modo local/online, memória e aparência.
-- Barra de navegação inferior consistente com Chat, Projetos, núcleo/assistente, Ferramentas e Configurações; navegação deve abrir telas nativas reais, sem WebView.
-- Os nomes, tamanhos, porcentagens, logs e resultados exibidos na montagem são exemplos de composição, não dados reais nem promessa de funções já prontas.
+- Paleta visual seguindo a imagem verde enviada: preto profundo, verde-esmeralda/turquesa luminoso como acento dominante, textos brancos/verde-claro e painéis quase pretos; sem paleta azul dominante.
+- Preservar a composição da imagem verde: barra superior compacta com nome do assistente e ações, estados do núcleo discretos, chat como área principal, compositor fixo próximo ao rodapé e navegação inferior.
+- Incorporar progressivamente as funções vistas na montagem conceitual posterior: projetos/arquivos, editor, console, cartão real de APK e configurações; área de jogos somente quando a integração de observação/controle for real. Sem WebView; toda navegação deve ser nativa.
+- Nomes, tamanhos, porcentagens, logs e resultados ilustrados são exemplos visuais, não dados reais ou promessa de funções prontas.
 - Chat principal com status do núcleo que mostra estados honestos: planejando, gerando, compilando, testando, concluído ou erro.
 - Órbita/mascote flutuante discreto é uma meta visual, não algo já concluído.
 - Abaixo de cada resposta da IA: ícone pequeno de folha/páginas com “Copiar”, copiando a resposta inteira.
