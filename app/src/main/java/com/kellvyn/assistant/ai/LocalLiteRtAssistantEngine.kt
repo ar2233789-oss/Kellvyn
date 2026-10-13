@@ -28,6 +28,8 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         const val RECOMMENDED_MODEL_URL = "https://huggingface.co/litert-community/SmolLM2-360M-Instruct/resolve/main/SmolLM2_360M_instruct.litertlm?download=true"
         const val RECOMMENDED_MODEL_BYTES = 373_719_040L
         const val MAX_RECOMMENDED_MODEL_BYTES = 500_000_000L
+        const val MAX_IMPORTED_MODEL_BYTES = 750_000_000L
+        const val MIN_IMPORTED_MODEL_BYTES = 1_000_000L
         const val RECOMMENDED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
         const val CONNECT_TIMEOUT_MS = 20_000
         const val DOWNLOAD_READ_TIMEOUT_MS = 90_000
@@ -51,41 +53,99 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
     }
 
     suspend fun importAndLoad(uri: Uri): AssistantResult {
-        return try {
-            val copiedFile = withContext(Dispatchers.IO) {
-                val name = getDisplayName(uri)
-                if (!name.endsWith(".litertlm", ignoreCase = true)) {
-                    throw IllegalArgumentException("Selecione um arquivo de modelo com extensão .litertlm.")
-                }
+        val directory = modelFile.parentFile
+            ?: return AssistantResult.Failure("Pasta privada de modelos indisponível.")
+        val temporary = File(directory, "kellvyn-model.import")
+        val backup = File(directory, "kellvyn-model.previous")
 
-                val directory = modelFile.parentFile
-                    ?: throw IllegalStateException("Não foi possível criar a pasta privada do modelo.")
+        return try {
+            withContext(Dispatchers.IO) {
+                val name = getDisplayName(uri)
+                require(name.endsWith(".litertlm", ignoreCase = true)) {
+                    "Selecione um arquivo de modelo com extensão .litertlm."
+                }
                 if (!directory.exists() && !directory.mkdirs()) {
                     throw IllegalStateException("Não foi possível criar a pasta privada do modelo.")
                 }
+                if (temporary.exists() && !temporary.delete()) {
+                    throw IllegalStateException("Não foi possível limpar uma importação anterior interrompida.")
+                }
 
-                val temporary = File(directory, "kellvyn-model.part")
-                appContext.contentResolver.openInputStream(uri).use { input ->
-                    requireNotNull(input) { "O Android não conseguiu abrir o arquivo selecionado." }
-                    temporary.outputStream().buffered().use { output -> input.copyTo(output) }
+                var copied = 0L
+                val input = appContext.contentResolver.openInputStream(uri)
+                    ?: throw IllegalStateException("O Android não conseguiu abrir o arquivo selecionado.")
+                input.use { source ->
+                    temporary.outputStream().buffered().use { output ->
+                        val buffer = ByteArray(64 * 1024)
+                        while (true) {
+                            val count = source.read(buffer)
+                            if (count < 0) break
+                            if (count == 0) continue
+                            copied += count
+                            require(copied <= MAX_IMPORTED_MODEL_BYTES) {
+                                "O modelo ultrapassa o limite de importação de ${MAX_IMPORTED_MODEL_BYTES / 1_000_000} MB."
+                            }
+                            output.write(buffer, 0, count)
+                        }
+                    }
                 }
-                if (temporary.length() < 1_000_000L) {
-                    temporary.delete()
-                    throw IllegalArgumentException("O arquivo parece incompleto ou não é um modelo válido.")
+                require(copied >= MIN_IMPORTED_MODEL_BYTES) {
+                    "O arquivo parece incompleto ou não é um modelo válido."
                 }
-                if (modelFile.exists() && !modelFile.delete()) {
-                    temporary.delete()
-                    throw IllegalStateException("Não foi possível substituir o modelo anterior.")
+                require(temporary.length() == copied) {
+                    "A cópia do modelo não foi concluída corretamente."
+                }
+            }
+
+            withContext(Dispatchers.IO) {
+                if (backup.exists() && !backup.delete()) {
+                    throw IllegalStateException("Não foi possível limpar o backup de modelo anterior.")
+                }
+                if (modelFile.exists() && !modelFile.renameTo(backup)) {
+                    throw IllegalStateException("Não foi possível preservar o modelo anterior.")
                 }
                 if (!temporary.renameTo(modelFile)) {
-                    temporary.delete()
-                    throw IllegalStateException("Não foi possível finalizar a cópia do modelo.")
+                    if (backup.exists()) backup.renameTo(modelFile)
+                    throw IllegalStateException("Não foi possível finalizar a cópia do novo modelo.")
                 }
-                modelFile
             }
-            loadModel(copiedFile)
+
+            val result = loadModel(modelFile)
+            if (result is AssistantResult.Success) {
+                withContext(Dispatchers.IO) {
+                    if (backup.exists()) backup.delete()
+                }
+                result
+            } else {
+                restorePreviousModel(backup)
+                result
+            }
         } catch (e: Exception) {
+            withContext(Dispatchers.IO) {
+                temporary.delete()
+                if (backup.exists()) {
+                    if (modelFile.exists()) modelFile.delete()
+                    if (!backup.renameTo(modelFile)) {
+                        throw IllegalStateException("A importação falhou e o backup não pôde ser restaurado.")
+                    }
+                } else if (!hasActiveModel() && modelFile.exists()) {
+                    modelFile.delete()
+                }
+            }
             AssistantResult.Failure(e.message ?: "Falha ao importar o modelo local.")
+        }
+    }
+
+    private fun hasActiveModel(): Boolean = engine != null
+
+    private suspend fun restorePreviousModel(backup: File) {
+        withContext(Dispatchers.IO) {
+            if (modelFile.exists() && !modelFile.delete()) {
+                throw IllegalStateException("O novo modelo falhou e não foi possível removê-lo para restaurar o anterior.")
+            }
+            if (backup.exists() && !backup.renameTo(modelFile)) {
+                throw IllegalStateException("O novo modelo falhou e o backup não pôde ser restaurado.")
+            }
         }
     }
 
