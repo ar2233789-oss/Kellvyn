@@ -40,6 +40,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             appendLine("- Use compileSdk ${AndroidBuildVersions.COMPILE_SDK}, targetSdk ${AndroidBuildVersions.TARGET_SDK} e minSdk ${AndroidBuildVersions.MIN_SDK}; use Compose BOM ${AndroidBuildVersions.COMPOSE_BOM} e activity-compose ${AndroidBuildVersions.ACTIVITY_COMPOSE}, salvo se o pedido exigir algo específico.")
             appendLine("- Use gradle.properties econômico para build local em celular: org.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8, org.gradle.parallel=false, org.gradle.workers.max=2 e kotlin.compiler.execution.strategy=in-process.")
             appendLine("- Inclua settings.gradle.kts, build.gradle.kts, gradle.properties, app/build.gradle.kts, app/src/main/AndroidManifest.xml, app/src/main/java/com/example/app/MainActivity.kt e README.md. O projeto raiz deve declarar as versões fixadas acima.")
+            appendLine("- O AndroidManifest.xml deve declarar .MainActivity com android:exported=\"true\" e um intent-filter contendo MAIN e LAUNCHER.")
             appendLine("- O projeto deve ser coerente: namespace, applicationId e caminho/pacote Kotlin precisam concordar.")
             appendLine("- Crie uma aplicação pequena mas funcional, não apenas pseudocódigo, placeholders ou textos dizendo que a função será feita depois.")
             appendLine("- Não invente tokens, chaves, APIs privadas nem dependências inexistentes.")
