@@ -1487,47 +1487,6 @@ fun KellvynApp() {
             )
         }
 
-        if (pendingAgentApproval != null) {
-            AlertDialog(
-                onDismissRequest = {
-                    agentApprovalGate?.complete(false)
-                },
-                title = { Text("Autorizar ação do Kellvyn?") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "A IA solicitou uma operação que altera arquivos ou o Git. Ela só será executada no workspace privado deste aplicativo depois da sua confirmação.",
-                            color = Muted,
-                            fontSize = 12.sp
-                        )
-                        Surface(
-                            color = Panel,
-                            shape = RoundedCornerShape(10.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
-                        ) {
-                            Text(
-                                pendingAgentApproval.orEmpty(),
-                                color = Color.White,
-                                fontSize = 13.sp,
-                                modifier = Modifier.fillMaxWidth().padding(12.dp)
-                            )
-                        }
-                        Text("Não é um shell do Android: comandos arbitrários e encadeamento de comandos são bloqueados.", color = Muted, fontSize = 11.sp)
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        agentApprovalGate?.complete(true)
-                    }) { Text("Autorizar", color = Neon) }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        agentApprovalGate?.complete(false)
-                    }) { Text("Cancelar", color = Warning) }
-                }
-            )
-        }
-
         if (showMemoryDialog) {
             AlertDialog(
                 onDismissRequest = { showMemoryDialog = false },
@@ -1667,6 +1626,47 @@ fun KellvynApp() {
                             isGenerating = false
                         }
                     }
+                }
+            )
+        }
+
+        if (pendingAgentApproval != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    agentApprovalGate?.complete(false)
+                },
+                title = { Text("Autorizar ação do Kellvyn?") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "A IA solicitou uma operação que altera arquivos ou o Git. Ela só será executada no workspace privado deste aplicativo depois da sua confirmação.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        Surface(
+                            color = Panel,
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                        ) {
+                            Text(
+                                pendingAgentApproval.orEmpty(),
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                modifier = Modifier.fillMaxWidth().padding(12.dp)
+                            )
+                        }
+                        Text("Não é um shell do Android: comandos arbitrários e encadeamento de comandos são bloqueados.", color = Muted, fontSize = 11.sp)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        agentApprovalGate?.complete(true)
+                    }) { Text("Autorizar", color = Neon) }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        agentApprovalGate?.complete(false)
+                    }) { Text("Cancelar", color = Warning) }
                 }
             )
         }
