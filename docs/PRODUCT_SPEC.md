@@ -43,8 +43,8 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 
 ## Cérebro de IA
 - LiteRT-LM é um runtime, não um modelo criado do zero nem o cérebro inteiro.
-- O código contém um adaptador inicial LiteRT-LM, importação de modelos e download de um modelo pequeno SmolLM2-360M-Instruct. Compatibilidade, qualidade e desempenho ainda requerem teste real no telefone.
-- O modelo pequeno é para o primeiro teste e tarefas básicas; não deve ser vendido como modelo avançado de programação.
+- O código contém um adaptador LiteRT-LM com dois perfis de modelo salvos separadamente: SmolLM2-360M-Instruct leve (~374 MB) e Qwen2.5-Coder-1.5B quantizado (~1,12 GB, Apache-2.0), alternáveis sem novo download. A importação de outros arquivos .litertlm é limitada a 1,5 GB. Compatibilidade, qualidade e desempenho ainda requerem teste real no telefone.
+- O modelo leve é indicado para conversa/tarefas básicas; o Qwen foi publicado para programação, mas não foi testado no Poco F6 deste projeto e não deve ser apresentado como desempenho garantido.
 - Modo local e modo online opcional precisam estar claramente separados. No modo local, prompts não são enviados ao endpoint de IA. No modo online, a conversa/contexto vai ao endpoint configurado pelo usuário.
 - A permissão de internet das ferramentas é independente do motor de IA e começa desligada. Ao ativá-la, o agente pode pesquisar na web e ler páginas HTTPS públicas; a consulta e as páginas solicitadas são acessadas externamente, mesmo quando o modelo continua local.
 - O núcleo desejado deve planejar, dividir tarefas, usar ferramentas reais, observar resultados, diagnosticar erros, corrigir e tentar novamente com limites/controles.
