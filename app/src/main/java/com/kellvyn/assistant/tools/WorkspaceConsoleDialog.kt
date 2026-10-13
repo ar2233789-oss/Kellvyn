@@ -343,7 +343,7 @@ fun WorkspaceConsoleDialog(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Este comando será executado pelo shell do Android como o usuário do aplicativo, na pasta atual do workspace. Não é root; ainda assim, um comando manual pode alterar ou apagar arquivos que o próprio app consegue acessar.",
+                        "Este comando será executado por /system/bin/sh com o usuário do aplicativo (não é root). A pasta inicial fica no workspace, mas o shell NÃO é um sandbox: comandos com caminhos absolutos ou cd podem acessar outros arquivos privados que o app consegue acessar, inclusive dados/configurações do próprio Kellvyn. Execute somente comandos que você entende.",
                         color = ConsoleMuted,
                         fontSize = 12.sp
                     )
