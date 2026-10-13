@@ -146,16 +146,15 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 result
             }
         } catch (e: Exception) {
-            withContext(Dispatchers.IO) {
-                temporary.delete()
-                if (backup.exists()) {
-                    if (modelFile.exists()) modelFile.delete()
-                    if (!backup.renameTo(modelFile)) {
-                        throw IllegalStateException("A importação falhou e o backup não pôde ser restaurado.")
-                    }
-                }
-            }
-            AssistantResult.Failure(e.message ?: "Falha ao importar o modelo local.")
+            val restoreError = runCatching {
+                withContext(Dispatchers.IO) { temporary.delete() }
+                if (backup.exists()) restorePreviousModel(backup)
+            }.exceptionOrNull()
+            val detail = e.message ?: "Falha ao importar o modelo local."
+            AssistantResult.Failure(
+                if (restoreError == null) detail
+                else "$detail A restauração do modelo anterior também falhou: ${restoreError.message}"
+            )
         }
     }
 
