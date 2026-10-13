@@ -87,9 +87,11 @@ private fun isExplicitAppBuildRequest(text: String): Boolean {
     ).any { it in t }
     val target = listOf(
         "aplicativo", "app android", "apk", "aplicação android", "aplicacao android",
+        "aplicativo móvel", "aplicativo movel", "app móvel", "app movel",
         "projeto android", "app com", "aplicativo com", "assistente virtual",
         "assistente de ia", "inteligência artificial", "inteligencia artificial",
-        "chatbot", "chat bot", "jogo android", "jogo para android", "minha ia", "ia local"
+        "chatbot", "chat bot", "jogo", "sistema", "software", "programa", "ferramenta",
+        "minha ia", "ia local"
     ).any { it in t } ||
         t.split(Regex("[^a-z0-9]+")).contains("app") ||
         Regex("(^|[^a-z0-9])ia([^a-z0-9]|$)").containsMatchIn(t)
@@ -100,15 +102,24 @@ private fun isExplicitAppBuildRequest(text: String): Boolean {
         "quero uma ia", "quero minha ia", "preciso de uma ia", "preciso da minha ia",
         "faça minha ia", "faca minha ia", "crie minha ia", "quero um assistente",
         "preciso de um assistente", "quero um chatbot", "preciso de um chatbot",
+        "quero um jogo", "preciso de um jogo", "quero um sistema", "preciso de um sistema",
+        "quero um software", "quero um programa", "quero uma ferramenta",
         "quero um jogo android", "preciso de um app android"
     ).any { it in t }
     val instructionalQuestion = listOf(
         "como criar", "como faço", "como faco", "me explique", "explique como",
         "tutorial de", "passo a passo para", "você consegue", "voce consegue",
-        "é possível", "e possivel", "qual aplicativo devo usar"
+        "é possível", "e possivel", "qual aplicativo devo usar", "você pode",
+        "voce pode", "consegue criar", "será que", "sera que", "tem como"
     ).any { it in t }
+    val startsWithAnalysisOrReview = listOf(
+        "faça uma análise", "faca uma analise", "analise ", "analisa ",
+        "avalie ", "avalia ", "revise ", "revisar ", "explique minha ia",
+        "explique meu app", "me fale sobre minha ia", "me fale sobre meu app"
+    ).any { t.trimStart().startsWith(it) }
 
-    return (action || directCreationIntent) && target && !instructionalQuestion
+    return (action || directCreationIntent) && target &&
+        !instructionalQuestion && !startsWithAnalysisOrReview
 }
 
 private fun isExistingProjectModification(text: String): Boolean {
