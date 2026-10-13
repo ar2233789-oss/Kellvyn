@@ -5,6 +5,8 @@ import android.text.Html
 import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
 import com.kellvyn.assistant.workspace.WorkspaceGitService
+import com.kellvyn.assistant.workspace.LocalAndroidCompiler
+import com.kellvyn.assistant.workspace.LocalApkBuildResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -23,7 +25,8 @@ import java.util.Locale
  * its arguments and invokes only explicit local/network capabilities. It never invokes a shell.
  */
 class AgentToolRouter(
-    private val workspace: ProjectWorkspaceStore
+    private val workspace: ProjectWorkspaceStore,
+    private val localCompiler: LocalAndroidCompiler? = null
 ) {
     private val git = WorkspaceGitService(workspace)
     fun explicitGitReadRequest(text: String): Pair<String, JSONObject>? {
@@ -144,9 +147,38 @@ class AgentToolRouter(
         else -> "Autorizar ferramenta $name"
     }
 
-    suspend fun execute(name: String, args: JSONObject, internetAllowed: Boolean): String =
-        withContext(Dispatchers.IO) {
+    suspend fun execute(
+        name: String,
+        args: JSONObject,
+        internetAllowed: Boolean,
+        onStatus: (String) -> Unit = {}
+    ): String = withContext(Dispatchers.IO) {
             when (name) {
+                "build_project_apk" -> {
+                    val compiler = requireNotNull(localCompiler) {
+                        "O construtor local não foi conectado ao agente desta sessão."
+                    }
+                    val projectId = required(args, "project_id")
+                    require(workspace.getProject(projectId) != null) { "Projeto não encontrado: " + projectId }
+                    when (val result = compiler.build(projectId, onStatus)) {
+                        is LocalApkBuildResult.Success -> JSONObject()
+                            .put("status", "success")
+                            .put("application_id", result.applicationId)
+                            .put("apk_file", result.apk.name)
+                            .put("duration_ms", result.durationMs)
+                            .put("verified_signature", true)
+                            .toString()
+                        is LocalApkBuildResult.Failure -> JSONObject()
+                            .put("status", "failure")
+                            .put("error", result.reason)
+                            .toString()
+                        LocalApkBuildResult.LicenseRequired -> JSONObject()
+                            .put("status", "license_required")
+                            .put("project_id", projectId)
+                            .put("message", "A pessoa precisa ler e aceitar a licença oficial do Android SDK no chat antes do primeiro download.")
+                            .toString()
+                    }
+                }
                 "workspace_status" -> workspaceStatus()
                 "list_projects" -> listProjects()
                 "list_files" -> listFiles(required(args, "project_id"))
@@ -233,7 +265,7 @@ class AgentToolRouter(
             .put("workspace_local", true)
             .put("projects", projects.size)
             .put("project_names", JSONArray().apply { projects.take(50).forEach { put(it.name) } })
-            .put("build_engine", "compilador Android local ainda não integrado")
+            .put("build_engine", "build local Java: ECJ -> D8 -> APK assinado/verificado; Java/framework Android sem dependências externas; precisa do android.jar após consentimento SDK")
             .put("workspace_access", "API direta de arquivos e projetos; não depende da tela Terminal")
             .put("git_support", "JGit local; sem shell e sem conexão remota")
             .toString()
@@ -839,6 +871,7 @@ class AssistantAgent(
             appendLine()
             appendLine("FERRAMENTAS DISPONÍVEIS:")
             appendLine("- workspace_status: estado do workspace privado e estado real do compilador")
+            appendLine("- build_project_apk {project_id}: compila fontes Java do projeto em APK no próprio aparelho, assina/verifica e devolve logs/erros reais; sem terminal ou serviço remoto. O código do projeto não é modificado pelo build.")
             appendLine("- list_projects: lista projetos locais e seus IDs")
             appendLine("- list_files {project_id}: lista arquivos do projeto")
             appendLine("- read_file {project_id,path,start_line?,max_lines?}: lê o arquivo inteiro quando couber ou um trecho por linha; max_lines limitado para controlar memória")
