@@ -477,6 +477,15 @@ class AssistantAgent(
                     tools.execute("list_projects", JSONObject(), internetAllowed)
                 }.getOrElse { "Falha ao listar projetos: ${it.message}" }
             }
+            looksLikeLocalCodeSearch(lastUser) -> {
+                val needle = lastUser.substringAfterLast(' ').trim().trim(',', '.', '?', '!', '"', '\'')
+                if (needle.length < 2) null else {
+                    onToolStatus("Buscando nos arquivos locais do projeto…")
+                    "Resultado da busca local: " + runCatching {
+                        tools.execute("search_workspace", JSONObject().put("query", needle), internetAllowed)
+                    }.getOrElse { "Falha na busca local: ${it.message}" }
+                }
+            }
             internetAllowed && looksLikeWebResearch(lastUser) -> {
                 val asksForRepository = listOf("github", "repositório", "repositorio", "open source", "código aberto", "codigo aberto")
                     .any { it in lastUser.lowercase(Locale.ROOT) }
@@ -563,6 +572,15 @@ class AssistantAgent(
             }
             else -> last
         }
+    }
+
+    private fun looksLikeLocalCodeSearch(text: String): Boolean {
+        val t = text.lowercase(Locale.ROOT)
+        return listOf(
+            "procure no código", "procure no codigo", "busque no código", "busque no codigo",
+            "encontre no código", "encontre no codigo", "procure nos arquivos", "busque nos arquivos",
+            "pesquise nos arquivos", "pesquise no workspace"
+        ).any { it in t }
     }
 
     private fun looksLikeProjectList(text: String): Boolean {
