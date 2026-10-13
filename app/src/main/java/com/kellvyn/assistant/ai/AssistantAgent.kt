@@ -440,7 +440,7 @@ class AssistantAgent(
             appendLine("- delete_project {project_id}: exclui um projeto inteiro; precisa de aprovação")
             appendLine("- web_search {query}: pesquisa pública na internet; só quando a permissão separada de internet das ferramentas está ligada")
             appendLine("- github_search {query}: pesquisa repositórios públicos do GitHub; só quando a permissão de internet está ligada")
-            appendLine("- open_web_page {url}: lê página HTTPS pública; só quando o modo online está ativo")
+            appendLine("- open_web_page {url}: lê página HTTPS pública; só quando a permissão separada de internet das ferramentas está ligada")
             appendLine()
             appendLine("Responda SOMENTE com um JSON de uma destas formas, sem markdown:")
             appendLine("""{"kind":"answer","text":"sua resposta final em português"}""")
@@ -454,7 +454,7 @@ class AssistantAgent(
         if (systemIndex >= 0) {
             // Put agent policy first so memory never truncates tool definitions or approval rules.
             val existingContext = turns[systemIndex].content.take(MAX_USER_CONTEXT_CHARS)
-            turns[systemIndex] = turns[systemIndex].copy(content = agentPrompt + "\n\n" + existingContext)
+            turns[systemIndex] = turns[systemIndex].copy(content = existingContext + "\n\n" + agentPrompt)
         } else {
             turns.add(0, AssistantTurn(AssistantTurn.Role.SYSTEM, agentPrompt))
         }
