@@ -12,6 +12,8 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.URL
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Locale
@@ -220,7 +222,7 @@ class AgentToolRouter(
             val code = connection.responseCode
             require(code in 200..299) { "O mecanismo de busca respondeu HTTP $code." }
             val html = connection.inputStream.use { input ->
-                val bytes = input.readNBytes(MAX_WEB_BYTES)
+                val bytes = input.readAtMost(MAX_WEB_BYTES)
                 String(bytes, StandardCharsets.UTF_8)
             }
             val results = parseSearchResults(html)
@@ -293,7 +295,7 @@ class AgentToolRouter(
                 else "A página respondeu HTTP $code."
             }
             val type = connection.contentType.orEmpty()
-            val body = connection.inputStream.use { String(it.readNBytes(MAX_WEB_BYTES), StandardCharsets.UTF_8) }
+            val body = connection.inputStream.use { String(it.readAtMost(MAX_WEB_BYTES), StandardCharsets.UTF_8) }
             val text = if (type.contains("html", true) || body.contains("<html", true)) plainText(body) else body
             return JSONObject()
                 .put("url", uri.toString())
@@ -303,6 +305,20 @@ class AgentToolRouter(
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun InputStream.readAtMost(limit: Int): ByteArray {
+        val output = ByteArrayOutputStream(minOf(limit, 64 * 1024))
+        val buffer = ByteArray(16 * 1024)
+        var total = 0
+        while (total < limit) {
+            val count = read(buffer, 0, minOf(buffer.size, limit - total))
+            if (count < 0) break
+            if (count == 0) continue
+            output.write(buffer, 0, count)
+            total += count
+        }
+        return output.toByteArray()
     }
 
     private fun plainText(html: String): String {
