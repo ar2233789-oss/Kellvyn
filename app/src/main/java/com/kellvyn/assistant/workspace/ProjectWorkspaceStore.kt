@@ -159,8 +159,10 @@ class ProjectWorkspaceStore(context: Context) {
         return try {
             val json = JSONObject(metadataFile.readText(Charsets.UTF_8))
             val files = listFilesWithoutMetadata(directory).size
+            val storedId = json.getString("id")
+            if (storedId != projectId) return null
             WorkspaceProject(
-                id = json.getString("id"),
+                id = storedId,
                 name = json.getString("name"),
                 description = json.optString("description"),
                 fileCount = files,
@@ -232,8 +234,15 @@ class ProjectWorkspaceStore(context: Context) {
         require(segments.none { it.contains(":") || it.any { char -> char.code < 32 } }) {
             "O caminho contém caracteres não permitidos."
         }
-        require(segments.none { it.equals(".git", true) || it.equals(".gradle", true) }) {
-            "O construtor não pode gravar metadados Git nem arquivos internos do Gradle."
+        require(segments.none {
+            it.equals(".git", true) ||
+                it.equals(".gradle", true) ||
+                it.equals(PROJECT_METADATA, true)
+        }) {
+            "O construtor não pode gravar metadados internos do projeto, Git ou Gradle."
+        }
+        require(segments.size != 1 || !segments[0].equals("KELLVYN_PROJECT.md", true)) {
+            "O nome KELLVYN_PROJECT.md é reservado para o pacote de exportação."
         }
         require(path.toByteArray(Charsets.UTF_8).size <= MAX_PATH_BYTES) { "O caminho do arquivo é muito longo." }
         return segments.joinToString("/")
