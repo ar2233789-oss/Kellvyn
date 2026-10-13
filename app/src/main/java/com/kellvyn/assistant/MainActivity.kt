@@ -288,7 +288,7 @@ fun KellvynApp() {
                             builtProject = project
                             messages.add(
                                 ChatMessage(
-                                    "Projeto \"${project.name}\" criado e validado com ${project.fileCount} arquivos. Os arquivos foram guardados neste aparelho. Ainda não é um APK: a compilação Android local precisa ser integrada e testada. Use Editor para revisar o código, Git para versionar e ZIP como exportação secundária.",
+                                    "Projeto \"${project.name}\" criado com ${project.fileCount} arquivos. Conferi a estrutura mínima exigida e guardei os arquivos neste aparelho; isso ainda não comprova que o código compila. Ainda não é um APK: a compilação Android local precisa ser integrada e testada. Use Editor para revisar o código, Git para versionar e ZIP como exportação secundária.",
                                     false
                                 )
                             )
