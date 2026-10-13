@@ -494,7 +494,26 @@ fun KellvynApp() {
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Kellvyn Assistente", color = Neon, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                    Text(if (onlineMode) "PROVEDOR ONLINE OPCIONAL" else if (internetToolsEnabled) "NÚCLEO LOCAL • INTERNET ATIVA" else "NÚCLEO LOCAL • OFFLINE", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                    val activeModelLabel = if (localEngine.displayName.contains("Qwen", ignoreCase = true)) {
+                        "QWEN CODER"
+                    } else {
+                        "MODELO LEVE"
+                    }
+                    Text(
+                        if (onlineMode) {
+                            "PROVEDOR ONLINE OPCIONAL"
+                        } else if (modelReady) {
+                            "NÚCLEO LOCAL • $activeModelLabel" + if (internetToolsEnabled) " • WEB" else ""
+                        } else if (internetToolsEnabled) {
+                            "NÚCLEO LOCAL • INTERNET ATIVA"
+                        } else {
+                            "NÚCLEO LOCAL • OFFLINE"
+                        },
+                        color = Muted,
+                        fontSize = 9.sp,
+                        letterSpacing = 1.sp,
+                        maxLines = 1
+                    )
                 }
                 TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
                     Text("⋮", color = Neon, fontSize = 23.sp)
