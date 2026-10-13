@@ -22,12 +22,16 @@ internal object GeneratedAndroidProjectValidator {
         if (!Regex("""include\s*\(\s*["']:app["']\s*\)""").containsMatchIn(settings)) {
             problems += "settings.gradle.kts precisa incluir o módulo :app"
         }
-        if (AndroidBuildVersions.ANDROID_GRADLE_PLUGIN !in rootBuild ||
-            "org.jetbrains.kotlin.android" !in rootBuild ||
-            "org.jetbrains.kotlin.plugin.compose" !in rootBuild ||
-            AndroidBuildVersions.KOTLIN !in rootBuild
+
+        fun rootPluginVersion(pluginId: String): String? {
+            val pattern = """id\(\s*["']${Regex.escape(pluginId)}["']\s*\)\s*version\s*["']([^"']+)["']"""
+            return Regex(pattern).find(rootBuild)?.groupValues?.getOrNull(1)
+        }
+        if (rootPluginVersion("com.android.application") != AndroidBuildVersions.ANDROID_GRADLE_PLUGIN ||
+            rootPluginVersion("org.jetbrains.kotlin.android") != AndroidBuildVersions.KOTLIN ||
+            rootPluginVersion("org.jetbrains.kotlin.plugin.compose") != AndroidBuildVersions.KOTLIN
         ) {
-            problems += "build.gradle.kts precisa declarar AGP ${AndroidBuildVersions.ANDROID_GRADLE_PLUGIN} e os plugins Kotlin/Compose ${AndroidBuildVersions.KOTLIN} compatíveis"
+            problems += "build.gradle.kts precisa usar AGP ${AndroidBuildVersions.ANDROID_GRADLE_PLUGIN} e Kotlin/Compose ${AndroidBuildVersions.KOTLIN} com versões compatíveis e iguais entre si"
         }
 
         val namespace = Regex("""namespace\s*=\s*["']([^"']+)["']""")
@@ -57,12 +61,17 @@ internal object GeneratedAndroidProjectValidator {
         ) {
             problems += "gradle.properties precisa manter a configuração econômica para build no celular"
         }
+        val mainActivityTag = Regex(
+            """(?is)<activity\b(?=[^>]*android:name\s*=\s*["'](?:\.MainActivity|com\.example\.app\.MainActivity)["'])[^>]*>"""
+        ).find(manifest)?.value.orEmpty()
+        val hasLauncherIntent = "android.intent.action.MAIN" in manifest &&
+            "android.intent.category.LAUNCHER" in manifest
         if (!manifest.contains("<manifest") || !manifest.contains("<application") ||
-            !Regex("""android:name\s*=\s*["'](?:\.MainActivity|com\.example\.app\.MainActivity)["']""")
-                .containsMatchIn(manifest) ||
-            !Regex("""android:exported\s*=\s*["']true["']""").containsMatchIn(manifest)
+            mainActivityTag.isBlank() ||
+            !Regex("""android:exported\s*=\s*["']true["']""").containsMatchIn(mainActivityTag) ||
+            !hasLauncherIntent
         ) {
-            problems += "AndroidManifest.xml precisa declarar a MainActivity exportada como launcher do app"
+            problems += "AndroidManifest.xml precisa declarar a MainActivity como exportada e com intent-filter MAIN/LAUNCHER"
         }
         if (!Regex("""(?m)^\s*package\s+com\.example\.app\s*$""").containsMatchIn(activity) ||
             !Regex("""\bclass\s+MainActivity\b""").containsMatchIn(activity) ||
