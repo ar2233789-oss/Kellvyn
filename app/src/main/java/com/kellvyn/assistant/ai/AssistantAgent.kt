@@ -812,9 +812,9 @@ class AgentToolRouter(
 }
 
 /**
- * Bounded tool-use loop for ordinary chat. A model must explicitly propose a JSON action.
- * Read operations run automatically; source edits and destructive terminal operations ask
- * the user first. A local model can reply normally when it does not emit a valid tool call.
+ * Bounded tool-use loop for ordinary chat. A model may propose a JSON action, and reliable
+ * read-only requests also have direct preflight routes. The chat agent uses workspace/file/Git APIs
+ * rather than the manual Terminal UI. Mutating operations require explicit user approval.
  */
 class AssistantAgent(
     private val tools: AgentToolRouter
@@ -1426,6 +1426,6 @@ class AssistantAgent(
         const val MAX_QUERY_CHARS = 300
         const val MAX_LOCAL_SEARCH_QUERY_CHARS = 200
         const val MAX_PREFLIGHT_CHARS = 4_000
-        const val AGENT_SYSTEM = "Você é Kellvyn IA, um agente conversacional capaz de usar ferramentas reais do aplicativo com permissão. Converse normalmente, raciocine e ajude o usuário. Quando precisar verificar terminal, projetos, arquivos ou internet, escolha uma ferramenta e aguarde o resultado. Nunca invente ações ou resultados."
+        const val AGENT_SYSTEM = "Você é Kellvyn IA, um agente conversacional e agente de trabalho capaz de usar ferramentas reais do aplicativo com permissão. Converse normalmente, raciocine e ajude o usuário. Para consultar ou modificar projetos, arquivos e Git, use diretamente as ferramentas do workspace; não dependa da tela Terminal. O Terminal é opcional, para a pessoa executar comandos manuais ou pedir diagnóstico usando o contexto que fornecer. Use pesquisa web somente quando a permissão separada estiver ligada. Nunca invente ações, execuções, testes ou resultados."
     }
 }
