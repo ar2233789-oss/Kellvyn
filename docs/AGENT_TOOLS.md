@@ -11,6 +11,7 @@ O agente principal não usa a tela Terminal nem executa comandos por ela. Ele co
 | Ferramenta | Operação | Permissão |
 |---|---|---|
 | Estado do workspace | Lista quantos projetos existem e informa se o compilador local existe | Automática |
+| Build local APK | Executa ECJ → D8 → empacotamento do manifesto → assinatura/verificação; retorna package ID e erros reais | Automática, no workspace do projeto; requer consentimento SDK na primeira execução |
 | Projetos e arquivos | Lista projetos e arquivos do workspace privado | Automática |
 | Ler arquivo / pesquisar código | Lê arquivos completos até 12 mil caracteres ou trechos de até 120 linhas com `start_line`/`max_lines`, e busca ocorrências | Automática |
 | Workspace de leitura | Estado do workspace, listar projetos/arquivos, ler arquivo e busca de texto | Automática |
@@ -38,6 +39,6 @@ O agente principal não usa a tela Terminal nem executa comandos por ela. Ele co
 ## Próximas etapas
 
 1. Adicionar testes instrumentados de permissão e confinamento de caminhos.
-2. Conectar diagnósticos do compilador local e logs do build às ferramentas do agente.
-3. Permitir correção de código com diff/revisão antes da autorização e repetição controlada de build.
+2. Validar a integração build → diagnósticos → uma correção limitada → nova build em aparelhos Android reais.
+3. Ampliar o pipeline para recursos Android e dependências quando houver testes do perfil Java inicial.
 4. Validar o ciclo no aparelho Android ARM64.
