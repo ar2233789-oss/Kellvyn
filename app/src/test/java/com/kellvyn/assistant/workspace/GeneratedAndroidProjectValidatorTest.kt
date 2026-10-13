@@ -102,6 +102,19 @@ class GeneratedAndroidProjectValidatorTest {
     }
 
     @Test
+    fun rejectsTodoCommentsInAndroidXml() {
+        val files = validProject().toMutableMap()
+        files["app/src/main/res/layout/activity_main.xml"] = """
+            <!-- TODO connect the buttons -->
+            <LinearLayout />
+        """.trimIndent()
+
+        val issue = GeneratedAndroidProjectValidator.validate(files)
+        assertNotNull(issue)
+        assertTrue(issue!!.contains("placeholder"))
+    }
+
+    @Test
     fun rejectsObviousCodePlaceholdersAnywhereInSourceFiles() {
         val files = validProject().toMutableMap()
         files["app/src/main/java/com/example/app/SecondActivity.kt"] =
