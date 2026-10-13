@@ -21,7 +21,7 @@ internal object EditorSyncPolicy {
     ): Action {
         if (savedBefore == savedAfter) return Action.NO_CHANGE
 
-        val wasInSync = savedBefore != null && draftBefore == savedBefore
+        val wasInSync = if (savedBefore == null) draftBefore.isEmpty() else draftBefore == savedBefore
         val remainedInSync = draftNow == draftBefore
         if (!wasInSync || !remainedInSync) {
             return if (savedAfter == null) {
