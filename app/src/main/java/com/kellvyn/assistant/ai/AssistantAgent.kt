@@ -388,15 +388,42 @@ class AgentToolRouter(
         }
     }
 
+    private fun resolveGithubDefaultBranch(repository: String): String {
+        val endpoint = URL("https://api.github.com/repos/$repository")
+        val connection = (endpoint.openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+            instanceFollowRedirects = false
+            useCaches = false
+            setRequestProperty("User-Agent", "Kellvyn-IA-Android")
+            setRequestProperty("Accept", "application/vnd.github+json")
+        }
+        try {
+            val code = connection.responseCode
+            require(code in 200..299) {
+                "Não foi possível consultar o repositório público (HTTP $code). Confira dono/nome e permissões."
+            }
+            val json = JSONObject(connection.inputStream.use { String(it.readAtMost(MAX_WEB_BYTES), StandardCharsets.UTF_8) })
+            return json.optString("default_branch").trim().takeIf { it.isNotBlank() }
+                ?: throw IllegalStateException("O GitHub não informou a branch padrão deste repositório.")
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     private fun githubTree(repository: String, rawRef: String): String {
         val repo = repository.trim()
         require(repo.matches(Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")) && !repo.contains("..")) {
             "Informe o repositório público como dono/nome."
         }
-        val ref = rawRef.trim().ifBlank { "main" }
-        require(ref.length <= 120 && !ref.contains("..") && !ref.any { it.isISOControl() }) {
+        val requestedRef = rawRef.trim().ifBlank { "default" }
+        require(requestedRef.length <= 120 && !requestedRef.contains("..") && !requestedRef.any { it.isISOControl() }) {
             "A referência (branch/tag/commit) é inválida."
         }
+        val ref = if (requestedRef.equals("default", ignoreCase = true)) {
+            resolveGithubDefaultBranch(repo)
+        } else requestedRef
         val encodedRef = ref.split("/").joinToString("/") {
             URLEncoder.encode(it, StandardCharsets.UTF_8.name()).replace("+", "%20")
         }
@@ -472,10 +499,13 @@ class AgentToolRouter(
             it.isNotBlank() && it != "." && it != ".." && !it.any { ch -> ch.isISOControl() }
         }) { "Informe um caminho relativo válido dentro do repositório." }
 
-        val ref = rawRef.trim().ifBlank { "main" }
-        require(ref.length <= 120 && !ref.contains("..") && !ref.any { it.isISOControl() }) {
+        val requestedRef = rawRef.trim().ifBlank { "default" }
+        require(requestedRef.length <= 120 && !requestedRef.contains("..") && !requestedRef.any { it.isISOControl() }) {
             "A referência (branch/tag/commit) é inválida."
         }
+        val ref = if (requestedRef.equals("default", ignoreCase = true)) {
+            resolveGithubDefaultBranch(repo)
+        } else requestedRef
         val encodedRef = ref.split("/").joinToString("/") {
             URLEncoder.encode(it, StandardCharsets.UTF_8.name()).replace("+", "%20")
         }
