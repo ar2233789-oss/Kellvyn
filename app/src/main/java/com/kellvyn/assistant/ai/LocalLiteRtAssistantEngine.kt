@@ -13,6 +13,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
+import java.net.URL
+import java.security.MessageDigest
+import javax.net.ssl.HttpsURLConnection
 
 /**
  * Offline inference engine. The user supplies a compatible .litertlm model file;
@@ -21,6 +25,13 @@ import java.io.File
 class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoCloseable {
     private companion object {
         const val MAX_SYSTEM_CONTEXT_CHARS = 12_000
+        const val RECOMMENDED_MODEL_URL = "https://huggingface.co/litert-community/SmolLM2-360M-Instruct/resolve/main/SmolLM2_360M_instruct.litertlm?download=true"
+        const val RECOMMENDED_MODEL_BYTES = 373_719_040L
+        const val MAX_RECOMMENDED_MODEL_BYTES = 500_000_000L
+        const val RECOMMENDED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
+        const val CONNECT_TIMEOUT_MS = 20_000
+        const val DOWNLOAD_READ_TIMEOUT_MS = 90_000
+        const val PROGRESS_UPDATE_BYTES = 8L * 1024L * 1024L
     }
 
     private val appContext = context.applicationContext
@@ -75,6 +86,115 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             loadModel(copiedFile)
         } catch (e: Exception) {
             AssistantResult.Failure(e.message ?: "Falha ao importar o modelo local.")
+        }
+    }
+
+    /**
+     * Downloads a public, Apache-2.0 LiteRT-LM model from the official Hugging Face
+     * model repository. The model is verified by size and SHA-256 before it replaces
+     * the saved file. Progress callbacks are invoked from the IO dispatcher.
+     */
+    suspend fun downloadRecommendedModel(
+        onProgress: (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> }
+    ): AssistantResult {
+        val directory = modelFile.parentFile
+            ?: return AssistantResult.Failure("Pasta privada de modelos indisponível.")
+        val temporary = File(directory, "kellvyn-model.download")
+
+        return try {
+            withContext(Dispatchers.IO) {
+                if (!directory.exists() && !directory.mkdirs()) {
+                    throw IllegalStateException("Não foi possível criar a pasta privada do modelo.")
+                }
+
+                temporary.delete()
+                val connection = (URL(RECOMMENDED_MODEL_URL).openConnection() as HttpsURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = CONNECT_TIMEOUT_MS
+                    readTimeout = DOWNLOAD_READ_TIMEOUT_MS
+                    instanceFollowRedirects = true
+                    useCaches = false
+                    setRequestProperty("User-Agent", "Kellvyn-IA-Android")
+                    setRequestProperty("Accept", "application/octet-stream")
+                }
+
+                try {
+                    val responseCode = connection.responseCode
+                    if (responseCode !in 200..299) {
+                        throw IllegalStateException("A fonte do modelo respondeu HTTP $responseCode.")
+                    }
+
+                    val declaredLength = connection.contentLengthLong
+                    if (declaredLength > MAX_RECOMMENDED_MODEL_BYTES) {
+                        throw IllegalStateException("O servidor informou um arquivo maior que o limite permitido.")
+                    }
+
+                    val totalForProgress = if (declaredLength > 0L) declaredLength else RECOMMENDED_MODEL_BYTES
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    var downloaded = 0L
+                    var lastProgress = 0L
+
+                    connection.inputStream.buffered().use { input ->
+                        FileOutputStream(temporary).buffered().use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                if (count == 0) continue
+
+                                downloaded += count
+                                if (downloaded > MAX_RECOMMENDED_MODEL_BYTES) {
+                                    throw IllegalStateException("O download excedeu o limite de tamanho e foi interrompido.")
+                                }
+                                digest.update(buffer, 0, count)
+                                output.write(buffer, 0, count)
+
+                                if (downloaded - lastProgress >= PROGRESS_UPDATE_BYTES) {
+                                    onProgress(downloaded, totalForProgress)
+                                    lastProgress = downloaded
+                                }
+                            }
+                        }
+                    }
+
+                    val actualHash = digest.digest().joinToString("") { byte ->
+                        "%02x".format(byte)
+                    }
+                    if (downloaded != RECOMMENDED_MODEL_BYTES) {
+                        throw IllegalStateException(
+                            "Download incompleto: recebidos $downloaded bytes; esperados $RECOMMENDED_MODEL_BYTES."
+                        )
+                    }
+                    if (!actualHash.equals(RECOMMENDED_MODEL_SHA256, ignoreCase = true)) {
+                        throw IllegalStateException("A verificação de integridade falhou. O modelo baixado foi descartado.")
+                    }
+
+                    onProgress(downloaded, RECOMMENDED_MODEL_BYTES)
+
+                    // Keep the previous file until the new download has passed verification.
+                    val backup = File(directory, "kellvyn-model.previous")
+                    if (backup.exists() && !backup.delete()) {
+                        throw IllegalStateException("Não foi possível limpar o backup temporário do modelo.")
+                    }
+                    val hadPrevious = modelFile.exists()
+                    if (hadPrevious && !modelFile.renameTo(backup)) {
+                        throw IllegalStateException("Não foi possível proteger o modelo já salvo.")
+                    }
+                    if (!temporary.renameTo(modelFile)) {
+                        if (hadPrevious) backup.renameTo(modelFile)
+                        throw IllegalStateException("Não foi possível finalizar o arquivo baixado.")
+                    }
+                    if (backup.exists()) backup.delete()
+                    modelFile
+                } finally {
+                    connection.disconnect()
+                }
+            }.let { downloadedModel ->
+                loadModel(downloadedModel)
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.IO) { temporary.delete() }
+            AssistantResult.Failure(e.message ?: "Falha ao baixar o modelo local.")
         }
     }
 
