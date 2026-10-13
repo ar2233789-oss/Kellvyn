@@ -97,7 +97,10 @@ private fun isExplicitAppBuildRequest(text: String): Boolean {
     val directCreationIntent = listOf(
         "quero um app", "quero uma app", "quero um aplicativo", "quero uma aplicação",
         "preciso de um app", "preciso de um aplicativo", "preciso de uma aplicação",
-        "quero minha ia", "faça minha ia", "faca minha ia", "crie minha ia"
+        "quero uma ia", "quero minha ia", "preciso de uma ia", "preciso da minha ia",
+        "faça minha ia", "faca minha ia", "crie minha ia", "quero um assistente",
+        "preciso de um assistente", "quero um chatbot", "preciso de um chatbot",
+        "quero um jogo android", "preciso de um app android"
     ).any { it in t }
     val instructionalQuestion = listOf(
         "como criar", "como faço", "como faco", "me explique", "explique como",
