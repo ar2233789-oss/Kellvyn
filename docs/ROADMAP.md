@@ -10,7 +10,7 @@
 - [x] Terminal local de workspace com comandos de arquivos e Git via JGit; shell manual opcional para comando digitado pelo usuário, com confirmação e limites. O agente automático não recebe o shell manual, somente sua lista interna de ferramentas.
 - [x] Agente do chat consegue consultar o workspace e fazer diagnóstico somente de leitura quando o usuário pede ajuda com terminal.
 - [x] A tela Terminal possui campo/botão de ajuda que encaminha pergunta e saída recente ao agente principal.
-- [x] Pesquisa web HTTPS, descoberta de repositórios públicos do GitHub, listagem limitada da árvore de fontes e leitura de arquivos por caminho/ref; tudo exige a permissão de internet separada do motor local/online e trata conteúdo externo como dado não confiável.
+- [x] Pesquisa web HTTPS, descoberta/listagem de repositórios públicos do GitHub, leitura de arquivos e importação limitada após confirmação explícita quando o pedido é importar; tudo exige internet autorizada e trata conteúdo externo como dado não confiável.
 - [ ] Testar instalação e uso no Poco F6 real.
 
 ## Fase 2 — Motor de IA local
