@@ -12,7 +12,7 @@ import java.util.Locale
  */
 class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
     private val root = workspace.workspaceDirectory().canonicalFile
-    private var currentDirectory: File = root
+    @Volatile private var currentDirectory: File = root
     @Volatile private var lastOutput: String = ""
 
     fun storedOutput(): String = lastOutput
