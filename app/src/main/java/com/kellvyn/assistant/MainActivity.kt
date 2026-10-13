@@ -522,49 +522,140 @@ fun KellvynApp() {
                         onClick = { showQuickMenu = false; modelPicker.launch(arrayOf("*/*")) }
                     )
                     DropdownMenuItem(
-                        text = { Text(if (localEngine.hasSavedModel()) "Modelo local instalado" else "Baixar modelo offline (~374 MB)") },
-                        enabled = !localEngine.hasSavedModel() && !isDownloadingModel && !isLoadingModel,
+                        text = {
+                            Text(
+                                if (localEngine.hasSavedConversationModel()) {
+                                    "Usar modelo leve de conversa (≈374 MB)"
+                                } else {
+                                    "Baixar modelo leve de conversa (≈374 MB)"
+                                }
+                            )
+                        },
+                        enabled = !isDownloadingModel && !isLoadingModel && !isGenerating,
                         onClick = {
                             showQuickMenu = false
-                            isDownloadingModel = true
-                            modelDownloadPercent = 0
-                            status = "Conectando à fonte pública para baixar o modelo local…"
-                            scope.launch {
-                                try {
-                                    val result = localEngine.downloadRecommendedModel { bytes, total ->
-                                        val percent = if (total > 0L) ((bytes * 100L) / total).toInt().coerceIn(0, 100) else 0
-                                        scope.launch {
-                                            modelDownloadPercent = percent
-                                            status = "Baixando modelo offline: " + percent + "% (" + (bytes / (1024L * 1024L)) + " MB)"
+                            if (localEngine.hasSavedConversationModel()) {
+                                isLoadingModel = true
+                                status = "Ativando o modelo leve de conversa…"
+                                scope.launch {
+                                    try {
+                                        val result = localEngine.loadConversationModel()
+                                        updateModelResult(result)
+                                        if (result is AssistantResult.Success) {
+                                            status = "Modelo leve de conversa ativo. O modelo Qwen programador, se instalado, continua guardado."
                                         }
+                                    } catch (e: Exception) {
+                                        status = "Falha ao ativar o modelo leve: " + (e.message ?: e.javaClass.simpleName)
+                                    } finally {
+                                        isLoadingModel = false
                                     }
-                                    updateModelResult(result)
-                                    if (result is AssistantResult.Success) status = "Modelo local baixado e inicializado."
-                                } catch (e: Exception) {
-                                    status = "Falha ao baixar modelo: " + (e.message ?: e.javaClass.simpleName)
-                                } finally {
-                                    isDownloadingModel = false
+                                }
+                            } else {
+                                isDownloadingModel = true
+                                modelDownloadPercent = 0
+                                status = "Baixando modelo leve de conversa…"
+                                scope.launch {
+                                    try {
+                                        val result = localEngine.downloadRecommendedModel { bytes, total ->
+                                            val percent = if (total > 0L) ((bytes * 100L) / total).toInt().coerceIn(0, 100) else 0
+                                            scope.launch {
+                                                modelDownloadPercent = percent
+                                                status = "Baixando modelo leve: " + percent + "% (" + (bytes / (1024L * 1024L)) + " MB)"
+                                            }
+                                        }
+                                        updateModelResult(result)
+                                        if (result is AssistantResult.Success) status = "Modelo leve baixado e inicializado."
+                                    } catch (e: Exception) {
+                                        status = "Falha ao baixar o modelo leve: " + (e.message ?: e.javaClass.simpleName)
+                                    } finally {
+                                        isDownloadingModel = false
+                                    }
                                 }
                             }
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Apagar modelo local salvo") },
+                        text = {
+                            Text(
+                                if (localEngine.hasSavedCoderModel()) {
+                                    "Usar Qwen Coder local (≈1,12 GB)"
+                                } else {
+                                    "Baixar Qwen Coder local (≈1,12 GB)"
+                                }
+                            )
+                        },
+                        enabled = !isDownloadingModel && !isLoadingModel && !isGenerating,
+                        onClick = {
+                            showQuickMenu = false
+                            if (localEngine.hasSavedCoderModel()) {
+                                isLoadingModel = true
+                                status = "Ativando Qwen Coder local…"
+                                scope.launch {
+                                    try {
+                                        val result = localEngine.loadCoderModel()
+                                        updateModelResult(result)
+                                        if (result is AssistantResult.Success) {
+                                            status = "Qwen Coder ativo localmente. O modelo leve de conversa continua guardado para alternar depois."
+                                        }
+                                    } catch (e: Exception) {
+                                        status = "Falha ao ativar Qwen Coder: " + (e.message ?: e.javaClass.simpleName)
+                                    } finally {
+                                        isLoadingModel = false
+                                    }
+                                }
+                            } else {
+                                isDownloadingModel = true
+                                modelDownloadPercent = 0
+                                status = "Baixando Qwen Coder (arquivo ≈1,12 GB)…"
+                                scope.launch {
+                                    try {
+                                        val result = localEngine.downloadCoderModel { bytes, total ->
+                                            val percent = if (total > 0L) ((bytes * 100L) / total).toInt().coerceIn(0, 100) else 0
+                                            scope.launch {
+                                                modelDownloadPercent = percent
+                                                status = "Baixando Qwen Coder: " + percent + "% (" + (bytes / (1024L * 1024L)) + " MB)"
+                                            }
+                                        }
+                                        updateModelResult(result)
+                                        if (result is AssistantResult.Success) {
+                                            status = "Qwen Coder foi verificado por SHA-256, carregado e selecionado como modelo ativo."
+                                        }
+                                    } catch (e: Exception) {
+                                        status = "Falha ao baixar Qwen Coder: " + (e.message ?: e.javaClass.simpleName)
+                                    } finally {
+                                        isDownloadingModel = false
+                                    }
+                                }
+                            }
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Apagar modelo local ativo") },
                         enabled = localEngine.hasSavedModel() && !isGenerating && !isDownloadingModel && !isLoadingModel && !isRemovingModel,
                         onClick = {
                             showQuickMenu = false
                             isRemovingModel = true
-                            status = "Removendo o modelo local…"
+                            status = "Removendo o modelo local ativo…"
                             scope.launch {
                                 try {
                                     val removed = withContext(Dispatchers.IO) {
                                         localEngine.removeSavedModel()
                                     }
-                                    modelReady = false
-                                    status = if (removed) {
-                                        "Modelo removido do aparelho e espaço liberado."
+                                    if (removed && localEngine.hasSavedModel()) {
+                                        val result = localEngine.loadSavedModel()
+                                        updateModelResult(result)
+                                        status = if (result is AssistantResult.Success) {
+                                            "Modelo ativo removido; o outro modelo local instalado foi reativado."
+                                        } else {
+                                            "O modelo ativo foi removido, mas o outro modelo instalado não pôde ser ativado: ${result.reason}"
+                                        }
                                     } else {
-                                        "Não foi possível apagar o arquivo do modelo."
+                                        modelReady = false
+                                        status = if (removed) {
+                                            "Modelo local removido do aparelho e espaço liberado."
+                                        } else {
+                                            "Não foi possível apagar todos os arquivos do modelo ativo."
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     status = "Falha ao remover o modelo: " + (e.message ?: e.javaClass.simpleName)
