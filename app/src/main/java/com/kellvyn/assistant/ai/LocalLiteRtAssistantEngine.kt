@@ -347,7 +347,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 withContext(Dispatchers.IO) {
                     temporary.delete()
                 }
-                if (backup.exists()) restorePreviousModel(backup)
+                if (backup.exists()) restorePreviousModel(modelFile, backup)
             }.exceptionOrNull()
             val detail = e.message ?: "Falha ao baixar o modelo local."
             AssistantResult.Failure(
