@@ -13,6 +13,30 @@ object ChatRequestRouter {
     fun shouldBuild(text: String, buildModeSelected: Boolean): Boolean =
         isExplicitAppBuildRequest(text) || (buildModeSelected && isBuildBrief(text))
 
+    fun shouldPreferCoder(text: String): Boolean {
+        val t = text.lowercase(Locale.ROOT)
+        if (shouldBuild(text, buildModeSelected = false)) return true
+
+        val explicitWorkAction = listOf(
+            "corrija", "corrigir", "corrige", "conserte", "consertar", "arrume", "arrumar",
+            "altere", "alterar", "modifique", "modificar", "edite", "editar", "atualize",
+            "atualizar", "melhore", "melhorar", "adicione", "adicionar", "inclua", "incluir",
+            "implemente", "implementar", "depure", "depurar", "corrija o bug", "corrija o erro",
+            "fix ", "debug ", "review ", "patch ", "continue o projeto", "termine o projeto",
+            "termine minha ia", "finalize o projeto", "conclua o projeto", "complete o projeto"
+        ).any { it in t }
+        val codeTarget = Regex("\\.(kt|kts|java|xml|gradle|md|json|properties|py|js|ts|tsx|html|css)(\\b|$)", RegexOption.IGNORE_CASE)
+            .containsMatchIn(text) ||
+            listOf(
+                "arquivo", "código", "codigo", "função", "funcao", "classe", "método", "metodo",
+                "bug", "compilar", "compilação", "compilacao", "apk", "kotlin", "java",
+                "git status", "git diff", "histórico de commits", "historico de commits",
+                "projeto existente", "meu projeto", "meu app", "minha ia", "app que você criou",
+                "app que voce criou", "projeto que você criou", "projeto que voce criou"
+            ).any { it in t }
+        return explicitWorkAction && codeTarget
+    }
+
     private fun isExplicitAppBuildRequest(text: String): Boolean {
         val t = text.lowercase(Locale.ROOT)
         if (isExistingProjectModification(text)) return false
