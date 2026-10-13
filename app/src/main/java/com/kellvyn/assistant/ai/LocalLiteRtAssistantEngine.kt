@@ -339,7 +339,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 val restoreError = runCatching { restorePreviousModel(modelFile, backup) }.exceptionOrNull()
                 if (restoreError == null) result
                 else AssistantResult.Failure(
-                    "${result.reason}; também não consegui restaurar o arquivo do modelo anterior: ${restoreError.message}"
+                    "${result.reasonOrText()}; também não consegui restaurar o arquivo do modelo anterior: ${restoreError.message}"
                 )
             }
         } catch (e: Exception) {
@@ -453,7 +453,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 val restoreError = runCatching { restorePreviousModel(coderModelFile, backup) }.exceptionOrNull()
                 if (restoreError == null) result
                 else AssistantResult.Failure(
-                    "${result.reason}; falhou também a restauração do Qwen anterior: ${restoreError.message}"
+                    "${result.reasonOrText()}; falhou também a restauração do Qwen anterior: ${restoreError.message}"
                 )
             }
         } catch (e: Exception) {
