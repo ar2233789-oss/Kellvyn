@@ -467,7 +467,7 @@ fun KellvynApp() {
                         if (!message.fromUser) {
                             val clipboard = LocalClipboardManager.current
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, top = 1.dp),
+                                modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 1.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
