@@ -62,7 +62,6 @@ class AgentToolRouter(
         }
         val chosen = when {
             candidates.size == 1 -> candidates.first()
-            candidates.isNotEmpty() -> candidates.maxByOrNull { it.length } ?: return null
             else -> return null
         }
         return JSONObject()
