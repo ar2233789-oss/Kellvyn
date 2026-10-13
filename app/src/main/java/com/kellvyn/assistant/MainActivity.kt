@@ -81,6 +81,16 @@ private const val MAX_HISTORY_MESSAGE_CHARS = 800
 private const val MAX_INPUT_CHARS = 12_000
 private const val MAX_EDITOR_CHARS = 80_000
 
+/** Only compiler diagnostics tied to Java/D8 source are eligible for the automatic code-repair pass. */
+private fun isRepairableSourceBuildFailure(reason: String): Boolean {
+    val value = reason.lowercase(Locale.ROOT)
+    return value.contains("erro real da compilação java") ||
+        value.contains("com.android.tools.r8") ||
+        value.contains("compilationfailedexception") ||
+        value.contains("d8 compilation failed") ||
+        value.contains("cannot fit requested classes in a single dex file")
+}
+
 data class ChatMessage(val text: String, val fromUser: Boolean)
 
 class MainActivity : ComponentActivity() {
@@ -271,7 +281,10 @@ fun KellvynApp() {
             if (showBuilderDialog && isBuildingProject) builderMessage = progress
         }
         var autoRepaired = false
-        if (result is LocalApkBuildResult.Failure && !repairBrief.isNullOrBlank() && repairEngine != null) {
+        if (result is LocalApkBuildResult.Failure &&
+            isRepairableSourceBuildFailure(result.reason) &&
+            !repairBrief.isNullOrBlank() && repairEngine != null
+        ) {
             val firstError = result.reason
             status = "O agente está corrigindo o código a partir dos diagnósticos reais e fará uma única nova build…"
             messages.add(ChatMessage("A primeira compilação falhou. O agente vai analisar os erros e tentar uma correção automática limitada.", false))
