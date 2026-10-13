@@ -89,13 +89,18 @@ internal object GeneratedAndroidProjectValidator {
             problems += "README.md precisa explicar como configurar e executar o projeto"
         }
 
-        val placeholder = Regex(
-            """(?i)\b(TODO|placeholder|not implemented|will be implemented later|coming soon|não implementado|nao implementado|ainda não implementado|ainda nao implementado|implementar depois)\b"""
+        // Match explicit unfinished-code markers, not legitimate UI APIs such as
+        // Compose's `placeholder = { Text(...) }` parameter or variables named placeholder.
+        val unfinishedComment = Regex(
+            """(?im)^\s*(?://|/\*+|\*|#)\s*.*\b(TODO|FIXME|XXX|HACK|placeholder|stub|not implemented|will be implemented later|coming soon|não implementado|nao implementado|ainda não implementado|ainda nao implementado|implementar depois)\b.*$"""
+        )
+        val unfinishedCode = Regex(
+            """(?i)\b(?:TODO|FIXME)\s*\(|\b(?:NotImplementedError|NotImplementedException)\b"""
         )
         val hasObviousPlaceholder = files.any { (path, text) ->
             val sourceFile = path.endsWith(".kt", true) || path.endsWith(".java", true) ||
                 path.endsWith(".xml", true) || path.endsWith(".kts", true)
-            sourceFile && placeholder.containsMatchIn(text)
+            sourceFile && (unfinishedComment.containsMatchIn(text) || unfinishedCode.containsMatchIn(text))
         }
         if (hasObviousPlaceholder) {
             problems += "há marcadores de recurso pendente/placeholder no código gerado"
