@@ -130,10 +130,7 @@ class AgentToolRouter(
             .put("path", chosen.path)
     }
 
-    fun approvalRequired(name: String): Boolean = name in setOf(
-        "git_init", "git_stage_all", "git_commit",
-        "delete_file", "delete_project", "github_import"
-    )
+    fun approvalRequired(name: String): Boolean = AgentApprovalPolicy.requiresApproval(name)
 
     fun approvalSummary(name: String, args: JSONObject): String = when (name) {
         "github_import" -> "Importar repositório público ${args.optString("repository")} (${args.optString("ref").ifBlank { "branch padrão" }}) para um projeto local; somente arquivos textuais e limite de tamanho."
