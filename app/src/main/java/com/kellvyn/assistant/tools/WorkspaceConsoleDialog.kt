@@ -195,7 +195,7 @@ fun WorkspaceConsoleDialog(
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         label = { Text("Comando") },
-                        placeholder = { Text("help, ls, cd, git status…") },
+                        placeholder = { Text("help, ls, cd, git status, ! comando…") },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { execute(command) })
                     )
