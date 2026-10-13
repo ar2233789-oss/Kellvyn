@@ -951,12 +951,6 @@ class AssistantAgent(
                     tools.execute("read_file", localFileRequest, internetAllowed)
                 }.getOrElse { "Falha ao ler o arquivo local: ${it.message}" }
             }
-            localFileRequest != null -> {
-                onToolStatus("Lendo o arquivo do workspace diretamente, sem usar o terminal…")
-                "Conteúdo do arquivo local: " + runCatching {
-                    tools.execute("read_file", localFileRequest, internetAllowed)
-                }.getOrElse { "Falha ao ler o arquivo local: ${it.message}" }
-            }
             explicitPageUrl != null && !internetAllowed -> {
                 "Não acessei a página porque a permissão de internet das ferramentas está desligada. Ative-a no seletor do chat para continuar."
             }
