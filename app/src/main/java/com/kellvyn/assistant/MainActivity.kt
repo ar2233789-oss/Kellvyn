@@ -39,6 +39,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kellvyn.assistant.ai.AssistantEngine
+import com.kellvyn.assistant.ai.AssistantAgent
+import com.kellvyn.assistant.ai.AgentToolRouter
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
@@ -54,6 +56,7 @@ import com.kellvyn.assistant.workspace.AppBuildResult
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
 import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.WorkspaceProject
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -88,6 +91,7 @@ fun KellvynApp() {
     val onlineEngine = remember(onlineSettingsStore) { OpenAiCompatibleAssistantEngine(onlineSettingsStore) }
     val workspaceStore = remember(context) { ProjectWorkspaceStore(context) }
     val workspaceTerminal = remember(workspaceStore) { WorkspaceTerminal(workspaceStore) }
+    val assistantAgent = remember(workspaceStore, workspaceTerminal) { AssistantAgent(AgentToolRouter(workspaceStore, workspaceTerminal)) }
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
@@ -123,7 +127,9 @@ fun KellvynApp() {
     var showNavigatorDialog by remember { mutableStateOf(false) }
     var showTabsDialog by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf("https://developer.android.com") }
-    var interactionMode by remember { mutableStateOf("Build") }
+    var interactionMode by remember { mutableStateOf("Conversa") }
+    var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
+    var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     var selectedNav by remember { mutableStateOf("AI") }
     var openTabs by remember { mutableStateOf(emptyList<String>()) }
     var endpointInput by remember { mutableStateOf(initialOnlineSettings.endpoint) }
@@ -176,6 +182,20 @@ fun KellvynApp() {
     fun rememberOpenTab(projectId: String, path: String) {
         val tab = "$projectId::$path"
         openTabs = (openTabs + tab).distinct().takeLast(40)
+    }
+
+    suspend fun requestAgentApproval(summary: String): Boolean {
+        val gate = CompletableDeferred<Boolean>()
+        pendingAgentApproval = summary
+        agentApprovalGate = gate
+        return try {
+            gate.await()
+        } finally {
+            if (agentApprovalGate === gate) {
+                agentApprovalGate = null
+                pendingAgentApproval = null
+            }
+        }
     }
 
     fun submitDraft() {
@@ -241,11 +261,22 @@ fun KellvynApp() {
                             )
                         })
                     }
-                    when (val result = selectedEngine.reply(turns)) {
+                    when (
+                        val result = assistantAgent.respond(
+                            engine = selectedEngine,
+                            conversation = turns,
+                            internetAllowed = onlineSelected,
+                            onToolStatus = { toolStatus -> status = toolStatus },
+                            requestApproval = { summary -> requestAgentApproval(summary) }
+                        )
+                    ) {
                         is AssistantResult.Success -> {
                             messages.add(ChatMessage(result.text, false))
-                            status = if (onlineSelected) "Resposta recebida do provedor online"
-                                else "Resposta gerada localmente • nenhuma mensagem enviada a servidor"
+                            status = if (onlineSelected) {
+                                "Resposta recebida; ferramentas online foram usadas somente quando solicitadas"
+                            } else {
+                                "Resposta gerada localmente • ferramentas locais disponíveis • sem acesso à internet"
+                            }
                         }
                         is AssistantResult.Unavailable -> {
                             messages.add(ChatMessage("IA indisponível: ${result.reason}", false))
@@ -1231,6 +1262,47 @@ fun KellvynApp() {
                 },
                 confirmButton = { TextButton(onClick = { openTabs = emptyList(); status = "Lista de abas limpa."; showTabsDialog = false }) { Text("Fechar todas") } },
                 dismissButton = { TextButton(onClick = { showTabsDialog = false }) { Text("Fechar") } }
+            )
+        }
+
+        if (pendingAgentApproval != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    agentApprovalGate?.complete(false)
+                },
+                title = { Text("Autorizar ação do Kellvyn?") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "A IA solicitou uma operação que altera arquivos ou o Git. Ela só será executada no workspace privado deste aplicativo depois da sua confirmação.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        Surface(
+                            color = Panel,
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                        ) {
+                            Text(
+                                pendingAgentApproval.orEmpty(),
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                modifier = Modifier.fillMaxWidth().padding(12.dp)
+                            )
+                        }
+                        Text("Não é um shell do Android: comandos arbitrários e encadeamento de comandos são bloqueados.", color = Muted, fontSize = 11.sp)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        agentApprovalGate?.complete(true)
+                    }) { Text("Autorizar", color = Neon) }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        agentApprovalGate?.complete(false)
+                    }) { Text("Cancelar", color = Warning) }
+                }
             )
         }
 
