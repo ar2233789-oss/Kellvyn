@@ -519,7 +519,7 @@ class AssistantAgent(
                     val name = json.optString("name").trim()
                     val args = json.optJSONObject("arguments") ?: JSONObject()
                     if (name.isBlank()) return AssistantResult.Failure("A IA propôs uma ferramenta sem nome.")
-                    if (name in setOf("web_search", "open_web_page") && !internetAllowed) {
+                    if (name in setOf("web_search", "open_web_page", "github_search") && !internetAllowed) {
                         turns.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, modelResult.text))
                         turns.add(AssistantTurn(AssistantTurn.Role.USER, "FERRAMENTA RECUSADA: acesso à internet está desligado. Escolha outra ferramenta local ou responda sem internet."))
                         return@repeat
