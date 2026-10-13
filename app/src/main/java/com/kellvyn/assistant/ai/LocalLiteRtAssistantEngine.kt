@@ -67,6 +67,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 if (!directory.exists() && !directory.mkdirs()) {
                     throw IllegalStateException("Não foi possível criar a pasta privada do modelo.")
                 }
+                recoverPreviousModelFile(backup)
                 if (temporary.exists() && !temporary.delete()) {
                     throw IllegalStateException("Não foi possível limpar uma importação anterior interrompida.")
                 }
@@ -138,6 +139,17 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
 
     private fun hasActiveModel(): Boolean = engine != null
 
+    private fun recoverPreviousModelFile(backup: File) {
+        if (!backup.exists()) return
+        if (!modelFile.exists()) {
+            if (!backup.renameTo(modelFile)) {
+                throw IllegalStateException("Foi encontrado um backup de modelo e não foi possível restaurá-lo.")
+            }
+        } else if (!backup.delete()) {
+            throw IllegalStateException("Não foi possível limpar um backup antigo antes de trocar o modelo.")
+        }
+    }
+
     private suspend fun restorePreviousModel(backup: File) {
         withContext(Dispatchers.IO) {
             if (modelFile.exists() && !modelFile.delete()) {
@@ -167,6 +179,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 if (!directory.exists() && !directory.mkdirs()) {
                     throw IllegalStateException("Não foi possível criar a pasta privada do modelo.")
                 }
+                recoverPreviousModelFile(backup)
                 if (temporary.exists() && !temporary.delete()) {
                     throw IllegalStateException("Não foi possível limpar um download anterior interrompido.")
                 }
