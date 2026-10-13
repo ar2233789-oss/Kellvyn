@@ -5,7 +5,8 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 ## Identidade e objetivo
 - Nome: **Kellvyn IA**. Não usar Brian/Brain como nome e não apresentar o app como produto oficial da OpenAI.
 - Assistente Android nativo com IA real, planejamento, geração/revisão de código e, como objetivo central, capacidade de criar aplicativos instaláveis.
-- A imagem de referência é uma meta visual (chat central, painel de atividade, editor e ferramentas), não prova de que todas essas funções estejam implementadas.
+- A montagem de oito telas gerada pelo assistente em 13/10/2026 é a especificação visual fechada do produto: reproduzir sua composição, estilo, hierarquia, ícones, painéis e navegação; não substituir por um design genérico nem por outra paleta.
+- A imagem é também uma lista de áreas de produto a construir, mas não comprova que suas funções existam. Só mostrar sucesso, progresso de compilação, tamanho de APK ou aprendizado de jogo quando a função real tiver sido implementada e executada.
 - Nada de demo disfarçada: controles, status e respostas precisam corresponder a funções reais.
 
 ## Restrições obrigatórias
@@ -24,7 +25,10 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - A toolchain local precisará considerar ARM64, memória, armazenamento, temperatura e tempo de build. Não afirmar que foi testada no Poco F6 sem um teste real nele.
 
 ## Design e interação
-- Tema escuro preto/branco com azul/ciano neon e detalhes verde-azulados discretos.
+- Paleta visual conforme a montagem gerada: preto profundo, azul-neon elétrico dominante, branco/cinza para texto e ciano apenas como brilho secundário; não usar verde-esmeralda como cor dominante.
+- Reproduzir a montagem de oito telas: (1) chat/início com mascote/órbita e atalhos; (2) chat com plano e checklist de tarefas; (3) projetos e arquivos; (4) editor de código; (5) console/terminal de build local; (6) resultado real do APK com baixar/compartilhar e detalhes verificáveis; (7) área de assistente de jogos; (8) configurações de modo local/online, memória e aparência.
+- Barra de navegação inferior consistente com Chat, Projetos, núcleo/assistente, Ferramentas e Configurações; navegação deve abrir telas nativas reais, sem WebView.
+- Os nomes, tamanhos, porcentagens, logs e resultados exibidos na montagem são exemplos de composição, não dados reais nem promessa de funções já prontas.
 - Chat principal com status do núcleo que mostra estados honestos: planejando, gerando, compilando, testando, concluído ou erro.
 - Órbita/mascote flutuante discreto é uma meta visual, não algo já concluído.
 - Abaixo de cada resposta da IA: ícone pequeno de folha/páginas com “Copiar”, copiando a resposta inteira.
