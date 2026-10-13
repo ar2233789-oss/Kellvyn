@@ -127,6 +127,42 @@ class GeneratedAndroidProjectValidatorTest {
     }
 
     @Test
+    fun rejectsAProjectThatOnlyDelegatesToAnEmptyScreen() {
+        val files = validProject().toMutableMap()
+        files["app/src/main/java/com/example/app/MainActivity.kt"] = """
+            package com.example.app
+            import androidx.activity.ComponentActivity
+            import androidx.activity.compose.setContent
+            class MainActivity : ComponentActivity() {
+                fun onCreate() { setContent { AppScreen() } }
+            }
+        """.trimIndent()
+        files["app/src/main/java/com/example/app/AppScreen.kt"] = """
+            package com.example.app
+            @Composable fun AppScreen() { }
+        """.trimIndent()
+
+        val issue = GeneratedAndroidProjectValidator.validate(files)
+        assertNotNull(issue)
+        assertTrue(issue!!.contains("componente visual Compose"))
+    }
+
+    @Test
+    fun rejectsWebViewInGeneratedNativeInterface() {
+        val files = validProject().toMutableMap()
+        files["app/src/main/java/com/example/app/MainActivity.kt"] =
+            files.getValue("app/src/main/java/com/example/app/MainActivity.kt")
+                .replace(
+                    "package com.example.app",
+                    "package com.example.app\nimport android.webkit.WebView"
+                )
+
+        val issue = GeneratedAndroidProjectValidator.validate(files)
+        assertNotNull(issue)
+        assertTrue(issue!!.contains("não deve usar WebView"))
+    }
+
+    @Test
     fun rejectsEmptyComposeContent() {
         val files = validProject().toMutableMap()
         files["app/src/main/java/com/example/app/MainActivity.kt"] =
