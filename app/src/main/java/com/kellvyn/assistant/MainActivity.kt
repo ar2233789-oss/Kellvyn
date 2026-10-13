@@ -7,6 +7,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -30,7 +32,13 @@ import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
 import com.kellvyn.assistant.ai.OpenAiCompatibleAssistantEngine
 import com.kellvyn.assistant.data.ChatHistoryStore
 import com.kellvyn.assistant.data.OnlineProviderSettingsStore
+import com.kellvyn.assistant.workspace.AppBuilderAgent
+import com.kellvyn.assistant.workspace.AppBuildResult
+import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
+import com.kellvyn.assistant.workspace.WorkspaceProject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val Night = Color(0xFF080B12)
 private val Panel = Color(0xFF121925)
@@ -56,6 +64,8 @@ fun KellvynApp() {
     val onlineSettingsStore = remember(context) { OnlineProviderSettingsStore(context) }
     val localEngine = remember(context) { LocalLiteRtAssistantEngine(context) }
     val onlineEngine = remember(onlineSettingsStore) { OpenAiCompatibleAssistantEngine(onlineSettingsStore) }
+    val workspaceStore = remember(context) { ProjectWorkspaceStore(context) }
+    val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
     val initialOnlineSettings = remember(onlineSettingsStore) { onlineSettingsStore.load() }
@@ -71,6 +81,16 @@ fun KellvynApp() {
     var modelInput by remember { mutableStateOf(initialOnlineSettings.model) }
     var apiKeyInput by remember { mutableStateOf(initialOnlineSettings.apiKey) }
     var settingsError by remember { mutableStateOf("") }
+    var showBuilderDialog by remember { mutableStateOf(false) }
+    var showProjectsDialog by remember { mutableStateOf(false) }
+    var builderBrief by remember { mutableStateOf("") }
+    var isBuildingProject by remember { mutableStateOf(false) }
+    var builderMessage by remember { mutableStateOf("") }
+    var builtProject by remember { mutableStateOf<WorkspaceProject?>(null) }
+    var pendingExportProject by remember { mutableStateOf<WorkspaceProject?>(null) }
+    val existingProjects = remember(workspaceStore) {
+        mutableStateListOf<WorkspaceProject>().apply { addAll(workspaceStore.listProjects()) }
+    }
 
     val messages = remember(historyStore) {
         mutableStateListOf<ChatMessage>().apply {
@@ -116,6 +136,24 @@ fun KellvynApp() {
             scope.launch {
                 if (!onlineMode) status = "Copiando e inicializando o modelo local…"
                 updateModelResult(localEngine.importAndLoad(uri))
+            }
+        }
+    }
+
+    val zipExportPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { destination ->
+        val project = pendingExportProject
+        pendingExportProject = null
+        if (destination != null && project != null) {
+            scope.launch {
+                status = "Exportando ${project.name} para ZIP…"
+                try {
+                    withContext(Dispatchers.IO) { workspaceStore.exportZip(project.id, destination) }
+                    status = "ZIP de ${project.name} exportado. Revise o código antes de executar."
+                } catch (e: Exception) {
+                    status = "Falha ao exportar projeto: " + (e.message ?: e.javaClass.simpleName)
+                }
             }
         }
     }
@@ -198,6 +236,29 @@ fun KellvynApp() {
                         contentColor = if (onlineMode) Night else Color.White
                     )
                 ) { Text("ONLINE", fontWeight = FontWeight.Bold) }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = {
+                        builderBrief = ""
+                        builderMessage = ""
+                        builtProject = null
+                        showBuilderDialog = true
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("CONSTRUTOR", fontSize = 11.sp) }
+                OutlinedButton(
+                    onClick = {
+                        existingProjects.clear()
+                        existingProjects.addAll(workspaceStore.listProjects())
+                        showProjectsDialog = true
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("MEUS PROJETOS", fontSize = 11.sp) }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -351,6 +412,153 @@ fun KellvynApp() {
             }
             Spacer(Modifier.height(6.dp))
             Text("Versão 0.3.0 • IA local + provedor online opcional", color = Muted, fontSize = 10.sp)
+        }
+
+        if (showBuilderDialog) {
+            AlertDialog(
+                onDismissRequest = { if (!isBuildingProject) showBuilderDialog = false },
+                title = { Text("Construtor de aplicativos") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            "Descreva o app. O agente vai pedir ao modelo ativo um projeto Android, validar os caminhos e guardar os arquivos localmente. O código gerado não é executado dentro do Kellvyn.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            if (onlineMode) "Motor selecionado: ONLINE" else "Motor selecionado: LOCAL",
+                            color = Neon,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                        OutlinedTextField(
+                            value = builderBrief,
+                            onValueChange = {
+                                if (it.length <= 3000) {
+                                    builderBrief = it
+                                    builderMessage = ""
+                                    builtProject = null
+                                }
+                            },
+                            label = { Text("O que o aplicativo deve fazer?") },
+                            placeholder = { Text("Ex.: crie um gerenciador de tarefas com categorias, busca e salvamento local…") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 4,
+                            maxLines = 8
+                        )
+                        if (isBuildingProject) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text("Gerando e validando os arquivos. Não feche o app.", color = Muted, fontSize = 12.sp)
+                        }
+                        if (builderMessage.isNotBlank()) {
+                            Text(builderMessage, color = if (builtProject != null) Neon else Warning, fontSize = 12.sp)
+                        }
+                        builtProject?.let { project ->
+                            Text("Arquivos: ${project.fileCount}", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("Projeto guardado no armazenamento privado do aparelho. Exporte o ZIP para usar os arquivos fora do Kellvyn.", color = Muted, fontSize = 12.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Row {
+                        TextButton(
+                            enabled = !isBuildingProject && builderBrief.trim().length >= 12,
+                            onClick = {
+                                val engine: AssistantEngine = if (onlineMode) onlineEngine else localEngine
+                                val ready = if (onlineMode) onlineConfigured else modelReady
+                                if (!ready) {
+                                    builderMessage = if (onlineMode) {
+                                        "Configure o provedor online ou selecione LOCAL e carregue um modelo."
+                                    } else {
+                                        "Carregue um modelo local ou mude para ONLINE e configure um provedor."
+                                    }
+                                } else {
+                                    isBuildingProject = true
+                                    builtProject = null
+                                    builderMessage = "O agente está preparando o projeto…"
+                                    scope.launch {
+                                        when (val result = appBuilderAgent.createProject(engine, builderBrief)) {
+                                            is AppBuildResult.Success -> {
+                                                builtProject = result.project
+                                                builderMessage = "Projeto criado: ${result.project.name}"
+                                                existingProjects.clear()
+                                                existingProjects.addAll(workspaceStore.listProjects())
+                                                status = "Construtor criou ${result.project.fileCount} arquivos. Revise o código antes de compilar."
+                                            }
+                                            is AppBuildResult.Failure -> {
+                                                builderMessage = result.reason
+                                            }
+                                        }
+                                        isBuildingProject = false
+                                    }
+                                }
+                            }
+                        ) { Text("Gerar projeto") }
+                        builtProject?.let { project ->
+                            TextButton(
+                                onClick = {
+                                    pendingExportProject = project
+                                    zipExportPicker.launch("${project.id}.zip")
+                                }
+                            ) { Text("Exportar ZIP") }
+                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        enabled = !isBuildingProject,
+                        onClick = { showBuilderDialog = false }
+                    ) { Text("Fechar") }
+                }
+            )
+        }
+
+        if (showProjectsDialog) {
+            AlertDialog(
+                onDismissRequest = { showProjectsDialog = false },
+                title = { Text("Meus projetos") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        if (existingProjects.isEmpty()) {
+                            Text("Ainda não existem projetos. Use CONSTRUTOR para criar o primeiro.", color = Muted)
+                        } else {
+                            existingProjects.forEach { project ->
+                                Surface(color = Panel, shape = RoundedCornerShape(12.dp)) {
+                                    Column(Modifier.padding(10.dp)) {
+                                        Text(project.name, color = Color.White, fontWeight = FontWeight.Bold)
+                                        Text("${project.fileCount} arquivos · ${project.id}", color = Muted, fontSize = 10.sp)
+                                        if (project.description.isNotBlank()) {
+                                            Text(project.description, color = Muted, fontSize = 11.sp, maxLines = 3)
+                                        }
+                                        TextButton(onClick = {
+                                            pendingExportProject = project
+                                            zipExportPicker.launch("${project.id}.zip")
+                                        }) { Text("Exportar ZIP") }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showProjectsDialog = false }) { Text("Fechar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showProjectsDialog = false
+                        builderBrief = ""
+                        builderMessage = ""
+                        builtProject = null
+                        showBuilderDialog = true
+                    }) { Text("Criar projeto") }
+                }
+            )
         }
 
         if (showOnlineSettings) {
