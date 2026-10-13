@@ -259,23 +259,63 @@ fun KellvynApp() {
         scope.launch {
             try {
                 if (wantsBuild) {
-                    when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
-                        is AppBuildResult.Success -> {
-                            val project = result.project
-                            existingProjects.clear()
-                            existingProjects.addAll(workspaceStore.listProjects())
-                            builtProject = project
-                            messages.add(
-                                ChatMessage(
-                                    "Projeto \"${project.name}\" criado com ${project.fileCount} arquivos. Conferi a estrutura mínima exigida e guardei os arquivos neste aparelho; isso ainda não comprova que o código compila. Ainda não é um APK: a compilação Android local precisa ser integrada e testada. Use Editor para revisar o código, Git para versionar e ZIP como exportação secundária.",
-                                    false
-                                )
-                            )
-                            status = "Arquivos de projeto criados localmente. Nenhum APK foi compilado."
+                    // Prefer an already-installed coder model for app generation without forcing a menu change.
+                    var restoreConversationModel = false
+                    if (
+                        !onlineSelected &&
+                        localEngine.hasSavedCoderModel() &&
+                        !localEngine.displayName.contains("Qwen", ignoreCase = true)
+                    ) {
+                        status = "Qwen Coder local já instalado: ativando temporariamente para gerar o projeto…"
+                        restoreConversationModel = when (val coderResult = localEngine.loadCoderModel()) {
+                            is AssistantResult.Success -> true
+                            is AssistantResult.Unavailable -> {
+                                status = "Não consegui ativar Qwen Coder (${coderResult.reason}); usando o modelo selecionado."
+                                false
+                            }
+                            is AssistantResult.Failure -> {
+                                status = "Não consegui ativar Qwen Coder (${coderResult.reason}); usando o modelo selecionado."
+                                false
+                            }
                         }
-                        is AppBuildResult.Failure -> {
-                            messages.add(ChatMessage("Não consegui concluir a geração do projeto: ${result.reason}", false))
-                            status = result.reason
+                    }
+                    try {
+                        when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
+                            is AppBuildResult.Success -> {
+                                val project = result.project
+                                existingProjects.clear()
+                                existingProjects.addAll(workspaceStore.listProjects())
+                                builtProject = project
+                                messages.add(
+                                    ChatMessage(
+                                        "Projeto \"${project.name}\" criado com ${project.fileCount} arquivos. Conferi a estrutura mínima exigida e guardei os arquivos neste aparelho; isso ainda não comprova que o código compila. Ainda não é um APK: a compilação Android local precisa ser integrada e testada. Use Editor para revisar o código, Git para versionar e ZIP como exportação secundária.",
+                                        false
+                                    )
+                                )
+                                status = "Arquivos de projeto criados localmente. Nenhum APK foi compilado."
+                            }
+                            is AppBuildResult.Failure -> {
+                                messages.add(ChatMessage("Não consegui concluir a geração do projeto: ${result.reason}", false))
+                                status = result.reason
+                            }
+                        }
+                    } finally {
+                        if (restoreConversationModel) {
+                            val previousStatus = status
+                            status = "Restaurando o modelo de conversa selecionado…"
+                            when (val restoreResult = localEngine.loadConversationModel()) {
+                                is AssistantResult.Success -> status = previousStatus
+                                is AssistantResult.Unavailable -> {
+                                    val warning = "O processamento terminou, mas não consegui restaurar o modelo de conversa: ${restoreResult.reason}. O Qwen Coder continua ativo."
+                                    messages.add(ChatMessage(warning, false))
+                                    status = warning
+                                }
+                                is AssistantResult.Failure -> {
+                                    val warning = "O processamento terminou, mas não consegui restaurar o modelo de conversa: ${restoreResult.reason}. O Qwen Coder continua ativo."
+                                    messages.add(ChatMessage(warning, false))
+                                    status = warning
+                                }
+                            }
                         }
                     }
                 } else {
