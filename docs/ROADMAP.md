@@ -53,7 +53,8 @@
 - [x] Editor local de código para arquivos gerados.
 - [x] Terminal de workspace com operações internas seguras/Git e shell manual separado sob confirmação.
 - [ ] Testar no Android real o shell manual, interrupção por timeout e limite de saída.
-- [ ] Adicionar camada de compilação local ARM64 e conectar o resultado/erros ao terminal.
+- [x] Conectar o resultado/diagnósticos do pipeline Java APK ao chat e à ferramenta do agente; o terminal é opcional.
+- [ ] Testar em dispositivo ARM64 o ciclo build → erro → correção → build e o fluxo de instalação.
 - [ ] Git local nativo, sem que serviço remoto seja necessário para build.
 - [ ] Agente de depuração que lê logs locais, propõe correções e repete builds limitados.
 - [ ] Interface de atividade do núcleo com estados verdadeiros.
