@@ -48,6 +48,7 @@ import com.kellvyn.assistant.data.OnlineProviderSettingsStore
 import com.kellvyn.assistant.data.MemoryFact
 import com.kellvyn.assistant.data.UserMemoryStore
 import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
+import com.kellvyn.assistant.tools.WorkspaceTerminal
 import com.kellvyn.assistant.workspace.AppBuilderAgent
 import com.kellvyn.assistant.workspace.AppBuildResult
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
@@ -86,6 +87,7 @@ fun KellvynApp() {
     val localEngine = remember(context) { LocalLiteRtAssistantEngine(context) }
     val onlineEngine = remember(onlineSettingsStore) { OpenAiCompatibleAssistantEngine(onlineSettingsStore) }
     val workspaceStore = remember(context) { ProjectWorkspaceStore(context) }
+    val workspaceTerminal = remember(workspaceStore) { WorkspaceTerminal(workspaceStore) }
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
@@ -1305,6 +1307,7 @@ fun KellvynApp() {
         if (showConsoleDialog) {
             WorkspaceConsoleDialog(
                 workspace = workspaceStore,
+                terminal = workspaceTerminal,
                 memories = memoryStore,
                 localModelReady = modelReady,
                 onlineMode = onlineMode,
