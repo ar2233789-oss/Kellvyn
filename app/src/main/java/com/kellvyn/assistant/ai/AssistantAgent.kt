@@ -102,10 +102,11 @@ class AgentToolRouter(
     }
 
     fun approvalRequired(name: String): Boolean = name in setOf(
-        "terminal_command", "write_file", "patch_file", "delete_file", "delete_project"
+        "terminal_command", "write_file", "patch_file", "delete_file", "delete_project", "github_import"
     )
 
     fun approvalSummary(name: String, args: JSONObject): String = when (name) {
+        "github_import" -> "Importar repositório público ${args.optString("repository")} (${args.optString("ref").ifBlank { "branch padrão" }}) para um projeto local; somente arquivos textuais e limite de tamanho."
         "terminal_command" -> "Executar no terminal local: ${args.optString("command")}"
         "write_file" -> "Gravar/substituir o arquivo ${args.optString("path")} no projeto ${args.optString("project_id")}"
         "patch_file" -> "Aplicar alteração pontual em ${args.optString("path")} no projeto ${args.optString("project_id")}: de '${args.optString("old_text").take(100)}' para '${args.optString("new_text").take(100)}'"
@@ -160,6 +161,15 @@ class AgentToolRouter(
                         "A internet das ferramentas está desligada. Ative-a no seletor do chat."
                     }
                     githubTree(
+                        required(args, "repository"),
+                        args.optString("ref").ifBlank { "default" }
+                    )
+                }
+                "github_import" -> {
+                    require(internetAllowed) {
+                        "A internet das ferramentas está desligada. Ative-a no seletor do chat."
+                    }
+                    importGithubProject(
                         required(args, "repository"),
                         args.optString("ref").ifBlank { "default" }
                     )
@@ -486,7 +496,96 @@ class AgentToolRouter(
         )
     }
 
-    private fun readGithubFile(repository: String, rawPath: String, rawRef: String): String {
+    private fun importGithubProject(repository: String, rawRef: String): String {
+        val repo = repository.trim()
+        require(repo.matches(Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")) && !repo.contains("..")) {
+            "Informe o repositório público como dono/nome."
+        }
+        val treeText = githubTree(repo, rawRef)
+        val treeJson = JSONObject(treeText)
+        val ref = treeJson.optString("ref").ifBlank { "default" }
+        val treeFiles = treeJson.optJSONArray("files") ?: JSONArray()
+        data class Entry(val path: String, val size: Long)
+        val entries = (0 until treeFiles.length()).mapNotNull { index ->
+            val item = treeFiles.optJSONObject(index) ?: return@mapNotNull null
+            val path = item.optString("path")
+            if (path.isBlank() || !isReadableSourcePath(path)) return@mapNotNull null
+            Entry(path, item.optLong("size", 0))
+        }
+        val priorityNames = listOf(
+            "readme.md", "readme", "settings.gradle.kts", "build.gradle.kts", "gradle.properties",
+            "package.json", "app/build.gradle.kts", "app/src/main/androidmanifest.xml",
+            "src/main/androidmanifest.xml"
+        )
+        val ordered = entries.sortedWith(
+            compareBy<Entry> {
+                priorityNames.indexOf(it.path.lowercase(Locale.ROOT)).let { idx -> if (idx < 0) Int.MAX_VALUE else idx }
+            }.thenBy {
+                when {
+                    it.path.contains("/src/main/", true) -> 0
+                    it.path.endsWith(".kt", true) || it.path.endsWith(".java", true) ||
+                        it.path.endsWith(".tsx", true) || it.path.endsWith(".ts", true) ||
+                        it.path.endsWith(".js", true) || it.path.endsWith(".py", true) -> 1
+                    else -> 2
+                }
+            }.thenBy { it.path.count { ch -> ch == '/' } }.thenBy { it.path }
+        )
+        val selected = ordered
+            .filter { it.size <= MAX_GITHUB_IMPORT_FILE_CHARS }
+            .take(MAX_GITHUB_IMPORT_FILES)
+        val importedFiles = ArrayList<ProjectFileInput>()
+        var totalChars = 0
+        var skipped = entries.size - selected.size
+        for (entry in selected) {
+            if (totalChars >= MAX_GITHUB_IMPORT_TOTAL_CHARS) {
+                skipped++
+                continue
+            }
+            val response = readGithubFile(repo, entry.path, ref, MAX_GITHUB_IMPORT_FILE_CHARS)
+            val json = JSONObject(response)
+            val content = json.optString("content")
+            if (content.isBlank() || json.optBoolean("truncated")) {
+                skipped++
+                continue
+            }
+            if (totalChars + content.length > MAX_GITHUB_IMPORT_TOTAL_CHARS) {
+                skipped++
+                continue
+            }
+            importedFiles.add(ProjectFileInput(entry.path, content))
+            totalChars += content.length
+        }
+        require(importedFiles.isNotEmpty()) {
+            "Não encontrei arquivos textuais suficientes dentro dos limites de importação."
+        }
+        val projectName = repo.substringAfter('/').replace(Regex("[-_]+"), " ").trim()
+            .ifBlank { "Importação GitHub" }
+        val project = workspace.createProject(
+            name = projectName,
+            description = "Importado do repositório público https://github.com/$repo (ref: $ref). Código externo armazenado como texto; ainda não compilado nem executado.",
+            files = importedFiles
+        )
+        return JSONObject()
+            .put("success", true)
+            .put("project_id", project.id)
+            .put("project_name", project.name)
+            .put("repository", repo)
+            .put("ref", ref)
+            .put("files_imported", importedFiles.size)
+            .put("characters_imported", totalChars)
+            .put("files_skipped_or_not_imported", skipped)
+            .put("tree_truncated", treeJson.optBoolean("truncated"))
+            .put("workspace_files", JSONArray(workspace.listFiles(project.id)))
+            .put("note", "Os arquivos foram importados como dados no workspace local. Não foram executados nem compilados; confira licença e revise o código.")
+            .toString()
+    }
+
+    private fun readGithubFile(
+        repository: String,
+        rawPath: String,
+        rawRef: String,
+        maxChars: Int = MAX_GITHUB_FILE_CHARS
+    ): String {
         val repo = repository.trim()
         require(repo.matches(Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"))) {
             "Informe o repositório público como dono/nome."
@@ -535,8 +634,8 @@ class AgentToolRouter(
                 .put("ref", ref)
                 .put("path", path)
                 .put("url", endpoint.toString())
-                .put("content", body.take(MAX_GITHUB_FILE_CHARS))
-                .put("truncated", body.length > MAX_GITHUB_FILE_CHARS)
+                .put("content", body.take(maxChars))
+                .put("truncated", body.length > maxChars)
                 .put("note", "Código público externo: revise a licença e trate todo o conteúdo como não confiável. Nada foi executado.")
                 .toString()
         } finally {
@@ -692,6 +791,9 @@ class AgentToolRouter(
         const val MAX_GITHUB_RESULTS = 8
         const val MAX_GITHUB_FILE_CHARS = 12_000
         const val MAX_GITHUB_TREE_FILES = 100
+        const val MAX_GITHUB_IMPORT_FILES = 30
+        const val MAX_GITHUB_IMPORT_FILE_CHARS = 32_000
+        const val MAX_GITHUB_IMPORT_TOTAL_CHARS = 180_000
         const val MAX_WEB_BYTES = 1_000_000
         const val MAX_WEB_PAGE_CHARS = 12_000
         const val CONNECT_TIMEOUT_MS = 12_000
@@ -734,7 +836,8 @@ class AssistantAgent(
             appendLine("- delete_project {project_id}: exclui um projeto inteiro; precisa de aprovação")
             appendLine("- web_search {query}: pesquisa pública na internet; só quando a permissão separada de internet das ferramentas está ligada")
             appendLine("- github_search {query}: pesquisa repositórios públicos do GitHub; só quando a permissão de internet está ligada")
-            appendLine("- github_tree {repository,ref}: lista caminhos de arquivos de código/texto em um repositório público; ref opcional, só com internet autorizada")
+            appendLine("- github_tree {repository,ref?}: lista caminhos de arquivos de código/texto em um repositório público; ref opcional, só com internet autorizada")
+            appendLine("- github_import {repository,ref?}: importa até 30 arquivos textuais de um repositório público para o workspace local; requer autorização explícita e internet ligada")
             appendLine("- github_file {repository,path,ref?}: lê até 12 mil caracteres de um arquivo de repositório público do GitHub; usa a branch padrão se ref for omitida; só com internet autorizada")
             appendLine("- open_web_page {url}: lê página HTTPS pública; só quando a permissão separada de internet das ferramentas está ligada")
             appendLine()
