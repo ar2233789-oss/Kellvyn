@@ -75,8 +75,10 @@ private const val MAX_EDITOR_CHARS = 80_000
 
 private fun isExplicitAppBuildRequest(text: String): Boolean {
     val t = text.lowercase(Locale.ROOT)
-    val action = listOf("crie", "criar", "construa", "construir", "desenvolva", "desenvolver", "gere", "gerar", "faça", "faca", "monta", "monte", "implemente")
-        .any { it in t }
+    val action = listOf(
+        "crie", "criar", "construa", "construir", "desenvolva", "desenvolver", "gere", "gerar",
+        "faça", "faca", "monta", "monte", "implemente", "build ", "create ", "make ", "develop ", "implement "
+    ).any { it in t }
     val target = listOf("aplicativo", "app android", "apk", "aplicação android", "aplicacao android", "projeto android", "app com", "aplicativo com")
         .any { it in t } || t.split(Regex("[^a-z0-9]+")).contains("app")
     return action && target && !listOf("como criar", "como faço", "como faco", "me explique", "explique como").any { it in t }
