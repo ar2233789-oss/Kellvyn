@@ -7,12 +7,15 @@ plugins {
 android {
     packaging {
         resources {
-            excludes += setOf(
+            // Keep dependency notices in the distributed APK; merge colliding file names.
+            merges += setOf(
                 "META-INF/DEPENDENCIES",
                 "META-INF/LICENSE",
                 "META-INF/LICENSE.txt",
                 "META-INF/NOTICE",
-                "META-INF/NOTICE.txt",
+                "META-INF/NOTICE.txt"
+            )
+            excludes += setOf(
                 "META-INF/*.kotlin_module",
                 "META-INF/sisu/**"
             )
