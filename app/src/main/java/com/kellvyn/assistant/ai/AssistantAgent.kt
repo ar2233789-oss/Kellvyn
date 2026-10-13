@@ -908,6 +908,11 @@ class AssistantAgent(
         val localGitReadRequest = if (!hasExternalLinkRequest && localFileListRequest == null && localFileRequest == null) {
             withContext(Dispatchers.IO) { tools.explicitGitReadRequest(lastUser) }
         } else null
+        val localModel = engine.displayName.contains("local", ignoreCase = true) ||
+            engine.displayName.contains("LiteRT", ignoreCase = true) ||
+            engine.displayName.contains("on-device", ignoreCase = true)
+        val maxToolResultChars = if (localModel) MAX_LOCAL_TOOL_RESULT_CHARS else MAX_TOOL_RESULT_CHARS
+        val maxPreflightChars = if (localModel) MAX_LOCAL_PREFLIGHT_CHARS else MAX_PREFLIGHT_CHARS
         val preflight = when {
             !hasExternalLinkRequest && looksLikeLocalApkBuildRequest(lastUser) -> {
                 onToolStatus("Verificando o estado real do compilador local…")
@@ -1031,11 +1036,6 @@ class AssistantAgent(
             ))
         }
 
-        val localModel = engine.displayName.contains("local", ignoreCase = true) ||
-            engine.displayName.contains("LiteRT", ignoreCase = true) ||
-            engine.displayName.contains("on-device", ignoreCase = true)
-        val maxToolResultChars = if (localModel) MAX_LOCAL_TOOL_RESULT_CHARS else MAX_TOOL_RESULT_CHARS
-        val maxPreflightChars = if (localModel) MAX_LOCAL_PREFLIGHT_CHARS else MAX_PREFLIGHT_CHARS
         var deniedActionKey: String? = null
         var schemaRetryUsed = false
         repeat(MAX_TOOL_ROUNDS) {
