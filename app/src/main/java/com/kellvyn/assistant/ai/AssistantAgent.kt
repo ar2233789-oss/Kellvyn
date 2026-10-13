@@ -506,6 +506,7 @@ class AssistantAgent(
             appendLine("- delete_project {project_id}: exclui um projeto inteiro; precisa de aprovação")
             appendLine("- web_search {query}: pesquisa pública na internet; só quando a permissão separada de internet das ferramentas está ligada")
             appendLine("- github_search {query}: pesquisa repositórios públicos do GitHub; só quando a permissão de internet está ligada")
+            appendLine("- github_file {repository,path,ref}: lê até 12 mil caracteres de um arquivo de repositório público do GitHub; só com internet autorizada")
             appendLine("- open_web_page {url}: lê página HTTPS pública; só quando a permissão separada de internet das ferramentas está ligada")
             appendLine()
             appendLine("Responda SOMENTE com um JSON de uma destas formas, sem markdown:")
@@ -594,7 +595,7 @@ class AssistantAgent(
                     val name = json.optString("name").trim()
                     val args = json.optJSONObject("arguments") ?: JSONObject()
                     if (name.isBlank()) return AssistantResult.Failure("A IA propôs uma ferramenta sem nome.")
-                    if (name in setOf("web_search", "open_web_page", "github_search") && !internetAllowed) {
+                    if (name in setOf("web_search", "open_web_page", "github_search", "github_file") && !internetAllowed) {
                         turns.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, modelResult.text))
                         turns.add(AssistantTurn(AssistantTurn.Role.USER, "FERRAMENTA RECUSADA: acesso à internet está desligado. Escolha outra ferramenta local ou responda sem internet."))
                         return@repeat
