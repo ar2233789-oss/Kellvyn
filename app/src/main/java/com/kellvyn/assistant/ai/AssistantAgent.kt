@@ -161,7 +161,7 @@ class AgentToolRouter(
                     }
                     githubTree(
                         required(args, "repository"),
-                        args.optString("ref").ifBlank { "main" }
+                        args.optString("ref").ifBlank { "default" }
                     )
                 }
                 "github_file" -> {
@@ -730,8 +730,9 @@ class AssistantAgent(
         // fails to emit a structured tool call. All these operations are read-only.
         val lastUser = conversation.lastOrNull { it.role == AssistantTurn.Role.USER }?.content.orEmpty()
         val githubFileRequest = parseGitHubBlobRequest(lastUser)
+        val githubRepositoryRequest = parseGitHubRepositoryRequest(lastUser)
         val explicitPageUrl = extractExplicitPageUrl(lastUser)
-        val hasExternalLinkRequest = githubFileRequest != null || explicitPageUrl != null
+        val hasExternalLinkRequest = githubFileRequest != null || githubRepositoryRequest != null || explicitPageUrl != null
         val localFileListRequest = if (!hasExternalLinkRequest) {
             withContext(Dispatchers.IO) { tools.explicitProjectFileListArguments(lastUser) }
         } else null
@@ -770,6 +771,15 @@ class AssistantAgent(
                 "Conteúdo do repositório público: " + runCatching {
                     tools.execute("github_file", githubFileRequest, internetAllowed)
                 }.getOrElse { "Falha ao ler o arquivo público: ${it.message}" }
+            }
+            githubRepositoryRequest != null && !internetAllowed -> {
+                "Não acessei o repositório do GitHub porque a permissão de internet das ferramentas está desligada. Ative-a no seletor do chat para listar os arquivos."
+            }
+            githubRepositoryRequest != null -> {
+                onToolStatus("Listando arquivos do repositório público do GitHub…")
+                "Árvore de arquivos do repositório: " + runCatching {
+                    tools.execute("github_tree", githubRepositoryRequest, internetAllowed)
+                }.getOrElse { "Falha ao listar o repositório: ${it.message}" }
             }
             localFileListRequest != null -> {
                 onToolStatus("Listando arquivos do projeto diretamente no workspace…")
@@ -926,6 +936,36 @@ class AssistantAgent(
     private fun String.indexOfFirstFrom(start: Int, predicate: (Char) -> Boolean): Int {
         for (index in start until length) if (predicate(this[index])) return index
         return -1
+    }
+
+    private fun parseGitHubRepositoryRequest(text: String): JSONObject? {
+        val lower = text.lowercase(Locale.ROOT)
+        if ("github.com/" !in lower) return null
+        val asksToInspect = listOf(
+            "repositório", "repositorio", "repositório", "arquivos do repo", "arquivos desse repo",
+            "analise o repo", "analise esse repo", "analise o repositório", "analise o repositorio",
+            "explore o repo", "explore o repositório", "liste arquivos", "listar arquivos",
+            "quais arquivos", "inspect repo", "read this repo", "browse the repo"
+        ).any { it in lower }
+        if (!asksToInspect) return null
+
+        val start = lower.indexOf("github.com/") + "github.com/".length
+        val raw = text.substring(start).trim().trimEnd(')', ']', '}', ',', '.', ' ')
+        val parts = raw.split("/")
+        if (parts.size < 2) return null
+        val owner = parts[0].substringBefore('?').substringBefore('#')
+        val name = parts[1].substringBefore('?').substringBefore('#').removeSuffix(".git")
+        val repository = "$owner/$name"
+        if (!repository.matches(Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")) || repository.contains("..")) return null
+
+        var ref = "default"
+        if (parts.size >= 4 && parts[2].substringBefore('?').equals("tree", ignoreCase = true)) {
+            ref = Uri.decode(parts[3].substringBefore('?').substringBefore('#'))
+        } else if (parts.size >= 3 && parts[2].isNotBlank()) {
+            // Only repository roots and /tree/<branch> links map to a file-tree request.
+            return null
+        }
+        return JSONObject().put("repository", repository).put("ref", ref)
     }
 
     private fun parseGitHubBlobRequest(text: String): JSONObject? {
