@@ -87,7 +87,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                     .replace(Regex("(?s)/\\*.*?\\*/"), " ")
                     .replace(Regex("(?m)//.*$"), " ")
                     .replace(Regex("\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'"), " ")
-                require(!Regex("""\s(?:->|::)\s""").containsMatchIn(codeOnly)) {
+                require(!Regex("""(?:->|::)""").containsMatchIn(codeOnly)) {
                     "A compilação inicial requer listeners por classes anônimas; substitua lambdas e method references por View.OnClickListener ou TextWatcher anônimo."
                 }
                 val packageName = Regex("""(?m)^\s*package\s+([A-Za-z_][A-Za-z0-9_.]*)\s*;""")
