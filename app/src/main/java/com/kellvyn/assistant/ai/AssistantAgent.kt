@@ -489,6 +489,11 @@ class AgentToolRouter(
         if (normalized == "kellvyn_project.md" || normalized.split("/").any {
                 it in setOf(".git", ".gradle", "build", "node_modules", "vendor", ".kellvyn-project.json")
             }) return false
+        val fileName = normalized.substringAfterLast("/")
+        if (fileName in setOf(
+                "license", "licence", "license.md", "licence.md", "copying", "notice",
+                "changelog", "contributing", "makefile", "dockerfile", ".gitignore", ".editorconfig"
+            )) return true
         return listOf(
             ".kt", ".kts", ".java", ".xml", ".gradle", ".md", ".json", ".properties",
             ".toml", ".yaml", ".yml", ".txt", ".py", ".js", ".ts", ".tsx", ".jsx",
