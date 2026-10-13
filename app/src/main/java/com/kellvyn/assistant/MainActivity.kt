@@ -84,8 +84,11 @@ private fun isExplicitAppBuildRequest(text: String): Boolean {
 private fun isBuildBrief(text: String): Boolean {
     val t = text.trim().lowercase(Locale.ROOT)
     if (t.length < 30 || '?' in t) return false
-    if (listOf("terminal", "console", "problema", "erro", "ajuda", "explique", "me explica", "o que é", "o que e", "quem é", "quem e", "por que", "como funciona", "olá", "ola", "bom dia", "boa tarde", "boa noite").any { it in t }) return false
-    return listOf("tela", "login", "cadastro", "botão", "botao", "salvar", "banco de dados", "offline", "notificação", "notificacao", "gerenciador", "usuários", "usuarios", "funções", "funcoes", "interface", "categorias", "busca").any { it in t }
+    if (listOf("terminal", "console", "problema", "erro", "ajuda", "me ajuda", "não consigo", "nao consigo", "estou com", "preciso de ajuda", "explique", "me explica", "o que é", "o que e", "quem é", "quem e", "por que", "como funciona", "olá", "ola", "bom dia", "boa tarde", "boa noite").any { it in t }) return false
+    val features = listOf("tela", "login", "cadastro", "botão", "botao", "salvar", "banco de dados", "offline", "notificação", "notificacao", "gerenciador", "usuários", "usuarios", "funções", "funcoes", "interface", "categorias", "busca")
+    val featureCount = features.count { it in t }
+    val hasProjectNoun = listOf("app", "aplicativo", "sistema", "gerenciador", "aplicação", "aplicacao", "projeto").any { it in t }
+    return featureCount >= 2 || (hasProjectNoun && featureCount >= 1)
 }
 
 data class ChatMessage(val text: String, val fromUser: Boolean)
