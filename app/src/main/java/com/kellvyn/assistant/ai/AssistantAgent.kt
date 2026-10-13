@@ -434,7 +434,7 @@ class AssistantAgent(
         }
         if (!preflight.isNullOrBlank()) {
             val ix = turns.indexOfFirst { it.role == AssistantTurn.Role.SYSTEM }
-            if (ix >= 0) turns[ix] = turns[ix].copy(content = turns[ix].content + "\n\n" + preflight)
+            if (ix >= 0) turns[ix] = turns[ix].copy(content = turns[ix].content + "\n\n" + preflight.take(MAX_PREFLIGHT_CHARS))
         }
 
         repeat(MAX_TOOL_ROUNDS) {
@@ -538,6 +538,7 @@ class AssistantAgent(
         const val MAX_TOOL_ROUNDS = 5
         const val MAX_TOOL_RESULT_CHARS = 14_000
         const val MAX_USER_CONTEXT_CHARS = 5_000
+        const val MAX_PREFLIGHT_CHARS = 4_000
         const val AGENT_SYSTEM = "Você é Kellvyn IA, um agente conversacional capaz de usar ferramentas reais do aplicativo com permissão. Converse normalmente, raciocine e ajude o usuário. Quando precisar verificar terminal, projetos, arquivos ou internet, escolha uma ferramenta e aguarde o resultado. Nunca invente ações ou resultados."
     }
 }
