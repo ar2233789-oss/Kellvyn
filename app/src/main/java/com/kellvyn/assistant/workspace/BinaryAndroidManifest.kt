@@ -23,6 +23,20 @@ internal object BinaryAndroidManifest {
     private const val TYPE_INT_DEC = 0x10
     private const val TYPE_INT_BOOLEAN = 0x12
     private const val ANDROID_URI = "http://schemas.android.com/apk/res/android"
+    private val BLOCKED_PERMISSIONS = setOf(
+        "android.permission.MANAGE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.WRITE_SETTINGS",
+        "android.permission.WRITE_SECURE_SETTINGS",
+        "android.permission.INSTALL_PACKAGES",
+        "android.permission.DELETE_PACKAGES",
+        "android.permission.BIND_ACCESSIBILITY_SERVICE",
+        "android.permission.BIND_DEVICE_ADMIN",
+        "android.permission.INTERACT_ACROSS_USERS",
+        "android.permission.DUMP",
+        "android.permission.DEVICE_POWER"
+    )
 
     private data class Attribute(
         val name: String,
@@ -37,7 +51,8 @@ internal object BinaryAndroidManifest {
         activityName: String,
         appLabel: String,
         minSdk: Int,
-        targetSdk: Int
+        targetSdk: Int,
+        permissions: List<String> = emptyList()
     ): ByteArray {
         require(validPackage(packageName)) { "applicationId inválido para o manifesto." }
         require(activityName.matches(Regex("[A-Za-z_][A-Za-z0-9_]*(\\\\.[A-Za-z_][A-Za-z0-9_]*)+"))) {
@@ -45,6 +60,14 @@ internal object BinaryAndroidManifest {
         }
         require(appLabel.isNotBlank() && appLabel.length <= 100) { "Rótulo do aplicativo inválido." }
         require(minSdk in 21..100 && targetSdk >= minSdk && targetSdk <= 100) { "Níveis SDK inválidos." }
+        val safePermissions = permissions.distinct().onEach { permission ->
+            require(permission.matches(Regex("android\\.permission\\.[A-Z0-9_]+"))) {
+                "Permissão Android inválida no manifesto: " + permission
+            }
+            require(permission !in BLOCKED_PERMISSIONS) {
+                "A permissão " + permission + " não é aceita pela build automática por exigir acesso de alto privilégio."
+            }
+        }
 
         val strings = LinkedHashMap<String, Int>()
         fun string(value: String): Int = strings.getOrPut(value) { strings.size }
@@ -70,12 +93,13 @@ internal object BinaryAndroidManifest {
 
         listOf(
             "android", ANDROID_URI,
-            "manifest", "uses-sdk", "application", "activity", "intent-filter", "action", "category",
+            "manifest", "uses-sdk", "uses-permission", "application", "activity", "intent-filter", "action", "category",
             "package", packageName, "versionCode", "versionName", "1.0",
             "minSdkVersion", "targetSdkVersion", minSdk.toString(), targetSdk.toString(),
             "label", appLabel, "name", activityName, "exported", "true",
             "android.intent.action.MAIN", "android.intent.category.LAUNCHER"
         ).forEach { string(it) }
+        safePermissions.forEach { string(it) }
         val resourceIds = mapOf(
             "label" to 0x01010001,
             "name" to 0x01010003,
@@ -93,6 +117,10 @@ internal object BinaryAndroidManifest {
         chunks.write(startElement(strings, "manifest", manifestAttrs))
         chunks.write(startElement(strings, "uses-sdk", usesSdkAttrs))
         chunks.write(endElement(strings, "uses-sdk"))
+        safePermissions.forEach { permission ->
+            chunks.write(startElement(strings, "uses-permission", listOf(attr("name", permission))))
+            chunks.write(endElement(strings, "uses-permission"))
+        }
         chunks.write(startElement(strings, "application", appAttrs))
         chunks.write(startElement(strings, "activity", activityAttrs))
         chunks.write(startElement(strings, "intent-filter", emptyList()))
