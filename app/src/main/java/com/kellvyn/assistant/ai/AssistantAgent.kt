@@ -26,6 +26,35 @@ class AgentToolRouter(
     private val workspace: ProjectWorkspaceStore
 ) {
     private val git = WorkspaceGitService(workspace)
+    fun explicitGitReadRequest(text: String): Pair<String, JSONObject>? {
+        val lower = text.lowercase(Locale.ROOT)
+        val requestedTool = when {
+            Regex("\\bgit\\s+status\\b").containsMatchIn(lower) ||
+                listOf("estado do git", "status do git", "git status").any { it in lower } -> "git_status"
+            Regex("\\bgit\\s+diff\\b").containsMatchIn(lower) ||
+                listOf("diferenças do git", "diferencas do git", "diff do git").any { it in lower } -> "git_diff"
+            Regex("\\bgit\\s+log\\b").containsMatchIn(lower) ||
+                listOf("histórico de commits", "historico de commits", "log do git", "commits locais").any { it in lower } -> "git_log"
+            Regex("\\bgit\\s+branch\\b").containsMatchIn(lower) ||
+                listOf("branches locais", "branches do git", "branches desse projeto").any { it in lower } -> "git_branch"
+            else -> return null
+        }
+
+        val projects = workspace.listProjects()
+        if (projects.isEmpty()) return null
+        val named = projects.filter { project ->
+            lower.contains(project.id.lowercase(Locale.ROOT)) ||
+                (project.name.isNotBlank() && lower.contains(project.name.lowercase(Locale.ROOT)))
+        }
+        val project = when {
+            named.size == 1 -> named.first()
+            named.size > 1 -> return null
+            projects.size == 1 -> projects.first()
+            else -> return null
+        }
+        return requestedTool to JSONObject().put("project_id", project.id)
+    }
+
     fun explicitProjectFileListArguments(text: String): JSONObject? {
         val lower = text.lowercase(Locale.ROOT)
         val intent = listOf(
