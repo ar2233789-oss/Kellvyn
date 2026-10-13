@@ -101,7 +101,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 val declaredManifest = File(projectDir, "app/src/main/AndroidManifest.xml")
                     .takeIf { it.isFile }?.readText().orEmpty()
                 val requestedPermissions = Regex(
-                    """(?is)<uses-permission\\b[^>]*android:name\\s*=\\s*["']([^"']+)["'][^>]*>"""
+                    """(?is)<uses-permission\b[^>]*android:name\s*=\s*["']([^"']+)["'][^>]*>"""
                 ).findAll(declaredManifest).map { it.groupValues[1].trim() }.distinct().toList()
 
                 val jobDir = File(buildRoot, projectId).apply {
