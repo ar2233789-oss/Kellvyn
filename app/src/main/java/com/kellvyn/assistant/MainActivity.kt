@@ -127,6 +127,7 @@ fun KellvynApp() {
     val savedMemories = remember(memoryStore) { mutableStateListOf<MemoryFact>().apply { addAll(memoryStore.list()) } }
     var showBuilderDialog by remember { mutableStateOf(false) }
     var showProjectsDialog by remember { mutableStateOf(false) }
+    var projectToDelete by remember { mutableStateOf<WorkspaceProject?>(null) }
     var showEditorDialog by remember { mutableStateOf(false) }
     var activeEditProject by remember { mutableStateOf<WorkspaceProject?>(null) }
     var editablePaths by remember { mutableStateOf(emptyList<String>()) }
@@ -280,7 +281,7 @@ fun KellvynApp() {
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Kellvyn Assistente", color = Neon, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                    Text("INTELIGÊNCIA LOCAL", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                    Text(if (onlineMode) "PROVEDOR ONLINE OPCIONAL" else "NÚCLEO LOCAL • OFFLINE", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
                 }
                 TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
                     Text("⋮", color = Neon, fontSize = 23.sp)
@@ -635,7 +636,7 @@ fun KellvynApp() {
                     TextButton(onClick = { selectedNav = "Chat" }, contentPadding = PaddingValues(3.dp)) {
                         Text("✧", color = if (selectedNav == "Chat") Neon else Muted, fontSize = 19.sp)
                     }
-                    Text("IA", color = if (selectedNav == "Chat") Neon else Muted, fontSize = 9.sp)
+                    Text("Chat", color = if (selectedNav == "Chat") Neon else Muted, fontSize = 9.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                     TextButton(
@@ -677,7 +678,7 @@ fun KellvynApp() {
                     TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(3.dp)) {
                         Text("▤", color = Neon, fontSize = 19.sp)
                     }
-                    Text("Abas", color = Neon, fontSize = 9.sp)
+                    Text("Config", color = Neon, fontSize = 9.sp)
                 }
             }
         }
@@ -944,6 +945,7 @@ fun KellvynApp() {
                                                 pendingExportProject = project
                                                 zipExportPicker.launch("${project.id}.zip")
                                             }) { Text("Exportar ZIP") }
+                                            TextButton(onClick = { projectToDelete = project }) { Text("Apagar", color = Warning) }
                                         }
                                     }
                                 }
@@ -962,6 +964,40 @@ fun KellvynApp() {
                         builtProject = null
                         showBuilderDialog = true
                     }) { Text("Criar projeto") }
+                }
+            )
+        }
+
+        if (projectToDelete != null) {
+            val targetProject = projectToDelete
+            AlertDialog(
+                onDismissRequest = { projectToDelete = null },
+                title = { Text("Apagar projeto?") },
+                text = { Text("O projeto ${targetProject?.name.orEmpty()} e seus arquivos locais serão removidos deste aparelho.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val target = projectToDelete
+                        if (target != null) {
+                            try {
+                                workspaceStore.deleteProject(target.id)
+                                existingProjects.removeAll { it.id == target.id }
+                                if (activeEditProject?.id == target.id) {
+                                    showEditorDialog = false
+                                    activeEditProject = null
+                                    editablePaths = emptyList()
+                                    activeFilePath = ""
+                                    editorContent = ""
+                                }
+                                status = "Projeto ${target.name} apagado do armazenamento local."
+                            } catch (e: Exception) {
+                                status = "Falha ao apagar projeto: " + (e.message ?: e.javaClass.simpleName)
+                            }
+                        }
+                        projectToDelete = null
+                    }) { Text("Apagar definitivamente", color = Warning) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { projectToDelete = null }) { Text("Cancelar") }
                 }
             )
         }
