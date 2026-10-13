@@ -65,7 +65,7 @@ fun WorkspaceConsoleDialog(
     onAskAgent: suspend (String, suspend (String) -> Boolean) -> String
 ) {
     val scope = rememberCoroutineScope()
-    val manualShell = remember { ManualShellExecutor() }
+    val manualShell = remember(workspace) { ManualShellExecutor(workspace.workspaceDirectory()) }
     var command by remember { mutableStateOf("help") }
     var terminalBusy by remember { mutableStateOf(false) }
     var pendingShellCommand by remember { mutableStateOf<String?>(null) }
