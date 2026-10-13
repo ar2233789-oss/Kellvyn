@@ -13,8 +13,9 @@ O agente principal não usa a tela Terminal nem executa comandos por ela. Ele co
 | Estado do workspace | Lista quantos projetos existem e informa se o compilador local existe | Automática |
 | Projetos e arquivos | Lista projetos e arquivos do workspace privado | Automática |
 | Ler arquivo / pesquisar código | Lê arquivos de texto limitados e busca ocorrências | Automática |
-| Terminal de leitura | `help`, `pwd`, `ls`, `tree`, `find`, `cat`, `grep`, `wc`, `stat`, estado de Git | Automática |
-| Terminal de alteração | Criar, gravar, anexar, copiar, mover ou remover arquivos; ações locais de Git | Confirmação explícita |
+| Workspace de leitura | Estado do workspace, listar projetos/arquivos, ler arquivo e busca de texto | Automática |
+| Workspace de alteração | Criar/editar/apagar arquivos, apagar projeto | Confirmação explícita |
+| Git via JGit | Status/diff/log/branch diretamente no projeto; init/stage/commit são operações diretas sem shell | Leitura automática; alterações com confirmação |
 | Shell manual opcional (`! comando`) | Executa o comando digitado pelo usuário com `/system/bin/sh`, como UID normal do app, com timeout e saída limitados | Confirmação explícita; nunca acessível ao agente automático |
 | Editar ou excluir arquivo | Atua apenas dentro de um projeto registrado no workspace | Confirmação explícita |
 | Aplicar patch de texto | Substitui exatamente uma ocorrência de um trecho dentro de um arquivo local; falha sem alterar se não existir ou for ambíguo | Confirmação explícita |
