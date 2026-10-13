@@ -37,6 +37,8 @@ private val Panel = Color(0xFF121925)
 private val Neon = Color(0xFF4DDBFF)
 private val Muted = Color(0xFF9AA8BA)
 private val Warning = Color(0xFFFFC857)
+private const val MAX_CONTEXT_MESSAGES = 24
+private const val MAX_INPUT_CHARS = 12_000
 
 data class ChatMessage(val text: String, val fromUser: Boolean)
 
@@ -277,7 +279,7 @@ fun KellvynApp() {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = draft,
-                    onValueChange = { draft = it },
+                    onValueChange = { if (it.length <= MAX_INPUT_CHARS) draft = it },
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Escreva uma mensagem…", color = Muted) },
                     shape = RoundedCornerShape(16.dp),
@@ -309,7 +311,7 @@ fun KellvynApp() {
                                 isGenerating = true
                                 status = if (onlineSelected) "Enviando ao endpoint online escolhido…" else "Gerando resposta no aparelho…"
                                 val selectedEngine: AssistantEngine = if (onlineSelected) onlineEngine else localEngine
-                                val turns = messages.mapNotNull { message ->
+                                val turns = messages.takeLast(MAX_CONTEXT_MESSAGES).mapNotNull { message ->
                                     if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) {
                                         null
                                     } else {
