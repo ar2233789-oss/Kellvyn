@@ -1612,6 +1612,7 @@ fun KellvynApp() {
                 onlineMode = onlineMode,
                 onlineConfigured = onlineConfigured,
                 onDismiss = { showConsoleDialog = false },
+                requestAgentApproval = { summary -> requestAgentApproval(summary) },
                 onAskAgent = { request, requestApproval ->
                     if (isGenerating) {
                         "O agente principal já está processando outra solicitação. Aguarde terminar antes de pedir ajuda pelo terminal."
