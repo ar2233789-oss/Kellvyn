@@ -88,4 +88,4 @@ Implementado no código: Kotlin/Compose, chat, histórico local limitado e apag�
 Ainda não concluído/validado: compilação local de projetos gerados; resposta real no Poco F6; instalação e desempenho no aparelho; depuração/build/teste automático local; aprendizagem de jogos; overlay/mascote; terminal real seguro; entrega de APKs dos projetos criados. A build anterior do próprio Kellvyn não comprova essas capacidades.
 
 ## Critério de conclusão
-O Kellvyn só estará completo quando a interface nativa, um modelo real, memória, ferramentas e compilador local trabalharem juntos; quando um projeto pedido em português puder ser compilado no próprio telefone sem token/serviço remoto; quando o APK válido for a saída principal; e quando os fluxos críticos tiverem sido testados no aparelho-alvo.
+O critério de conclusão do bloco de build é confirmar no aparelho-alvo que um projeto Java pedido em português passa pelo fluxo de chat, gera APK, apresenta assinatura verificada e abre o instalador nativo sem terminal nem serviço remoto.
