@@ -62,6 +62,7 @@ fun WorkspaceConsoleDialog(
     onlineMode: Boolean,
     onlineConfigured: Boolean,
     onDismiss: () -> Unit,
+    requestAgentApproval: suspend (String) -> Boolean,
     onAskAgent: suspend (String, suspend (String) -> Boolean) -> String
 ) {
     val scope = rememberCoroutineScope()
