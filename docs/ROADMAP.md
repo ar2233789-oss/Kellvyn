@@ -10,6 +10,8 @@
 - [x] Terminal local de workspace com comandos de arquivos e Git via JGit; shell manual opcional para comando digitado pelo usuário, com confirmação e limites. O agente automático não recebe o shell manual, somente sua lista interna de ferramentas.
 - [x] Agente do chat usa APIs diretas para listar/ler/pesquisar arquivos e projetos, sem chamar comandos de terminal. Diagnóstico manual de terminal usa o texto de saída que o próprio usuário encaminha ao agente.
 - [x] A tela Terminal possui campo/botão de ajuda que encaminha pergunta e saída recente ao agente principal.
+- [x] O agente principal opera Git por uma camada JGit própria no projeto (status, diff, log, branches e operações locais autorizadas), sem depender da tela Terminal.
+- [ ] Compilar/testar a camada Git JGit no build Android completo.
 - [x] Pesquisa web HTTPS, descoberta/listagem de repositórios públicos do GitHub, leitura de arquivos e importação limitada após confirmação explícita quando o pedido é importar; tudo exige internet autorizada e trata conteúdo externo como dado não confiável.
 - [ ] Testar instalação e uso no Poco F6 real.
 
