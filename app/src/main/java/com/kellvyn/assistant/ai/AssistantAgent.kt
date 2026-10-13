@@ -949,9 +949,9 @@ class AssistantAgent(
         val lower = text.lowercase(Locale.ROOT)
         val asksToRead = listOf(
             "leia esta página", "leia a página", "leia essa página", "analise esta página",
-            "analise o link", "analise esta url", "resuma a página", "resuma esta página",
+            "analise o link", "analise esse link", "analise esta url", "resuma a página", "resuma esta página", "resuma essa página",
             "resuma o link", "abra o link", "abra esta página", "veja este site",
-            "leia este link", "leia o link", "read this page", "summarize this page",
+            "leia este link", "leia esse link", "leia o link", "abra esse link", "read this page", "summarize this page",
             "analyze this url", "open this link"
         ).any { it in lower }
         if (!asksToRead) return null
@@ -972,8 +972,10 @@ class AssistantAgent(
         val lower = text.lowercase(Locale.ROOT)
         if ("github.com/" !in lower) return null
         val asksToInspect = listOf(
-            "repositório", "repositorio", "repositório", "arquivos do repo", "arquivos desse repo",
+            "repositório", "repositorio", "arquivos do repo", "arquivos desse repo",
             "analise o repo", "analise esse repo", "analise o repositório", "analise o repositorio",
+            "analise esse link", "leia esse link", "abra esse link", "veja esse repositório",
+            "veja esse repositorio", "olhe esse repo", "olha esse repo", "explore esse link",
             "explore o repo", "explore o repositório", "liste arquivos", "listar arquivos",
             "quais arquivos", "inspect repo", "read this repo", "browse the repo"
         ).any { it in lower }
