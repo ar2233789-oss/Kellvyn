@@ -88,6 +88,18 @@ class GeneratedAndroidProjectValidatorTest {
     }
 
     @Test
+    fun allowsCommentsThatMerelyMentionPlaceholderText() {
+        val files = validProject().toMutableMap()
+        files["app/src/main/java/com/example/app/SecondActivity.kt"] = """
+            package com.example.app
+            // A placeholder hint is shown until the person types.
+            val hint = "Enter text"
+        """.trimIndent()
+
+        assertNull(GeneratedAndroidProjectValidator.validate(files))
+    }
+
+    @Test
     fun rejectsFixmeCommentsAndNotImplementedCalls() {
         val files = validProject().toMutableMap()
         files["app/src/main/java/com/example/app/SecondActivity.kt"] = """
