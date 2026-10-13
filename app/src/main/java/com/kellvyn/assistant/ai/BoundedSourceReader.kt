@@ -26,7 +26,7 @@ internal object BoundedSourceReader {
         require(maxLines in 1..MAX_LINES) {
             "max_lines precisa ficar entre 1 e $MAX_LINES."
         }
-        val lines = text.split('\n')
+        val lines = text.lineSequence().toList()
         require(startLine <= lines.size) {
             "A linha $startLine não existe; o arquivo contém ${lines.size} linhas."
         }
