@@ -888,6 +888,9 @@ class AssistantAgent(
         val localFileRequest = if (!hasExternalLinkRequest && localFileListRequest == null) {
             withContext(Dispatchers.IO) { tools.explicitLocalFileReadArguments(lastUser) }
         } else null
+        val localGitReadRequest = if (!hasExternalLinkRequest && localFileListRequest == null && localFileRequest == null) {
+            withContext(Dispatchers.IO) { tools.explicitGitReadRequest(lastUser) }
+        } else null
         val preflight = when {
             !hasExternalLinkRequest && looksLikeLocalApkBuildRequest(lastUser) -> {
                 onToolStatus("Verificando o estado real do compilador local…")
@@ -915,6 +918,13 @@ class AssistantAgent(
                 "Arquivo local identificado: " + runCatching {
                     tools.execute("read_file", localFileRequest, internetAllowed)
                 }.getOrElse { "Falha ao ler o arquivo local: ${it.message}" }
+            }
+            !hasExternalLinkRequest && localGitReadRequest != null -> {
+                val (toolName, arguments) = localGitReadRequest
+                onToolStatus("Consultando Git local diretamente, sem usar o terminal…")
+                "Resultado do Git local: " + runCatching {
+                    tools.execute(toolName, arguments, internetAllowed)
+                }.getOrElse { "Falha na consulta Git: ${it.message ?: it.javaClass.simpleName}" }
             }
             !hasExternalLinkRequest && looksLikeLocalCodeSearch(lastUser) -> {
                 val needle = extractLocalSearchQuery(lastUser)
