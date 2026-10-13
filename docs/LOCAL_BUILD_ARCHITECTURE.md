@@ -16,6 +16,10 @@ A referência de engenharia consultada é o projeto aberto AIDE-OS, cuja documen
 6. Em caso de falha, o agente recebe os logs e pode propor correções controladas. Ele não deve sobrescrever arquivos sem validação.
 7. O APK resultante é validado e assinado localmente e apresentado como resultado principal. ZIP continua sendo uma exportação secundária.
 
+## Versões-alvo dos projetos gerados
+
+A configuração padrão pretendida para projetos Android/Compose é: Android Gradle Plugin 8.7.3, Gradle 8.9, Kotlin Android/Compose 2.4.0, JDK 17, compileSdk/targetSdk 35 e minSdk 26. O gerador e seu validador compartilham essas versões para reduzir divergências. Segundo a matriz oficial do Kotlin 2.4.0, o plugin é compatível com AGP 8.5.2–9.1.0 e Gradle 7.6.3–9.5.0; o AGP 8.7 exige pelo menos Gradle 8.9. Referências: https://kotlinlang.org/docs/gradle-configure-project.html e https://developer.android.com/build/releases/about-agp. Essa configuração por si só não significa que o compilador local já esteja integrado.
+
 ## Requisitos do motor local
 
 - Compatibilidade com Android ARM64 e as limitações do ambiente de execução Android.
