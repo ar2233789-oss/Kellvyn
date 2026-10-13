@@ -46,10 +46,34 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
 
     fun savedModelSizeBytes(): Long = if (hasSavedModel()) modelFile.length() else 0L
 
-    /** Closes native inference and removes the locally stored model to release disk space. */
+    /** Closes inference and removes the saved model plus any stale temporary/backup files. */
     fun removeSavedModel(): Boolean {
         close()
-        return !modelFile.exists() || modelFile.delete()
+        val directory = modelFile.parentFile ?: return !modelFile.exists()
+        val filesToRemove = listOf(
+            modelFile,
+            File(directory, "kellvyn-model.previous"),
+            File(directory, "kellvyn-model.part"),
+            File(directory, "kellvyn-model.import"),
+            File(directory, "kellvyn-model.download")
+        )
+        return filesToRemove.all { file -> !file.exists() || file.delete() }
+    }
+
+    /** Restore an interrupted replacement before the UI checks whether a saved model exists. */
+    suspend fun recoverInterruptedModelSwap() {
+        withContext(Dispatchers.IO) {
+            val directory = modelFile.parentFile
+                ?: throw IllegalStateException("Pasta privada de modelos indisponível.")
+            if (!directory.exists() && !directory.mkdirs()) {
+                throw IllegalStateException("Não foi possível preparar a pasta privada do modelo.")
+            }
+            recoverPreviousModelFile(File(directory, "kellvyn-model.previous"))
+            // These files were never committed as the active model.
+            File(directory, "kellvyn-model.part").delete()
+            File(directory, "kellvyn-model.import").delete()
+            File(directory, "kellvyn-model.download").delete()
+        }
     }
 
     suspend fun importAndLoad(uri: Uri): AssistantResult {
