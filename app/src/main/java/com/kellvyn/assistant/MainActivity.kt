@@ -68,7 +68,8 @@ private val Panel = Color(0xFF071713)
 private val Neon = Color(0xFF38E6BC)
 private val Muted = Color(0xFF91B8AD)
 private val Warning = Color(0xFFFFC857)
-private const val MAX_CONTEXT_MESSAGES = 24
+private const val MAX_CONTEXT_MESSAGES = 10
+private const val MAX_HISTORY_MESSAGE_CHARS = 1_200
 private const val MAX_INPUT_CHARS = 12_000
 private const val MAX_EDITOR_CHARS = 80_000
 
@@ -199,6 +200,33 @@ fun KellvynApp() {
         historyStore.save(messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) })
     }
 
+    fun buildConversationTurns(): List<AssistantTurn> {
+        val recent = messages.takeLast(MAX_CONTEXT_MESSAGES)
+        val latestUserIndex = recent.indexOfLast { it.fromUser }
+        val memoryContext = memoryStore.promptContext()
+        return buildList {
+            if (memoryContext.isNotBlank()) {
+                add(AssistantTurn(AssistantTurn.Role.SYSTEM, memoryContext))
+            }
+            recent.forEachIndexed { index, message ->
+                if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) {
+                    return@forEachIndexed
+                }
+                val content = if (index == latestUserIndex) {
+                    message.text.take(MAX_INPUT_CHARS)
+                } else {
+                    message.text.take(MAX_HISTORY_MESSAGE_CHARS)
+                }
+                add(
+                    AssistantTurn(
+                        role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
+                        content = content
+                    )
+                )
+            }
+        }
+    }
+
     fun rememberOpenTab(projectId: String, path: String) {
         val tab = "$projectId::$path"
         openTabs = (openTabs + tab).distinct().takeLast(40)
@@ -270,19 +298,7 @@ fun KellvynApp() {
                         }
                     }
                 } else {
-                    val memoryContext = memoryStore.promptContext()
-                    val turns = buildList {
-                        if (memoryContext.isNotBlank()) add(
-                            AssistantTurn(role = AssistantTurn.Role.SYSTEM, content = memoryContext)
-                        )
-                        addAll(messages.takeLast(MAX_CONTEXT_MESSAGES).mapNotNull { message ->
-                            if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) null
-                            else AssistantTurn(
-                                role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
-                                content = message.text
-                            )
-                        })
-                    }
+                    val turns = buildConversationTurns()
                     val agentResult = assistantAgent.respond(
                         engine = selectedEngine,
                         conversation = turns,
@@ -1458,19 +1474,7 @@ fun KellvynApp() {
                         isGenerating = true
                         status = "O agente está analisando o terminal sem fechar esta tela…"
                         try {
-                            val memoryContext = memoryStore.promptContext()
-                            val turns = buildList {
-                                if (memoryContext.isNotBlank()) {
-                                    add(AssistantTurn(AssistantTurn.Role.SYSTEM, memoryContext))
-                                }
-                                addAll(messages.takeLast(MAX_CONTEXT_MESSAGES).mapNotNull { message ->
-                                    if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) null
-                                    else AssistantTurn(
-                                        role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
-                                        content = message.text
-                                    )
-                                })
-                            }
+                            val turns = buildConversationTurns()
                             when (
                                 val result = assistantAgent.respond(
                                     engine = if (onlineMode) onlineEngine else localEngine,
