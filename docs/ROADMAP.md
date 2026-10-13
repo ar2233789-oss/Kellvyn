@@ -13,6 +13,7 @@
 - [x] A tela Terminal possui campo/botão de ajuda que encaminha pergunta e saída recente ao agente principal.
 - [x] O agente principal opera Git por uma camada JGit própria no projeto (status, diff, log, branches e operações locais autorizadas), sem depender da tela Terminal.
 - [ ] Compilar/testar a camada Git JGit no build Android completo.
+- [x] Criados testes de regressão para roteamento chat→Build e validação de diretório/comando do shell manual (ainda pendentes de execução no Gradle Android completo).
 - [x] Pesquisa web HTTPS, descoberta/listagem de repositórios públicos do GitHub, leitura de arquivos e importação limitada após confirmação explícita quando o pedido é importar; tudo exige internet autorizada e trata conteúdo externo como dado não confiável.
 - [ ] Testar instalação e uso no Poco F6 real.
 
