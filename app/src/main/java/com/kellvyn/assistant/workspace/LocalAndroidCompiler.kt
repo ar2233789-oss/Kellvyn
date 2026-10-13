@@ -50,6 +50,10 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
     fun hasAcceptedSdkLicense(): Boolean = preferences.getBoolean(PREF_SDK_LICENSE_ACCEPTED, false)
     fun acceptSdkLicense() { preferences.edit().putBoolean(PREF_SDK_LICENSE_ACCEPTED, true).apply() }
 
+    fun mostRecentApk(): File? = buildRoot.listFiles()
+        ?.filter { it.isFile && it.extension.equals("apk", ignoreCase = true) }
+        ?.maxByOrNull { it.lastModified() }
+
     suspend fun build(projectId: String, onProgress: (String) -> Unit = {}): LocalApkBuildResult =
         withContext(Dispatchers.IO) {
             val startedAt = System.nanoTime()
@@ -78,6 +82,14 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                     it.name == "MainActivity.java" && Regex("""\bclass\s+MainActivity\b""").containsMatchIn(it.readText())
                 } ?: return@withContext LocalApkBuildResult.Failure("Não encontrei uma classe MainActivity em app/src/main/java.")
                 val mainText = mainActivity.readText()
+                val sourceBodies = sources.joinToString("\n") { it.readText() }
+                val codeOnly = sourceBodies
+                    .replace(Regex("(?s)/\\*.*?\\*/"), " ")
+                    .replace(Regex("(?m)//.*$"), " ")
+                    .replace(Regex("\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'"), " ")
+                require(!Regex("""\s(?:->|::)\s""").containsMatchIn(codeOnly)) {
+                    "A compilação inicial requer listeners por classes anônimas; substitua lambdas e method references por View.OnClickListener ou TextWatcher anônimo."
+                }
                 val packageName = Regex("""(?m)^\s*package\s+([A-Za-z_][A-Za-z0-9_.]*)\s*;""")
                     .find(mainText)?.groupValues?.getOrNull(1)
                     ?: return@withContext LocalApkBuildResult.Failure("MainActivity.java precisa declarar o pacote Java.")
