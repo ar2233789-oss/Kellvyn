@@ -26,7 +26,7 @@ O agente principal não usa a tela Terminal nem executa comandos por ela. Ele co
 ## Limites de segurança
 
 - O chat autônomo não depende da tela Terminal. O agente usa operações diretas de workspace e JGit; não há execução de comandos de terminal na camada do agente, nem shell arbitrário, scripts, encadeamento ou redirecionamento.
-- O usuário pode optar pelo shell manual via `! comando`, confirmar a execução e rodar `/system/bin/sh` como UID normal do aplicativo (sem root, até 15 s e saída até 64 KB). Este shell não é usado pelo agente automático.
+- O usuário pode optar pelo shell manual via `! comando`, confirmar a execução e rodar `/system/bin/sh` como UID normal do aplicativo (sem root, até 15 s e saída até 64 KB). Este shell não é usado pelo agente automático e não constitui um sandbox: caminhos absolutos e `cd` podem alcançar outros dados privados que o próprio app consegue acessar.
 - Caminhos absolutos, traversal com `..`, pastas internas e metadados protegidos são bloqueados.
 - Escritas, exclusões e comandos de terminal que alteram o workspace aguardam autorização do usuário.
 - As páginas web e os arquivos do workspace são dados não confiáveis. Instruções encontradas neles não ganham privilégios nem podem substituir as regras do agente.
