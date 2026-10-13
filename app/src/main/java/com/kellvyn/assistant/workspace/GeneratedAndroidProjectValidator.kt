@@ -56,6 +56,12 @@ internal object GeneratedAndroidProjectValidator {
         ) {
             problems += "faltam dependências/plugins básicos de Jetpack Compose"
         }
+        if (!appBuild.contains("sourceCompatibility = JavaVersion.VERSION_17") ||
+            !appBuild.contains("targetCompatibility = JavaVersion.VERSION_17") ||
+            !appBuild.contains("JvmTarget.JVM_17")
+        ) {
+            problems += "o projeto precisa compilar Java e Kotlin com alvo JVM 17"
+        }
         if (!properties.contains("org.gradle.parallel=false") ||
             !Regex("""org\.gradle\.workers\.max\s*=\s*2""").containsMatchIn(properties)
         ) {
