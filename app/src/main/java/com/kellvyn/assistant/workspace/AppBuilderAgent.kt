@@ -175,14 +175,15 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     if (repairs.map { it.path }.distinct().size != repairs.size) {
                         return "O reparador repetiu o caminho de um arquivo."
                     }
-                    workspace.addOrReplaceFiles(projectId, repairs)
-                    val updatedProjectFiles = workspace.listFiles(projectId).associateWith { filePath ->
+                    val prospectiveFiles = workspace.listFiles(projectId).associateWith { filePath ->
                         workspace.readFile(projectId, filePath)
-                    }
-                    val structureError = GeneratedAndroidProjectValidator.validate(updatedProjectFiles)
+                    }.toMutableMap()
+                    repairs.forEach { repaired -> prospectiveFiles[repaired.path] = repaired.content }
+                    val structureError = GeneratedAndroidProjectValidator.validate(prospectiveFiles)
                     if (structureError != null) {
-                        "O código reparado não passou pela validação estrutural: " + structureError
+                        "O código reparado não passou pela validação estrutural e não foi salvo: " + structureError
                     } else {
+                        workspace.addOrReplaceFiles(projectId, repairs)
                         null
                     }
                 }
