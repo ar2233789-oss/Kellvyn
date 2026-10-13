@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -20,7 +21,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -326,12 +333,54 @@ fun KellvynApp() {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(messages) { message ->
-                    Surface(
-                        color = if (message.fromUser) Color(0xFF123044) else Panel,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(message.text, modifier = Modifier.padding(14.dp), color = Color.White, fontSize = 14.sp)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Surface(
+                            color = if (message.fromUser) Color(0xFF123044) else Panel,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                message.text,
+                                modifier = Modifier.padding(14.dp),
+                                color = Color.White,
+                                fontSize = 14.sp
+                            )
+                        }
+                        if (!message.fromUser) {
+                            val clipboard = LocalClipboardManager.current
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(end = 4.dp, top = 1.dp),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        clipboard.setText(AnnotatedString(message.text))
+                                        status = "Resposta copiada para a área de transferência"
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+                                ) {
+                                    Canvas(modifier = Modifier.size(17.dp)) {
+                                        val line = 1.5.dp.toPx()
+                                        drawRoundRect(
+                                            color = Neon.copy(alpha = 0.65f),
+                                            topLeft = Offset(size.width * 0.27f, size.height * 0.08f),
+                                            size = Size(size.width * 0.58f, size.height * 0.68f),
+                                            cornerRadius = CornerRadius(2.dp.toPx()),
+                                            style = Stroke(width = line)
+                                        )
+                                        drawRoundRect(
+                                            color = Neon,
+                                            topLeft = Offset(size.width * 0.12f, size.height * 0.27f),
+                                            size = Size(size.width * 0.58f, size.height * 0.65f),
+                                            cornerRadius = CornerRadius(2.dp.toPx()),
+                                            style = Stroke(width = line)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Copiar", color = Muted, fontSize = 11.sp)
+                                }
+                            }
+                        }
                     }
                 }
             }
