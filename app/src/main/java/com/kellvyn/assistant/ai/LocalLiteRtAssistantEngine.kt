@@ -57,7 +57,11 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             File(directory, "kellvyn-model.import"),
             File(directory, "kellvyn-model.download")
         )
-        return filesToRemove.all { file -> !file.exists() || file.delete() }
+        var allRemoved = true
+        filesToRemove.forEach { file ->
+            if (file.exists() && !file.delete()) allRemoved = false
+        }
+        return allRemoved
     }
 
     /** Restore an interrupted replacement before the UI checks whether a saved model exists. */
