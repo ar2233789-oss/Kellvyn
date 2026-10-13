@@ -13,17 +13,22 @@ import kotlin.concurrent.thread
  * fixed command allowlist instead. Each manual command runs as the app's Android UID in the
  * current app-private workspace directory; it is not root and does not have a persistent shell.
  */
-class ManualShellExecutor {
+class ManualShellExecutor(private val workspaceRoot: File) {
     fun execute(command: String, workingDirectory: File): String {
         val line = command.trim()
         require(line.isNotBlank()) { "Digite um comando depois de !." }
         require(line.length <= MAX_COMMAND_CHARS) { "O comando passou do limite de $MAX_COMMAND_CHARS caracteres." }
         require(line.none { it == '\u0000' }) { "O comando contém um caractere inválido." }
         require(workingDirectory.isDirectory) { "A pasta atual do terminal não existe mais." }
+        val root = workspaceRoot.canonicalFile
+        val working = workingDirectory.canonicalFile
+        require(working == root || working.path.startsWith(root.path + File.separator)) {
+            "O shell manual só pode ser executado dentro da pasta privada /workspace."
+        }
 
         val process = try {
             ProcessBuilder("/system/bin/sh", "-c", line)
-                .directory(workingDirectory.canonicalFile)
+                .directory(working)
                 .redirectErrorStream(true)
                 .start()
         } catch (e: Exception) {
