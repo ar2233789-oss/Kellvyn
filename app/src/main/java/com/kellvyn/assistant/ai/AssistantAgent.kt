@@ -672,10 +672,10 @@ class AssistantAgent(
                 }.getOrElse { "Falha ao listar projetos: ${it.message}" }
             }
             looksLikeLocalCodeSearch(lastUser) -> {
-                val needle = lastUser.substringAfterLast(' ').trim().trim(',', '.', '?', '!', '"').removeSurrounding("'")
+                val needle = extractLocalSearchQuery(lastUser)
                 if (needle.length < 2) null else {
                     onToolStatus("Buscando nos arquivos locais do projeto…")
-                    "Resultado da busca local: " + runCatching {
+                    "Resultado da busca local para '$needle': " + runCatching {
                         tools.execute("search_workspace", JSONObject().put("query", needle), internetAllowed)
                     }.getOrElse { "Falha na busca local: ${it.message}" }
                 }
@@ -867,6 +867,38 @@ class AssistantAgent(
             .put("ref", ref)
     }
 
+    private fun extractLocalSearchQuery(text: String): String {
+        val normalized = text.trim()
+        val lower = normalized.lowercase(Locale.ROOT)
+        val markers = listOf(
+            "procure no código", "procure no codigo", "busque no código", "busque no codigo",
+            "encontre no código", "encontre no codigo", "pesquise nos arquivos", "procure nos arquivos",
+            "busque nos arquivos", "encontre nos arquivos", "pesquise no workspace"
+        )
+        val marker = markers.firstOrNull { lower.contains(it) }
+            ?: return normalized.take(MAX_LOCAL_SEARCH_QUERY_CHARS)
+        val position = lower.indexOf(marker)
+        var query = normalized.substring((position + marker.length).coerceAtMost(normalized.length))
+            .trim()
+            .trimStart(':', '-', ' ')
+        val removablePrefixes = listOf(
+            "por ", "sobre ", "por favor ", "o método ", "a função ", "a palavra ",
+            "o texto ", "a classe ", "a variável ", "a chamada ", "com o nome "
+        )
+        var changed = true
+        while (changed) {
+            changed = false
+            val lowerQuery = query.lowercase(Locale.ROOT)
+            val prefix = removablePrefixes.firstOrNull { lowerQuery.startsWith(it) }
+            if (prefix != null) {
+                query = query.drop(prefix.length).trimStart()
+                changed = true
+            }
+        }
+        query = query.removeSurrounding("\\\"").removeSurrounding("'").trim().trimEnd('.', '?', '!')
+        return query.ifBlank { normalized }.take(MAX_LOCAL_SEARCH_QUERY_CHARS)
+    }
+
     private fun looksLikeLocalCodeSearch(text: String): Boolean {
         val t = text.lowercase(Locale.ROOT)
         return listOf(
@@ -973,6 +1005,7 @@ class AssistantAgent(
         const val MAX_LOCAL_PREFLIGHT_CHARS = 2_500
         const val MAX_USER_CONTEXT_CHARS = 5_000
         const val MAX_QUERY_CHARS = 300
+        const val MAX_LOCAL_SEARCH_QUERY_CHARS = 200
         const val MAX_PREFLIGHT_CHARS = 4_000
         const val AGENT_SYSTEM = "Você é Kellvyn IA, um agente conversacional capaz de usar ferramentas reais do aplicativo com permissão. Converse normalmente, raciocine e ajude o usuário. Quando precisar verificar terminal, projetos, arquivos ou internet, escolha uma ferramenta e aguarde o resultado. Nunca invente ações ou resultados."
     }
