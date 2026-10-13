@@ -4,7 +4,10 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Stores chat messages only in this app's private preferences. */
+/**
+ * Stores bounded chat history only in this app's private preferences.
+ * The manifest disables Android backup for the app.
+ */
 class ChatHistoryStore(context: Context) {
     private val prefs = context.getSharedPreferences("kellvyn_chat_history", Context.MODE_PRIVATE)
 
@@ -15,9 +18,13 @@ class ChatHistoryStore(context: Context) {
         return try {
             val array = JSONArray(raw)
             buildList {
-                for (i in 0 until array.length()) {
+                val start = (array.length() - MAX_MESSAGES).coerceAtLeast(0)
+                for (i in start until array.length()) {
                     val item = array.getJSONObject(i)
-                    add(SavedMessage(item.getString("text"), item.getBoolean("fromUser")))
+                    val text = item.optString("text")
+                    if (text.isNotBlank()) {
+                        add(SavedMessage(text.take(MAX_MESSAGE_CHARS), item.optBoolean("fromUser")))
+                    }
                 }
             }
         } catch (_: Exception) {
@@ -27,8 +34,12 @@ class ChatHistoryStore(context: Context) {
 
     fun save(messages: List<SavedMessage>) {
         val array = JSONArray()
-        messages.forEach { message ->
-            array.put(JSONObject().put("text", message.text).put("fromUser", message.fromUser))
+        messages.takeLast(MAX_MESSAGES).forEach { message ->
+            array.put(
+                JSONObject()
+                    .put("text", message.text.take(MAX_MESSAGE_CHARS))
+                    .put("fromUser", message.fromUser)
+            )
         }
         prefs.edit().putString(KEY, array.toString()).apply()
     }
@@ -39,5 +50,7 @@ class ChatHistoryStore(context: Context) {
 
     private companion object {
         const val KEY = "messages"
+        const val MAX_MESSAGES = 200
+        const val MAX_MESSAGE_CHARS = 12_000
     }
 }
