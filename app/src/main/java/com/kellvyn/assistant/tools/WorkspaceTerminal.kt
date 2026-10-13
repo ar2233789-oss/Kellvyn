@@ -245,6 +245,7 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
         require(source.length() <= MAX_READ_BYTES) { "A cópia pelo terminal está limitada a arquivos de 100 KB." }
         val target = if (destination.isDirectory) File(destination, source.name) else destination
         requireSafeForMutation(target)
+        require(source.canonicalFile != target.canonicalFile) { "Origem e destino são o mesmo arquivo." }
         source.copyTo(target, overwrite = true)
         return "Copiado: ${relative(source)} → ${relative(target)}"
     }
@@ -258,7 +259,11 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
         requireSafeForMutation(destination)
         val target = if (destination.isDirectory) File(destination, source.name) else destination
         requireSafeForMutation(target)
-        if (target.exists()) target.delete()
+        require(source.canonicalFile != target.canonicalFile) { "Origem e destino são o mesmo arquivo." }
+        if (target.exists()) {
+            require(target.isFile) { "O destino existe e não é um arquivo comum." }
+            require(target.delete()) { "Não foi possível substituir o arquivo de destino." }
+        }
         require(source.renameTo(target)) { "Não foi possível mover o arquivo." }
         return "Movido: ${relative(source)} → ${relative(target)}"
     }
