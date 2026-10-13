@@ -7,7 +7,7 @@
 - [x] Botão de copiar abaixo das respostas.
 - [x] Entrada por ditado e saída por voz usando serviços instalados no Android.
 - [x] Memória explícita controlada pelo usuário.
-- [x] Console limitado para informações e arquivos do workspace.
+- [x] Terminal local com comandos de arquivos, navegação no workspace, busca textual e Git local via JGit (sem shell arbitrário).
 - [ ] Testar instalação e uso no Poco F6 real.
 
 ## Fase 2 — Motor de IA local
@@ -35,7 +35,8 @@
 
 ## Fase 4 — Ferramentas nativas
 - [x] Editor local de código para arquivos gerados.
-- [x] Console seguro limitado ao workspace (não é um shell do sistema).
+- [x] Terminal do workspace com operações locais de arquivos e Git; comandos de shell arbitrários não são executados.
+- [ ] Adicionar camada de compilação local ARM64 e conectar o resultado/erros ao terminal.
 - [ ] Git local nativo, sem que serviço remoto seja necessário para build.
 - [ ] Agente de depuração que lê logs locais, propõe correções e repete builds limitados.
 - [ ] Interface de atividade do núcleo com estados verdadeiros.
