@@ -1270,7 +1270,7 @@ fun KellvynApp() {
                         }
                         builtProject?.let { project ->
                             Text("Arquivos: ${project.fileCount}", color = Color.White, fontWeight = FontWeight.Bold)
-                            Text("Arquivos guardados localmente. Isto ainda não é um APK: a compilação local precisa ser integrada. ZIP é apenas uma exportação opcional.", color = Muted, fontSize = 12.sp)
+                            Text("Após gerar, o Kellvyn tenta compilar o APK neste aparelho. O primeiro build pode pedir consentimento para baixar a plataforma Android. ZIP continua opcional.", color = Muted, fontSize = 12.sp)
                         }
                     }
                 },
@@ -1295,10 +1295,12 @@ fun KellvynApp() {
                                         when (val result = appBuilderAgent.createProject(engine, builderBrief)) {
                                             is AppBuildResult.Success -> {
                                                 builtProject = result.project
-                                                builderMessage = "Projeto criado: ${result.project.name}"
+                                                builderMessage = "Projeto criado: ${result.project.name}. Compilando APK localmente…"
                                                 existingProjects.clear()
                                                 existingProjects.addAll(workspaceStore.listProjects())
-                                                status = "Construtor criou ${result.project.fileCount} arquivos. Revise o código antes de compilar."
+                                                status = "Construtor criou ${result.project.fileCount} arquivos; compilação local iniciada."
+                                                buildProjectAndReport(result.project)
+                                                builderMessage = latestBuiltApk?.let { "APK gerado: ${it.name}" } ?: status
                                             }
                                             is AppBuildResult.Failure -> {
                                                 builderMessage = result.reason
