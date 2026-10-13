@@ -725,7 +725,7 @@ class AssistantAgent(
         if (!asksToRead) return null
         val start = lower.indexOf("https://")
         if (start < 0) return null
-        val end = text.indexOfFirstFrom(start) { it.isWhitespace() || it == '<' || it == '>' || it == '"' || it == '\\'' }
+        val end = text.indexOfFirstFrom(start) { it.isWhitespace() || it == '<' || it == '>' || it.code == 34 || it.code == 39 }
         val candidate = (if (end < 0) text.substring(start) else text.substring(start, end))
             .trimEnd(',', '.', ')', ']', '}')
         return candidate.takeIf { it.startsWith("https://", ignoreCase = true) && it.length <= 2_000 }
