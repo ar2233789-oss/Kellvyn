@@ -18,7 +18,7 @@ A referência de engenharia consultada é o projeto aberto AIDE-OS, cuja documen
 
 ## Versões-alvo dos projetos gerados
 
-A configuração padrão pretendida para projetos Android/Compose é: Android Gradle Plugin 8.7.3, Gradle 8.9, Kotlin Android/Compose 2.4.0, JDK 17, compileSdk/targetSdk 35 e minSdk 26. O gerador e seu validador compartilham essas versões para reduzir divergências. Segundo a matriz oficial do Kotlin 2.4.0, o plugin é compatível com AGP 8.5.2–9.1.0 e Gradle 7.6.3–9.5.0; o AGP 8.7 exige pelo menos Gradle 8.9. Referências: https://kotlinlang.org/docs/gradle-configure-project.html e https://developer.android.com/build/releases/about-agp. Essa configuração por si só não significa que o compilador local já esteja integrado.
+O perfil de projeto Android com Gradle/Compose é mantido como alvo de exportação futura. O pipeline rápido atualmente integrado ao Kellvyn é mais restrito: ECJ compila fontes Java 8 com APIs do framework Android, D8 converte as classes em DEX, `BinaryAndroidManifest` escreve o manifesto nativo mínimo e `apksig` assina/verifica o APK. O perfil inicial não aceita Kotlin/Compose, `res/`, `assets/` ou bibliotecas externas; ele não executa scripts Gradle do projeto.
 
 ## Requisitos do motor local
 
@@ -32,14 +32,14 @@ A configuração padrão pretendida para projetos Android/Compose é: Android Gr
 
 ## Estado atual verificável
 
-Já existem o construtor de código, workspace privado, editor, lista de abas, terminal local de arquivos/Git e a interface com seletor de modo/motor. **A toolchain de compilação Android local ainda não está integrada ao Kellvyn.** Escrever arquivos ou exportar ZIP não constitui build, e um APK de uma versão anterior não valida o código atual.
+Já existem o construtor, workspace privado, editor, terminal opcional e agente de chat. O fluxo Build do chat inicia a toolchain rápida de Java→DEX→APK; a mesma operação está disponível para o agente e retorna diagnósticos para uma correção limitada. O perfil Gradle completo continua sendo uma arquitetura futura separada.
 
 ## Sequência prioritária
 
 1. Obter um caminho de compilação local ARM64 que possamos redistribuir legalmente e empacotar.
 2. Integrar esse motor ao workspace sem mudar a geometria da referência visual.
 3. Implementar instalação/verificação de toolchain e contrato de logs.
-4. Compilar um projeto Java mínimo, depois um app Kotlin/Compose, com logs guardados localmente.
+4. Validar no Poco F6 um projeto Java mínimo, inspecionar os logs reais e medir RAM/tempo. Depois expandir para recursos Android, dependências e o perfil Kotlin/Compose.
 5. Validar assinatura, package ID e instalação do APK de saída no Android.
 6. Conectar o agente de correção ao ciclo build → logs → alteração proposta → novo build.
 
