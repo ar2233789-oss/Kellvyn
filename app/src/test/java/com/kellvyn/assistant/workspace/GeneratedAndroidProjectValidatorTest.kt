@@ -27,6 +27,32 @@ class GeneratedAndroidProjectValidatorTest {
     }
 
     @Test
+    fun rejectsKotlinAndComposeVersionMismatch() {
+        val files = validProject().toMutableMap()
+        files["build.gradle.kts"] = files.getValue("build.gradle.kts")
+            .replace(
+                "id(\"org.jetbrains.kotlin.plugin.compose\") version \"2.4.0\"",
+                "id(\"org.jetbrains.kotlin.plugin.compose\") version \"2.3.0\""
+            )
+
+        val issue = GeneratedAndroidProjectValidator.validate(files)
+        assertNotNull(issue)
+        assertTrue(issue!!.contains("Kotlin/Compose"))
+    }
+
+    @Test
+    fun rejectsLauncherWithoutMainLauncherIntent() {
+        val files = validProject().toMutableMap()
+        files["app/src/main/AndroidManifest.xml"] =
+            files.getValue("app/src/main/AndroidManifest.xml")
+                .replace("android.intent.action.MAIN", "android.intent.action.VIEW")
+
+        val issue = GeneratedAndroidProjectValidator.validate(files)
+        assertNotNull(issue)
+        assertTrue(issue!!.contains("MAIN/LAUNCHER"))
+    }
+
+    @Test
     fun rejectsLauncherWithoutExportedFlag() {
         val files = validProject().toMutableMap()
         files["app/src/main/AndroidManifest.xml"] =
