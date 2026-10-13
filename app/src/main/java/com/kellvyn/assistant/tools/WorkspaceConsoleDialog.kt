@@ -224,13 +224,56 @@ fun WorkspaceConsoleDialog(
                     }
                 }
                 Text(
-                    "Executa operações locais de arquivos e Git dentro do workspace. Não é um shell irrestrito; compilação Android local ainda pendente.",
+                    "Comandos normais usam a lista segura do workspace. Para executar manualmente um comando do Android, digite ! comando; o terminal pedirá confirmação. O shell não é root e o compilador APK local ainda está pendente.",
                     color = ConsoleMuted,
                     fontSize = 10.sp
                 )
                 Spacer(Modifier.height(1.dp))
             }
         }
+    }
+
+    if (pendingShellCommand != null) {
+        AlertDialog(
+            onDismissRequest = { pendingShellCommand = null },
+            title = { Text("Executar comando manual?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Este comando será executado pelo shell do Android como o usuário do aplicativo, na pasta atual do workspace. Não é root; ainda assim, um comando manual pode alterar ou apagar arquivos que o próprio app consegue acessar.",
+                        color = ConsoleMuted,
+                        fontSize = 12.sp
+                    )
+                    Surface(
+                        color = ConsolePanel,
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ConsoleBorder)
+                    ) {
+                        Text(
+                            pendingShellCommand.orEmpty(),
+                            color = Color(0xFFC9F6E8),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            modifier = Modifier.fillMaxWidth().padding(12.dp)
+                        )
+                    }
+                    Text(
+                        "O agente automático não pode chamar este shell manual; ele continua restrito à lista de comandos permitidos.",
+                        color = ConsoleMuted,
+                        fontSize = 11.sp
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { executeManualShell(pendingShellCommand.orEmpty()) },
+                    enabled = !terminalBusy
+                ) { Text("Executar", color = ConsoleNeon) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingShellCommand = null }) { Text("Cancelar") }
+            }
+        )
     }
 }
 
