@@ -788,6 +788,19 @@ fun KellvynApp() {
                                         }
                                     }
                                 )
+                                Divider()
+                                DropdownMenuItem(
+                                    text = { Text(if (internetToolsEnabled) "Desativar ferramentas de internet" else "Permitir pesquisa na internet") },
+                                    onClick = {
+                                        showModeMenu = false
+                                        internetToolsEnabled = !internetToolsEnabled
+                                        status = if (internetToolsEnabled) {
+                                            "Internet autorizada para ferramentas: buscas e páginas acessadas serão enviadas aos sites externos; o motor local continua local."
+                                        } else {
+                                            "Acesso externo das ferramentas desligado."
+                                        }
+                                    }
+                                )
                             }
                         }
 
