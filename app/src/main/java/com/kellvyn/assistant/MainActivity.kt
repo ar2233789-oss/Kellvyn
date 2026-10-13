@@ -75,6 +75,7 @@ private const val MAX_EDITOR_CHARS = 80_000
 
 private fun isExplicitAppBuildRequest(text: String): Boolean {
     val t = text.lowercase(Locale.ROOT)
+    if (isExistingProjectModification(text)) return false
     val action = listOf(
         "crie", "criar", "construa", "construir", "desenvolva", "desenvolver", "gere", "gerar",
         "faça", "faca", "monta", "monte", "implemente", "build ", "create ", "make ", "develop ", "implement "
@@ -84,8 +85,29 @@ private fun isExplicitAppBuildRequest(text: String): Boolean {
     return action && target && !listOf("como criar", "como faço", "como faco", "me explique", "explique como").any { it in t }
 }
 
+private fun isExistingProjectModification(text: String): Boolean {
+    val t = text.lowercase(Locale.ROOT)
+    val modifying = listOf(
+        "corrija", "corrigir", "conserte", "consertar", "arrume", "arrumar", "altere", "alterar",
+        "modifique", "modificar", "edite", "editar", "atualize", "atualizar", "melhore", "melhorar",
+        "adicione", "adicionar", "inclua", "incluir", "remova", "remover", "troque", "trocar",
+        "ajuste", "ajustar", "continue", "implemente", "implementar", "mude", "mudar"
+    ).any { it in t }
+    val existingReference = listOf(
+        "projeto existente", "projeto atual", "projeto salvo", "projeto anterior",
+        "último projeto", "ultimo projeto", "projeto que você criou", "projeto que criou",
+        "nesse projeto", "neste projeto", "naquele projeto",
+        "aplicativo existente", "aplicativo atual", "aplicativo que você criou", "aplicativo que criou",
+        "app existente", "app atual", "app que você criou", "app que criou",
+        "no meu app", "no meu aplicativo", "meu projeto", "meu app", "meu aplicativo",
+        "já criado", "ja criado", "que já existe", "que ja existe"
+    ).any { it in t }
+    return modifying && existingReference
+}
+
 private fun isBuildBrief(text: String): Boolean {
     val t = text.trim().lowercase(Locale.ROOT)
+    if (isExistingProjectModification(text)) return false
     if (t.length < 30 || '?' in t) return false
     if (listOf("terminal", "console", "problema", "erro", "ajuda", "me ajuda", "não consigo", "nao consigo", "estou com", "preciso de ajuda", "explique", "me explica", "o que é", "o que e", "quem é", "quem e", "por que", "como funciona", "olá", "ola", "bom dia", "boa tarde", "boa noite").any { it in t }) return false
     val features = listOf("tela", "login", "cadastro", "botão", "botao", "salvar", "banco de dados", "offline", "notificação", "notificacao", "gerenciador", "usuários", "usuarios", "funções", "funcoes", "interface", "categorias", "busca")
