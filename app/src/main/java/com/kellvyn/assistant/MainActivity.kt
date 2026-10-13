@@ -429,7 +429,7 @@ fun KellvynApp() {
                         Surface(
                             color = if (message.fromUser) Color(0xFF0A2D24) else Night,
                             shape = RoundedCornerShape(14.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (message.fromUser) Color(0xFF14634D) else Color(0xFF0B3329),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (message.fromUser) Color(0xFF14634D) else Color(0xFF0B3329)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
