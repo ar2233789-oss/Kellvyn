@@ -45,7 +45,8 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - LiteRT-LM é um runtime, não um modelo criado do zero nem o cérebro inteiro.
 - O código contém um adaptador inicial LiteRT-LM, importação de modelos e download de um modelo pequeno SmolLM2-360M-Instruct. Compatibilidade, qualidade e desempenho ainda requerem teste real no telefone.
 - O modelo pequeno é para o primeiro teste e tarefas básicas; não deve ser vendido como modelo avançado de programação.
-- Modo local e modo online opcional precisam estar claramente separados. No modo local, prompts não devem ser enviados a um servidor. No modo online, a conversa/contexto vai ao endpoint configurado pelo usuário.
+- Modo local e modo online opcional precisam estar claramente separados. No modo local, prompts não são enviados ao endpoint de IA. No modo online, a conversa/contexto vai ao endpoint configurado pelo usuário.
+- A permissão de internet das ferramentas é independente do motor de IA e começa desligada. Ao ativá-la, o agente pode pesquisar na web e ler páginas HTTPS públicas; a consulta e as páginas solicitadas são acessadas externamente, mesmo quando o modelo continua local.
 - O núcleo desejado deve planejar, dividir tarefas, usar ferramentas reais, observar resultados, diagnosticar erros, corrigir e tentar novamente com limites/controles.
 - Implementado no código: ciclo limitado de uso de ferramentas no chat (workspace, leitura/busca de arquivos, terminal restrito e pesquisa/páginas HTTPS quando o modo online está selecionado). Para pedidos comuns sobre problemas do terminal, o agente executa status/ajuda em modo somente leitura antes de responder.
 - Gravação/substituição de arquivos, exclusão e comandos de terminal que alteram estado abrem uma confirmação explícita. Não existe shell arbitrário, encadeamento ou redirecionamento de comandos.
