@@ -47,7 +47,7 @@ internal object GeneratedAndroidProjectValidator {
         ) {
             problems += "o primeiro compilador local aceita Java nativo sem Kotlin/Compose"
         }
-        if (Regex("""(?m)^\s*(?:api|implementation|compileOnly|runtimeOnly)\s*\(""").containsMatchIn(appBuild)) {
+        if (Regex("""\b(?:api|implementation|compileOnly|runtimeOnly)\s*\(""").containsMatchIn(appBuild)) {
             problems += "a primeira build local não aceita dependências externas; remova-as de app/build.gradle.kts"
         }
 
