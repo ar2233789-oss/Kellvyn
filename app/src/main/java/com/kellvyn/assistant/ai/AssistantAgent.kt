@@ -979,19 +979,19 @@ class AssistantAgent(
         val maxPreflightChars = if (localModel) MAX_LOCAL_PREFLIGHT_CHARS else MAX_PREFLIGHT_CHARS
         val preflight = when {
             !hasExternalLinkRequest && looksLikeLocalApkBuildRequest(lastUser) -> {
-                onToolStatus("Verificando o estado real do compilador local…")
-                val rawStatus = runCatching {
-                    tools.execute("workspace_status", JSONObject(), internetAllowed)
-                }.getOrElse { """{"build_engine":"status indisponível","error":"${it.message ?: it.javaClass.simpleName}"}""" }
-                val buildEngine = runCatching { JSONObject(rawStatus).optString("build_engine") }.getOrDefault("")
-                if (buildEngine.contains("ainda não integrado", ignoreCase = true)) {
-                    return AssistantResult.Success(
-                        "Verifiquei o estado real do Kellvyn: o compilador Android local ainda não está integrado. " +
-                            "Por isso não posso gerar nem afirmar que existe um APK compilado agora. " +
-                            "Os arquivos do projeto podem ser criados e revisados no workspace, mas a geração de APK ainda depende do motor local de compilação."
-                    )
+                val buildArguments = tools.explicitProjectBuildArguments(lastUser)
+                if (buildArguments == null) {
+                    val projects = runCatching {
+                        tools.execute("list_projects", JSONObject(), internetAllowed)
+                    }.getOrElse { "Não consegui listar os projetos: ${it.message}" }
+                    "Para compilar sem escolher o projeto errado, diga o nome/ID do projeto. Projetos atuais: " + projects
+                } else {
+                    onToolStatus("Iniciando a compilação local do projeto pelo agente…")
+                    val result = runCatching {
+                        tools.execute("build_project_apk", buildArguments, internetAllowed, onToolStatus)
+                    }.getOrElse { "Falha na ferramenta de build local: ${it.message ?: it.javaClass.simpleName}" }
+                    "Resultado da ferramenta de build local (estado e erros reais): " + result
                 }
-                "Estado verificado do construtor local: $rawStatus"
             }
             !hasExternalLinkRequest && looksLikeProjectList(lastUser) -> {
                 onToolStatus("Consultando seus projetos locais…")
