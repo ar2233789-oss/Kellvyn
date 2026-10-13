@@ -1320,6 +1320,10 @@ class AssistantAgent(
     private fun toolStatus(name: String): String = when (name) {
         "workspace_status", "list_projects", "list_files", "read_file", "search_workspace" ->
             "Consultando workspace local…"
+        "git_status", "git_diff", "git_log", "git_branch" -> "Consultando Git local diretamente no projeto…"
+        "git_init" -> "Inicializando Git local após autorização…"
+        "git_stage_all" -> "Preparando arquivos no Git local após autorização…"
+        "git_commit" -> "Criando commit local após autorização…"
         "write_file" -> "Gravando arquivo autorizado no workspace local…"
         "patch_file" -> "Validando e aplicando patch autorizado no workspace…"
         "delete_file", "delete_project" -> "Executando ação local autorizada…"
