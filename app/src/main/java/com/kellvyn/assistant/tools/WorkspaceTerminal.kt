@@ -146,14 +146,17 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
         require(args.size <= 1) { "Uso: find [caminho]" }
         val start = args.firstOrNull()?.let { resolve(it) } ?: currentDirectory
         require(start.isDirectory) { "Não é uma pasta." }
-        val result = ArrayList<String>()
-        start.walkTopDown().onEnter { it.name != ".git" }.forEach { file ->
+        val result = ArrayList<String>(MAX_LIST_ITEMS)
+        val iterator = start.walkTopDown().onEnter { it.name != ".git" }.iterator()
+        while (iterator.hasNext() && result.size < MAX_LIST_ITEMS) {
+            val file = iterator.next()
             if (file != start && file.name != ".kellvyn-project.json") {
                 result.add(file.relativeTo(root).invariantSeparatorsPath + if (file.isDirectory) "/" else "")
             }
-            if (result.size >= MAX_LIST_ITEMS) return@forEach
         }
-        if (result.isEmpty()) "(nenhum arquivo)" else result.take(MAX_LIST_ITEMS).joinToString("\n")
+        if (result.isEmpty()) return "(nenhum arquivo)"
+        return result.joinToString("\n") +
+            if (iterator.hasNext()) "\n… lista limitada a $MAX_LIST_ITEMS entradas" else ""
     }
 
     private fun readFiles(args: List<String>): String {
