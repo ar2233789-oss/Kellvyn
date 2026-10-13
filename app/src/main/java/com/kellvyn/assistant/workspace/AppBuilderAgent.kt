@@ -121,7 +121,9 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         var remaining = MAX_REPAIR_CONTEXT_CHARS
         for (path in javaPaths) {
             if (remaining <= 0) break
-            val source = runCatching { workspace.readFile(projectId, path) }.getOrElse { continue }
+            val sourceResult = runCatching { workspace.readFile(projectId, path) }
+            if (sourceResult.isFailure) continue
+            val source = sourceResult.getOrNull() ?: continue
             val clipped = source.take(remaining)
             currentFiles[path] = clipped
             remaining -= clipped.length
