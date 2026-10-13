@@ -246,6 +246,7 @@ fun KellvynApp() {
         saveHistory()
         draft = ""
         val wantsBuild = ChatRequestRouter.shouldBuild(text, buildModeSelected = interactionMode == "Build")
+        val wantsCoder = wantsBuild || ChatRequestRouter.shouldPreferCoder(text)
         isGenerating = true
         status = if (wantsBuild) {
             "Planejando e gerando arquivos do projeto com o motor selecionado…"
@@ -257,65 +258,48 @@ fun KellvynApp() {
 
         val selectedEngine: AssistantEngine = if (onlineSelected) onlineEngine else localEngine
         scope.launch {
+            var restoreConversationModel = false
             try {
-                if (wantsBuild) {
-                    // Prefer an already-installed coder model for app generation without forcing a menu change.
-                    var restoreConversationModel = false
-                    if (
-                        !onlineSelected &&
-                        localEngine.hasSavedCoderModel() &&
-                        !localEngine.displayName.contains("Qwen", ignoreCase = true)
-                    ) {
-                        status = "Qwen Coder local já instalado: ativando temporariamente para gerar o projeto…"
-                        restoreConversationModel = when (val coderResult = localEngine.loadCoderModel()) {
-                            is AssistantResult.Success -> true
-                            is AssistantResult.Unavailable -> {
-                                status = "Não consegui ativar Qwen Coder (${coderResult.reason}); usando o modelo selecionado."
-                                false
-                            }
-                            is AssistantResult.Failure -> {
-                                status = "Não consegui ativar Qwen Coder (${coderResult.reason}); usando o modelo selecionado."
-                                false
-                            }
+                // For coding/build work, automatically use Qwen only if the user already installed it.
+                // The selected conversation model is restored afterwards; nothing is downloaded silently.
+                if (
+                    !onlineSelected &&
+                    wantsCoder &&
+                    localEngine.hasSavedCoderModel() &&
+                    !localEngine.displayName.contains("Qwen", ignoreCase = true)
+                ) {
+                    status = "Qwen Coder local já instalado: ativando temporariamente para esta tarefa…"
+                    restoreConversationModel = when (val coderResult = localEngine.loadCoderModel()) {
+                        is AssistantResult.Success -> true
+                        is AssistantResult.Unavailable -> {
+                            status = "Qwen Coder não pôde ser ativado (${coderResult.reason}); vou usar o modelo selecionado."
+                            false
+                        }
+                        is AssistantResult.Failure -> {
+                            status = "Qwen Coder não pôde ser ativado (${coderResult.reason}); vou usar o modelo selecionado."
+                            false
                         }
                     }
-                    try {
-                        when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
-                            is AppBuildResult.Success -> {
-                                val project = result.project
-                                existingProjects.clear()
-                                existingProjects.addAll(workspaceStore.listProjects())
-                                builtProject = project
-                                messages.add(
-                                    ChatMessage(
-                                        "Projeto \"${project.name}\" criado com ${project.fileCount} arquivos. Conferi a estrutura mínima exigida e guardei os arquivos neste aparelho; isso ainda não comprova que o código compila. Ainda não é um APK: a compilação Android local precisa ser integrada e testada. Use Editor para revisar o código, Git para versionar e ZIP como exportação secundária.",
-                                        false
-                                    )
+                }
+
+                if (wantsBuild) {
+                    when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
+                        is AppBuildResult.Success -> {
+                            val project = result.project
+                            existingProjects.clear()
+                            existingProjects.addAll(workspaceStore.listProjects())
+                            builtProject = project
+                            messages.add(
+                                ChatMessage(
+                                    "Projeto \"${project.name}\" criado com ${project.fileCount} arquivos. Conferi a estrutura mínima exigida e guardei os arquivos neste aparelho; isso ainda não comprova que o código compila. Ainda não é um APK: a compilação Android local precisa ser integrada e testada. Use Editor para revisar o código, Git para versionar e ZIP como exportação secundária.",
+                                    false
                                 )
-                                status = "Arquivos de projeto criados localmente. Nenhum APK foi compilado."
-                            }
-                            is AppBuildResult.Failure -> {
-                                messages.add(ChatMessage("Não consegui concluir a geração do projeto: ${result.reason}", false))
-                                status = result.reason
-                            }
+                            )
+                            status = "Arquivos de projeto criados localmente. Nenhum APK foi compilado."
                         }
-                    } finally {
-                        if (restoreConversationModel) {
-                            val previousStatus = status
-                            status = "Restaurando o modelo de conversa selecionado…"
-                            when (val restoreResult = localEngine.loadConversationModel()) {
-                                is AssistantResult.Success -> status = previousStatus
-                                is AssistantResult.Unavailable -> {
-                                    val warning = "O processamento terminou, mas não consegui restaurar o modelo de conversa: ${restoreResult.reason}. O Qwen Coder continua ativo."
-                                    messages.add(ChatMessage(warning, false))
-                                    status = warning
-                                }
-                                is AssistantResult.Failure -> {
-                                    val warning = "O processamento terminou, mas não consegui restaurar o modelo de conversa: ${restoreResult.reason}. O Qwen Coder continua ativo."
-                                    messages.add(ChatMessage(warning, false))
-                                    status = warning
-                                }
-                            }
+                        is AppBuildResult.Failure -> {
+                            messages.add(ChatMessage("Não consegui concluir a geração do projeto: ${result.reason}", false))
+                            status = result.reason
                         }
                     }
                 } else {
@@ -364,6 +348,25 @@ fun KellvynApp() {
                 saveHistory()
                 status = "Falha inesperada: $reason"
             } finally {
+                if (restoreConversationModel) {
+                    val taskStatus = status
+                    status = "Restaurando o modelo de conversa selecionado…"
+                    when (val restoreResult = localEngine.loadConversationModel()) {
+                        is AssistantResult.Success -> status = taskStatus
+                        is AssistantResult.Unavailable -> {
+                            val warning = "$taskStatus O modelo de conversa não foi restaurado: ${restoreResult.reason}. Qwen Coder continua ativo."
+                            messages.add(ChatMessage(warning, false))
+                            status = warning
+                            saveHistory()
+                        }
+                        is AssistantResult.Failure -> {
+                            val warning = "$taskStatus O modelo de conversa não foi restaurado: ${restoreResult.reason}. Qwen Coder continua ativo."
+                            messages.add(ChatMessage(warning, false))
+                            status = warning
+                            saveHistory()
+                        }
+                    }
+                }
                 isGenerating = false
             }
         }
