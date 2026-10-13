@@ -13,7 +13,8 @@
 - [x] A tela Terminal possui campo/botão de ajuda que encaminha pergunta e saída recente ao agente principal.
 - [x] O agente principal opera Git por uma camada JGit própria no projeto (status, diff, log, branches e operações locais autorizadas), sem depender da tela Terminal.
 - [ ] Compilar/testar a camada Git JGit no build Android completo.
-- [x] Criados testes de regressão para roteamento chat→Build e validação de diretório/comando do shell manual (ainda pendentes de execução no Gradle Android completo).
+- [x] Testado manualmente com Kotlin/JDK o roteamento chat→Build e as proteções do shell manual (diretório inicial, comando vazio, estado de saída e limite de saída). Isso não equivale à suíte Gradle/Android completa.
+- [x] Validador estático do projeto gerado verifica versões dos plugins, namespace/applicationId/pacote, Manifest MAIN/LAUNCHER exportado, Compose, alvo JVM 17, README e marcadores placeholder; teste local separado passa em sete cenários. A suíte JUnit completa ainda aguarda Gradle.
 - [x] Pesquisa web HTTPS, descoberta/listagem de repositórios públicos do GitHub, leitura de arquivos e importação limitada após confirmação explícita quando o pedido é importar; tudo exige internet autorizada e trata conteúdo externo como dado não confiável.
 - [ ] Testar instalação e uso no Poco F6 real.
 
@@ -33,6 +34,7 @@
 ## Fase 3 — Construtor de aplicativos
 - [x] Gerar código de projeto estruturado com o modelo selecionado.
 - [x] Validar caminhos/tamanho e salvar dentro do workspace privado.
+- [x] Validar previamente a consistência estrutural e versões do projeto gerado, e tentar uma correção automática quando essa validação falha.
 - [x] Listar, editar, apagar e exportar projetos em ZIP.
 - [ ] **Implementar toolchain de compilação Android local no aparelho ARM64**, seguindo uma arquitetura de mini IDE local (toolchains verificadas e instaladas no aparelho, engine de build local, logs e APK assinado).
 - [ ] Nenhuma compilação de projeto criado deverá depender de GitHub Actions, token, servidor remoto, Replit ou outro serviço de build.
