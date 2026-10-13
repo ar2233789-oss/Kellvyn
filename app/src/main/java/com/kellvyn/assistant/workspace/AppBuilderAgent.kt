@@ -106,6 +106,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             "está sem caminho ou conteúdo",
             "precisa retornar entre",
             "projeto gerado está incompleto",
+            "repetiu caminhos de arquivo",
             "ultrapassou o limite seguro",
             "json",
             "estrutura"
@@ -146,7 +147,15 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 }
 
                 // Require the core app sources to avoid saving a misleading "complete" Android app.
-                val normalizedPaths = files.map { it.path.replace('\\', '/') }.toSet()
+                val normalizedPathList = files.map { it.path.replace('\\', '/') }
+                val duplicatePaths = normalizedPathList.groupingBy { it }.eachCount()
+                    .filterValues { it > 1 }.keys
+                if (duplicatePaths.isNotEmpty()) {
+                    return@withContext AppBuildResult.Failure(
+                        "O modelo repetiu caminhos de arquivo: ${duplicatePaths.take(4).joinToString(", ")}. A geração será tentada novamente sem duplicatas."
+                    )
+                }
+                val normalizedPaths = normalizedPathList.toSet()
                 val required = listOf(
                     "settings.gradle.kts",
                     "build.gradle.kts",
