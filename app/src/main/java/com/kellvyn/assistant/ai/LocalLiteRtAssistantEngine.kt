@@ -265,7 +265,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 val restoreError = runCatching { restorePreviousModel(backup) }.exceptionOrNull()
                 if (restoreError == null) result
                 else AssistantResult.Failure(
-                    "${result.message}; também não consegui restaurar o arquivo do modelo anterior: ${restoreError.message}"
+                    "${result.reason}; também não consegui restaurar o arquivo do modelo anterior: ${restoreError.message}"
                 )
             }
         } catch (e: Exception) {
