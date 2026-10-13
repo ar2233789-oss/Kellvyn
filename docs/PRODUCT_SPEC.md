@@ -69,7 +69,7 @@ Estado atual: o construtor cria, valida, guarda, edita e exporta arquivos de có
 
 ## Ferramentas e tarefas futuras
 - Editor de arquivos com salvamento local.
-- O chat autônomo consulta/edita arquivos diretamente pelo workspace e usa JGit para operações de versão local, sem depender da tela Terminal. O Terminal é uma área opcional com shell manual separado, acionado pelo usuário com `! comando`, confirmação e limites de tempo/saída. Esse shell nunca é acessível ao agente automático e não é um sandbox: como roda com o UID do app, comandos podem alcançar arquivos privados acessíveis ao aplicativo. O botão de ajuda do terminal envia o contexto para o mesmo agente, que continua usando APIs diretas.
+- O chat autônomo consulta/edita arquivos diretamente pelo workspace, pode ler arquivos grandes por trechos limitados a 120 linhas e usa JGit para operações de versão local, sem depender da tela Terminal. O Terminal é uma área opcional com shell manual separado, acionado pelo usuário com `! comando`, confirmação e limites de tempo/saída. Esse shell nunca é acessível ao agente automático e não é um sandbox: como roda com o UID do app, comandos podem alcançar arquivos privados acessíveis ao aplicativo. O botão de ajuda do terminal envia o contexto para o mesmo agente, que continua usando APIs diretas.
 - Git local quando implementado de verdade; não deve ser requisito de build.
 - Sem navegador baseado em WebView. Não reintroduzir WebView.
 - Aprender a jogar exige capacidade concreta de observar estado do jogo, receber pixels/dados, executar comandos de controle autorizados e avaliar o resultado. Um LLM sozinho não enxerga nem controla jogo. Essa função ainda não está implementada.
