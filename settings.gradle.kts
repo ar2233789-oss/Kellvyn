@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "Kellvyn"
-include(":app")
+include(":app", ":runtime")
