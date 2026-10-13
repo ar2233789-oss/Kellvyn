@@ -26,7 +26,8 @@ import java.util.Locale
  */
 class AgentToolRouter(
     private val workspace: ProjectWorkspaceStore,
-    private val localCompiler: LocalAndroidCompiler? = null
+    private val localCompiler: LocalAndroidCompiler? = null,
+    private val onLicenseRequired: (String) -> Unit = {}
 ) {
     private val git = WorkspaceGitService(workspace)
     fun explicitGitReadRequest(text: String): Pair<String, JSONObject>? {
@@ -56,6 +57,28 @@ class AgentToolRouter(
             else -> return null
         }
         return requestedTool to JSONObject().put("project_id", project.id)
+    }
+
+    fun explicitProjectBuildArguments(text: String): JSONObject? {
+        val lower = text.lowercase(Locale.ROOT)
+        val intent = listOf(
+            "compile", "compila", "compilar", "gere o apk", "gerar apk", "crie o apk",
+            "compile apk", "build apk", "faça o build", "faca o build", "transforme em apk"
+        ).any { it in lower }
+        if (!intent) return null
+        val projects = workspace.listProjects()
+        if (projects.isEmpty()) return null
+        val named = projects.filter { project ->
+            lower.contains(project.id.lowercase(Locale.ROOT)) ||
+                (project.name.isNotBlank() && lower.contains(project.name.lowercase(Locale.ROOT)))
+        }
+        val project = when {
+            named.size == 1 -> named.first()
+            named.size > 1 -> return null
+            projects.size == 1 -> projects.first()
+            else -> return null
+        }
+        return JSONObject().put("project_id", project.id)
     }
 
     fun explicitProjectFileListArguments(text: String): JSONObject? {
@@ -172,14 +195,16 @@ class AgentToolRouter(
                             .put("status", "failure")
                             .put("error", result.reason)
                             .toString()
-                        LocalApkBuildResult.LicenseRequired -> JSONObject()
-                            .put("status", "license_required")
-                            .put("project_id", projectId)
-                            .put("message", "A pessoa precisa ler e aceitar a licença oficial do Android SDK no chat antes do primeiro download.")
-                            .toString()
+                        LocalApkBuildResult.LicenseRequired -> {
+                            withContext(Dispatchers.Main) { onLicenseRequired(projectId) }
+                            JSONObject()
+                                .put("status", "license_required")
+                                .put("project_id", projectId)
+                                .put("message", "A pessoa precisa ler e aceitar a licença oficial do Android SDK no chat antes do primeiro download.")
+                                .toString()
+                        }
                     }
-                }
-                "workspace_status" -> workspaceStatus()
+                                "workspace_status" -> workspaceStatus()
                 "list_projects" -> listProjects()
                 "list_files" -> listFiles(required(args, "project_id"))
                 "read_file" -> readFile(
