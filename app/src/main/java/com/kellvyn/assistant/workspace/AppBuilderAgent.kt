@@ -100,6 +100,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     "gradle.properties",
                     "app/build.gradle.kts",
                     "app/src/main/AndroidManifest.xml",
+                    "app/src/main/java/com/example/app/MainActivity.kt",
                     "README.md"
                 )
                 val missing = required.filterNot { it in normalizedPaths }
