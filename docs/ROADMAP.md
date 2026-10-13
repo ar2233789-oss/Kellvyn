@@ -11,10 +11,13 @@
 - [x] Terminal local de workspace com comandos de arquivos e Git via JGit; shell manual opcional para comando digitado pelo usuário, com confirmação e limites. O agente automático não recebe o shell manual, somente sua lista interna de ferramentas.
 - [x] Agente do chat usa APIs diretas para listar/ler/pesquisar arquivos e projetos, sem chamar comandos de terminal. Diagnóstico manual de terminal usa o texto de saída que o próprio usuário encaminha ao agente.
 - [x] A tela Terminal possui campo/botão de ajuda que encaminha pergunta e saída recente ao agente principal.
+- [x] Edições normais feitas pelo agente do chat aplicam `write_file`/`patch_file` sem pedir autorização por arquivo; exclusões, importações e operações Git protegidas continuam exigindo confirmação.
+- [x] O Editor sincroniza arquivos salvos após ações do agente, preserva rascunhos não salvos e diferencia falhas de leitura de uma remoção confirmada pela lista de arquivos.
+- [x] `read_file` aceita trechos limitados por `start_line`/`max_lines` para inspecionar arquivos grandes sem retornar o arquivo inteiro.
 - [x] O agente principal opera Git por uma camada JGit própria no projeto (status, diff, log, branches e operações locais autorizadas), sem depender da tela Terminal.
 - [ ] Compilar/testar a camada Git JGit no build Android completo.
 - [x] Testado manualmente com Kotlin/JDK o roteamento chat→Build e as proteções do shell manual (diretório inicial, comando vazio, estado de saída e limite de saída). Isso não equivale à suíte Gradle/Android completa.
-- [x] Validador estático do projeto gerado verifica versões dos plugins, namespace/applicationId/pacote, Manifest MAIN/LAUNCHER exportado, Compose, alvo JVM 17, README e marcadores placeholder; teste local separado passa em sete cenários. A suíte JUnit completa ainda aguarda Gradle.
+- [x] Validador estático do projeto gerado verifica versões dos plugins, namespace/applicationId/pacote, Manifest MAIN/LAUNCHER exportado, alvo JVM 17, marcadores de código incompleto, `setContent` vazio, telas delegadas sem controle visual e uso de `WebView`; a cópia de teste local cobre configurações válidas/inválidas. A suíte JUnit completa ainda aguarda Gradle.
 - [x] Pesquisa web HTTPS, descoberta/listagem de repositórios públicos do GitHub, leitura de arquivos e importação limitada após confirmação explícita quando o pedido é importar; tudo exige internet autorizada e trata conteúdo externo como dado não confiável.
 - [ ] Testar instalação e uso no Poco F6 real.
 
