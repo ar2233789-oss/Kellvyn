@@ -1,45 +1,59 @@
 # Kellvyn IA — roadmap técnico
 
-## Fase 1 — Fundação Android
-- [x] Configuração Gradle para aplicativo Android Kotlin/Compose.
-- [x] Tema escuro com acentos neon.
-- [x] Chat com rolagem automática e controle para copiar cada resposta.
-- [x] Entrada por ditado em português e botão para ouvir respostas em voz alta.
-- [x] Histórico privado limitado e apagável.
-- [x] Fluxo de CI para compilar, verificar a assinatura/identidade do APK e publicar artefato.
-- [ ] Instalar e testar em aparelho Android físico.
+## Fase 1 — Aplicativo Android nativo
+- [x] Projeto Kotlin/Jetpack Compose.
+- [x] Tema escuro preto/branco com detalhes azul neon.
+- [x] Chat com histórico local limitado, ação para limpar e rolagem automática.
+- [x] Botão de copiar abaixo das respostas.
+- [x] Entrada por ditado e saída por voz usando serviços instalados no Android.
+- [x] Memória explícita controlada pelo usuário.
+- [x] Console limitado para informações e arquivos do workspace.
+- [ ] Testar instalação e uso no Poco F6 real.
 
-## Fase 2 — Motor de IA
-- [x] Interface comum dos motores de IA, com estados explícitos de sucesso/indisponibilidade/falha.
-- [x] Adaptador local LiteRT-LM e importação de arquivo compatível.
-- [x] Download de modelo público compatível com tamanho e SHA-256 verificados.
-- [x] Exibir tamanho do modelo guardado, apagar modelo e liberar armazenamento.
-- [x] Provedor online compatível com Chat Completions, somente HTTPS, com token cifrado via Android Keystore.
-- [ ] Testar uma resposta real do modelo baixado no dispositivo-alvo.
-- [ ] Testar uma resposta real do endpoint online configurado pelo usuário.
-- [ ] Medir RAM, velocidade, aquecimento e qualidade no Poco F6.
+## Fase 2 — Motor de IA local
+- [x] Contrato comum para motores e estados explícitos de erro/indisponibilidade.
+- [x] Adaptador inicial LiteRT-LM.
+- [x] Importar arquivo de modelo compatível.
+- [x] Download inicial de modelo pequeno com verificação de tamanho e SHA-256.
+- [x] Mostrar tamanho e remover modelo local.
+- [ ] Obter uma resposta real com modelo compatível no Poco F6.
+- [ ] Medir RAM, tempo, aquecimento e qualidade.
+- [ ] Validar alternância entre modo local e modo online opcional.
+- [ ] Implementar planejamento multi-etapas, uso de ferramentas e verificação de resultados.
 
-## Fase 3 — Memória e construtor
-- [x] Memória explícita controlada pelo usuário: adicionar, listar, remover uma memória ou todas.
-- [x] Passar memórias salvas ao modelo ativo; avisar que são transmitidas ao endpoint quando o modo ONLINE está selecionado.
-- [x] Agente que pede a geração estruturada de projeto Android ao modelo.
-- [x] Validar caminhos e tamanho e guardar os arquivos no armazenamento privado.
-- [x] Editor de arquivos para projetos gerados.
-- [x] Exportar projetos para ZIP.
-- [ ] Compilar e testar projetos gerados automaticamente; o construtor atual exporta código e não cria APKs de terceiros diretamente no aparelho.
-- [ ] Adicionar ferramentas reais de terminal seguro, navegador integrado e Git conectado sem exibir controles simulados.
+## Fase 3 — Construtor de aplicativos
+- [x] Gerar código de projeto estruturado com o modelo selecionado.
+- [x] Validar caminhos/tamanho e salvar dentro do workspace privado.
+- [x] Listar, editar, apagar e exportar projetos em ZIP.
+- [ ] **Implementar toolchain de compilação Android local no aparelho ARM64.**
+- [ ] Nenhuma compilação de projeto criado deverá depender de GitHub Actions, token, servidor remoto, Replit ou outro serviço de build.
+- [ ] Identificar versões/compatibilidade de Android SDK, Kotlin/Java compiler, AAPT2, D8/R8, zipalign e assinatura.
+- [ ] Executar a toolchain sob limites de CPU, RAM, armazenamento e tempo.
+- [ ] Recolher erros reais de build e permitir correções automáticas controladas.
+- [ ] Validar APK produzido, package ID, assinatura e instalabilidade.
+- [ ] Apresentar APK como resultado principal; ZIP fica como opção secundária.
 
-## Fase 4 — Privacidade e qualidade
-- [x] Não embutir chaves de API no APK.
-- [x] Token online cifrado via Android Keystore.
-- [x] Endpoint HTTPS obrigatório e redirecionamentos automáticos desativados no pedido autenticado.
-- [x] Backup Android desativado para o app.
-- [x] Importação de modelo por seletor de documentos sem pedir acesso amplo ao armazenamento.
-- [ ] Testes unitários/instrumentados para histórico, memória, endpoints e arquivos de modelo.
-- [ ] Testes de instalação e comportamento em dispositivo físico.
-- [ ] Testes de falta de memória, modelo incompatível, falha de rede e cancelamento.
-- [ ] Assinatura release e distribuição fora do APK de depuração.
+## Fase 4 — Ferramentas nativas
+- [x] Editor local de código para arquivos gerados.
+- [x] Console seguro limitado ao workspace (não é um shell do sistema).
+- [ ] Git local nativo, sem que serviço remoto seja necessário para build.
+- [ ] Agente de depuração que lê logs locais, propõe correções e repete builds limitados.
+- [ ] Interface de atividade do núcleo com estados verdadeiros.
+- [ ] Overlay/órbita flutuante opcional e discreta.
+- [ ] Automação de jogos somente após implementar percepção, ações autorizadas e avaliação de resultados.
 
-## Critérios de conclusão
+## Fase 5 — Segurança e testes
+- [x] Armazenar conversas e memória em área privada do app.
+- [x] Controlar tamanho do histórico e dos projetos.
+- [x] Bloquear caminhos de arquivo fora do workspace.
+- [x] Não embutir chaves online no APK.
+- [x] Desativar backup Android dos dados do aplicativo.
+- [ ] Testes unitários/instrumentados de memória, histórico, parsing, escrita e build.
+- [ ] Testar sem internet depois que o modelo estiver instalado.
+- [ ] Testar pouco espaço, memória insuficiente, modelo incompatível e build interrompido.
+- [ ] Testar no Poco F6 sem PC.
+- [ ] Assinar release final e criar processo local de backup/recuperação.
 
-Uma compilação bem-sucedida confirma que o APK foi gerado e passou pelas verificações automatizadas, não que foi instalado no telefone ou que o modelo realmente responde nele. O motor local só será validado depois de gerar uma resposta no dispositivo; o modo online, depois de receber uma resposta do endpoint configurado. O construtor só estará completo quando projetos gerados forem compilados e testados de forma confiável.
+## Critério de conclusão
+
+O projeto não estará completo até construir localmente no próprio telefone um projeto Android gerado pela IA, capturar e corrigir erros, produzir um APK instalável e mostrar o APK como resultado principal. Uma compilação anterior do próprio Kellvyn ou a exportação de um ZIP não prova que essa capacidade já existe.
