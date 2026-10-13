@@ -53,6 +53,7 @@ import com.kellvyn.assistant.data.UserMemoryStore
 import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
 import com.kellvyn.assistant.tools.WorkspaceTerminal
 import com.kellvyn.assistant.workspace.AppBuilderAgent
+import com.kellvyn.assistant.workspace.EditorSyncPolicy
 import com.kellvyn.assistant.workspace.AppBuildResult
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
 import com.kellvyn.assistant.workspace.ProjectFileInput
@@ -343,12 +344,29 @@ fun KellvynApp() {
                                 workspaceStore.readFile(editorProjectAfter.id, editorPathBefore)
                             }
                         }.getOrNull()
-                        if (savedEditorBefore != null && savedEditorAfter != null && savedEditorAfter != savedEditorBefore) {
-                            if (editorDraftBefore == savedEditorBefore && editorContent == editorDraftBefore) {
-                                editorContent = savedEditorAfter.take(MAX_EDITOR_CHARS)
+                        when (
+                            EditorSyncPolicy.decide(
+                                savedBefore = savedEditorBefore,
+                                savedAfter = savedEditorAfter,
+                                draftBefore = editorDraftBefore,
+                                draftNow = editorContent
+                            )
+                        ) {
+                            EditorSyncPolicy.Action.NO_CHANGE -> Unit
+                            EditorSyncPolicy.Action.REFRESH_SAVED_CONTENT -> {
+                                editorContent = savedEditorAfter.orEmpty().take(MAX_EDITOR_CHARS)
                                 editorStatus = "Arquivo sincronizado após edição pelo chat. O editor mostra a versão salva mais recente."
-                            } else {
+                            }
+                            EditorSyncPolicy.Action.PRESERVE_LOCAL_DRAFT -> {
                                 editorStatus = "A IA alterou a versão salva deste arquivo, mas mantive seu rascunho aberto para não apagar alterações não salvas. Reabra o arquivo para comparar."
+                            }
+                            EditorSyncPolicy.Action.CLEAR_REMOVED_FILE -> {
+                                activeFilePath = ""
+                                editorContent = ""
+                                editorStatus = "O agente removeu o arquivo salvo após a autorização; selecione outro arquivo na lista."
+                            }
+                            EditorSyncPolicy.Action.PRESERVE_DRAFT_FOR_REMOVED_FILE -> {
+                                editorStatus = "O agente removeu o arquivo salvo, mas preservei seu rascunho não salvo. Não salve novamente sem conferir se deseja recriar o arquivo."
                             }
                         }
                     }
