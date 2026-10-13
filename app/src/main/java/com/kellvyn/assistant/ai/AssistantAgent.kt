@@ -486,7 +486,9 @@ class AgentToolRouter(
 
     private fun isReadableSourcePath(path: String): Boolean {
         val normalized = path.lowercase(Locale.ROOT)
-        if (normalized.split("/").any { it in setOf(".git", ".gradle", "build", "node_modules", "vendor") }) return false
+        if (normalized == "kellvyn_project.md" || normalized.split("/").any {
+                it in setOf(".git", ".gradle", "build", "node_modules", "vendor", ".kellvyn-project.json")
+            }) return false
         return listOf(
             ".kt", ".kts", ".java", ".xml", ".gradle", ".md", ".json", ".properties",
             ".toml", ".yaml", ".yml", ".txt", ".py", ".js", ".ts", ".tsx", ".jsx",
@@ -504,10 +506,12 @@ class AgentToolRouter(
         val ref = treeJson.optString("ref").ifBlank { "default" }
         val treeFiles = treeJson.optJSONArray("files") ?: JSONArray()
         data class Entry(val path: String, val size: Long)
+        val seenPaths = HashSet<String>()
         val entries = (0 until treeFiles.length()).mapNotNull { index ->
             val item = treeFiles.optJSONObject(index) ?: return@mapNotNull null
             val path = item.optString("path")
             if (path.isBlank() || !isReadableSourcePath(path)) return@mapNotNull null
+            if (!seenPaths.add(path.lowercase(Locale.ROOT))) return@mapNotNull null
             Entry(path, item.optLong("size", 0))
         }
         val priorityNames = listOf(
