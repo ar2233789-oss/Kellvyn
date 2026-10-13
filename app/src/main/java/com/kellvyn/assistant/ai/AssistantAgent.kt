@@ -73,6 +73,16 @@ class AgentToolRouter(
                     }
                     githubSearch(required(args, "query"))
                 }
+                "github_file" -> {
+                    require(internetAllowed) {
+                        "A internet das ferramentas está desligada. Ative-a no seletor do chat."
+                    }
+                    readGithubFile(
+                        required(args, "repository"),
+                        required(args, "path"),
+                        args.optString("ref").ifBlank { "main" }
+                    )
+                }
                 else -> throw IllegalArgumentException("Ferramenta desconhecida: $name")
             }
         }
