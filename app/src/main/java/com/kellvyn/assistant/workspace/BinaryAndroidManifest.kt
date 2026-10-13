@@ -75,7 +75,7 @@ internal object BinaryAndroidManifest {
             "minSdkVersion", "targetSdkVersion", minSdk.toString(), targetSdk.toString(),
             "label", appLabel, "name", activityName, "exported", "true",
             "android.intent.action.MAIN", "android.intent.category.LAUNCHER"
-        ).forEach(::string)
+        ).forEach { string(it) }
         val resourceIds = mapOf(
             "label" to 0x01010001,
             "name" to 0x01010003,
