@@ -165,7 +165,7 @@ fun KellvynApp() {
     var builderMessage by remember { mutableStateOf("") }
     var builtProject by remember { mutableStateOf<WorkspaceProject?>(null) }
     var pendingExportProject by remember { mutableStateOf<WorkspaceProject?>(null) }
-    var latestBuiltApk by remember { mutableStateOf<File?>(null) }
+    var latestBuiltApk by remember(localAndroidCompiler) { mutableStateOf(localAndroidCompiler.mostRecentApk()) }
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
     var showSdkLicenseDialog by remember { mutableStateOf(false) }
     var pendingLicenseRepairBrief by remember { mutableStateOf<String?>(null) }
@@ -1109,6 +1109,34 @@ fun KellvynApp() {
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            if (latestBuiltApk?.isFile == true) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("APK LOCAL PRONTO", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            latestBuiltApk?.name.orEmpty(),
+                            color = Muted,
+                            fontSize = 10.sp,
+                            maxLines = 1
+                        )
+                    }
+                    Button(
+                        onClick = { installLatestApk() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF0D604A),
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text("Instalar APK", fontSize = 11.sp)
                     }
                 }
             }
