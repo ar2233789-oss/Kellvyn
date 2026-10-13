@@ -1,142 +1,108 @@
 package com.kellvyn.assistant.workspace
 
 /**
- * Static sanity checks for a generated Android/Compose project.
- *
- * Passing these checks is not a successful build and never implies an APK exists.
- * A real local Android compilation is still required to prove buildability.
+ * Structural checks for projects that the first on-device Java compiler accepts.
+ * Passing is not a successful APK build; only LocalAndroidCompiler can establish that.
  */
 internal object GeneratedAndroidProjectValidator {
     fun validate(files: Map<String, String>): String? {
         fun content(path: String) = files[path.replace('\\', '/')].orEmpty()
-
+        val normalized = files.mapKeys { it.key.replace('\\', '/') }
         val rootBuild = content("build.gradle.kts")
         val settings = content("settings.gradle.kts")
         val properties = content("gradle.properties")
         val appBuild = content("app/build.gradle.kts")
         val manifest = content("app/src/main/AndroidManifest.xml")
-        val activity = content("app/src/main/java/com/example/app/MainActivity.kt")
+        val activity = content("app/src/main/java/com/example/app/MainActivity.java")
         val readme = content("README.md")
-
         val problems = mutableListOf<String>()
+
         if (!Regex("""include\s*\(\s*["']:app["']\s*\)""").containsMatchIn(settings)) {
-            problems += "settings.gradle.kts precisa incluir o módulo :app"
+            problems += "settings.gradle.kts precisa incluir :app"
         }
-
-        fun rootPluginVersion(pluginId: String): String? {
-            val pattern = """id\(\s*["']${Regex.escape(pluginId)}["']\s*\)\s*version\s*["']([^"']+)["']"""
-            return Regex(pattern).find(rootBuild)?.groupValues?.getOrNull(1)
-        }
-        if (rootPluginVersion("com.android.application") != AndroidBuildVersions.ANDROID_GRADLE_PLUGIN ||
-            rootPluginVersion("org.jetbrains.kotlin.android") != AndroidBuildVersions.KOTLIN ||
-            rootPluginVersion("org.jetbrains.kotlin.plugin.compose") != AndroidBuildVersions.KOTLIN
-        ) {
-            problems += "build.gradle.kts precisa usar AGP ${AndroidBuildVersions.ANDROID_GRADLE_PLUGIN} e Kotlin/Compose ${AndroidBuildVersions.KOTLIN} com versões compatíveis e iguais entre si"
-        }
-
-        val namespace = Regex("""namespace\s*=\s*["']([^"']+)["']""")
-            .find(appBuild)?.groupValues?.getOrNull(1)
-        val applicationId = Regex("""applicationId\s*=\s*["']([^"']+)["']""")
-            .find(appBuild)?.groupValues?.getOrNull(1)
-        if (namespace != "com.example.app") {
-            problems += "namespace do app precisa coincidir com com.example.app"
-        }
-        if (applicationId != "com.example.app") {
-            problems += "applicationId precisa ser com.example.app"
-        }
-        if (!Regex("""compileSdk\s*=\s*${AndroidBuildVersions.COMPILE_SDK}\b""").containsMatchIn(appBuild) ||
-            !Regex("""targetSdk\s*=\s*${AndroidBuildVersions.TARGET_SDK}\b""").containsMatchIn(appBuild) ||
-            !Regex("""minSdk\s*=\s*${AndroidBuildVersions.MIN_SDK}\b""").containsMatchIn(appBuild)
-        ) {
-            problems += "app/build.gradle.kts precisa usar compileSdk/targetSdk ${AndroidBuildVersions.COMPILE_SDK} e minSdk ${AndroidBuildVersions.MIN_SDK}"
-        }
-        if ("compose-bom:${AndroidBuildVersions.COMPOSE_BOM}" !in appBuild ||
-            "activity-compose:${AndroidBuildVersions.ACTIVITY_COMPOSE}" !in appBuild ||
-            "org.jetbrains.kotlin.plugin.compose" !in appBuild
-        ) {
-            problems += "faltam dependências/plugins básicos de Jetpack Compose"
-        }
-        if (!appBuild.contains("sourceCompatibility = JavaVersion.VERSION_17") ||
-            !appBuild.contains("targetCompatibility = JavaVersion.VERSION_17") ||
-            !appBuild.contains("JvmTarget.JVM_17")
-        ) {
-            problems += "o projeto precisa compilar Java e Kotlin com alvo JVM 17"
+        val versionPattern = Regex("""id\(\s*["']com\.android\.application["']\s*\)\s*version\s*["']([^"']+)["']""")
+        if (versionPattern.find(rootBuild)?.groupValues?.getOrNull(1) != AndroidBuildVersions.ANDROID_GRADLE_PLUGIN) {
+            problems += "build.gradle.kts precisa fixar o Android Gradle Plugin " + AndroidBuildVersions.ANDROID_GRADLE_PLUGIN
         }
         if (!properties.contains("org.gradle.parallel=false") ||
             !Regex("""org\.gradle\.workers\.max\s*=\s*2""").containsMatchIn(properties)
         ) {
-            problems += "gradle.properties precisa manter a configuração econômica para build no celular"
+            problems += "gradle.properties precisa manter configuração econômica para o telefone"
         }
-        val mainActivityTag = Regex(
+
+        val namespace = Regex("""namespace\s*=\s*["']([^"']+)["']""").find(appBuild)?.groupValues?.getOrNull(1)
+        val applicationId = Regex("""applicationId\s*=\s*["']([^"']+)["']""").find(appBuild)?.groupValues?.getOrNull(1)
+        if (namespace != "com.example.app" || applicationId != "com.example.app") {
+            problems += "namespace e applicationId devem ser com.example.app"
+        }
+        if (!Regex("compileSdk\\s*=\\s*" + AndroidBuildVersions.COMPILE_SDK + "\\b").containsMatchIn(appBuild) ||
+            !Regex("targetSdk\\s*=\\s*" + AndroidBuildVersions.TARGET_SDK + "\\b").containsMatchIn(appBuild) ||
+            !Regex("minSdk\\s*=\\s*" + AndroidBuildVersions.MIN_SDK + "\\b").containsMatchIn(appBuild)
+        ) {
+            problems += "compileSdk/targetSdk/minSdk precisam ser " + AndroidBuildVersions.COMPILE_SDK + "/" +
+                AndroidBuildVersions.TARGET_SDK + "/" + AndroidBuildVersions.MIN_SDK
+        }
+        if ("org.jetbrains.kotlin" in rootBuild || "org.jetbrains.kotlin" in appBuild ||
+            "compose" in appBuild.lowercase()
+        ) {
+            problems += "o primeiro compilador local aceita Java nativo sem Kotlin/Compose"
+        }
+        if (Regex("""(?m)^\s*(?:api|implementation|compileOnly|runtimeOnly)\s*\(""").containsMatchIn(appBuild)) {
+            problems += "a primeira build local não aceita dependências externas; remova-as de app/build.gradle.kts"
+        }
+
+        val activityTag = Regex(
             """(?is)<activity\b(?=[^>]*android:name\s*=\s*["'](?:\.MainActivity|com\.example\.app\.MainActivity)["'])[^>]*>"""
         ).find(manifest)?.value.orEmpty()
-        val hasLauncherIntent = "android.intent.action.MAIN" in manifest &&
-            "android.intent.category.LAUNCHER" in manifest
-        if (!manifest.contains("<manifest") || !manifest.contains("<application") ||
-            mainActivityTag.isBlank() ||
-            !Regex("""android:exported\s*=\s*["']true["']""").containsMatchIn(mainActivityTag) ||
-            !hasLauncherIntent
+        if (!manifest.contains("<manifest") || !manifest.contains("<application") || activityTag.isBlank() ||
+            !Regex("""android:exported\s*=\s*["']true["']""").containsMatchIn(activityTag) ||
+            "android.intent.action.MAIN" !in manifest ||
+            "android.intent.category.LAUNCHER" !in manifest
         ) {
-            problems += "AndroidManifest.xml precisa declarar a MainActivity como exportada e com intent-filter MAIN/LAUNCHER"
+            problems += "o manifesto precisa declarar MainActivity exported=true e intent-filter MAIN/LAUNCHER"
         }
-        if (!Regex("""(?m)^\s*package\s+com\.example\.app\s*$""").containsMatchIn(activity) ||
-            !Regex("""\bclass\s+MainActivity\b""").containsMatchIn(activity) ||
-            "setContent" !in activity
+        if (!Regex("""(?m)^\s*package\s+com\.example\.app\s*;""").containsMatchIn(activity) ||
+            !Regex("""\bclass\s+MainActivity\s+extends\s+Activity\b""").containsMatchIn(activity) ||
+            "setContentView(" !in activity
         ) {
-            problems += "MainActivity.kt precisa declarar o pacote correto, a classe MainActivity e uma UI Compose via setContent"
+            problems += "MainActivity.java precisa estender Activity e montar sua interface com setContentView"
         }
-        if (Regex("""(?s)setContent\s*\{\s*\}""").containsMatchIn(activity)) {
-            problems += "MainActivity.kt não pode ter setContent vazio; inclua conteúdo real na UI Compose"
+        val allSource = normalized.filterKeys { it.endsWith(".java", true) || it.endsWith(".kt", true) || it.endsWith(".xml", true) }
+            .values.joinToString("\n")
+        if (Regex("""(?im)^\s*import\s+android\.webkit\.WebView\b|\bnew\s+WebView\s*\(""").containsMatchIn(allSource)) {
+            problems += "a interface nativa não pode usar WebView"
         }
-        val sourceText = files.filterKeys {
-            it.endsWith(".kt", true) || it.endsWith(".java", true) || it.endsWith(".xml", true) || it.endsWith(".kts", true)
-        }.values.joinToString("\n")
-        val webViewReference = Regex(
-            """(?im)^\s*import\s+android\.webkit\.WebView\b|\bWebView\s*\("""
+        if (normalized.keys.any { it.endsWith(".kt", true) }) {
+            problems += "o primeiro compilador local precisa de fontes Java, não Kotlin"
+        }
+        val extraResources = normalized.keys.filter {
+            (it.startsWith("app/src/main/res/") || it.startsWith("app/src/main/assets/")) &&
+                !it.endsWith("AndroidManifest.xml", true)
+        }
+        if (extraResources.isNotEmpty()) {
+            problems += "a primeira build local ainda não empacota recursos Android externos; implemente a interface em Java"
+        }
+        val hasNativeUi = Regex("""\bnew\s+(?:TextView|Button|EditText|LinearLayout|FrameLayout|ScrollView|ImageView|CheckBox|Switch|RadioButton|ProgressBar|SeekBar|Spinner|ListView|RecyclerView)\s*\(""")
+            .containsMatchIn(stripCommentsAndStrings(activity))
+        if (!hasNativeUi) {
+            problems += "MainActivity.java precisa criar controles Android reais por código, não apenas uma Activity vazia"
+        }
+        val sourceFiles = normalized.filterKeys { it.endsWith(".java", true) }
+        val unfinished = Regex(
+            """(?im)^\s*(?://|/\*+|\*|#|<!--)\s*(?:(TODO|FIXME|XXX|HACK|PLACEHOLDER|STUB)\b.*|.*\b(not implemented|will be implemented later|coming soon|não implementado|nao implementado)\b.*)$"""
         )
-        if (webViewReference.containsMatchIn(sourceText) ||
-            Regex("""(?i)<\s*WebView\b""").containsMatchIn(sourceText)
-        ) {
-            problems += "a interface gerada não deve usar WebView; use componentes Android nativos e Jetpack Compose"
+        if (sourceFiles.values.any { unfinished.containsMatchIn(it) || Regex("""\b(?:TODO|FIXME)\s*\(""").containsMatchIn(it) }) {
+            problems += "há marcadores de função pendente/placeholder no Java gerado"
         }
-        val nativeComposeWidget = Regex(
-            """(?i)\b(?:Text|Button|OutlinedTextField|TextField|Column|Row|Box|Surface|Scaffold|LazyColumn|LazyRow|Card|Canvas|Image|Icon|Switch|Checkbox|Slider|DropdownMenu|BasicText|BasicTextField|Spacer|LinearProgressIndicator|CircularProgressIndicator|NavigationBar|TopAppBar)\s*(?:<[^>]*>)?\s*\("""
-        )
-        if (!nativeComposeWidget.containsMatchIn(stripCommentsAndStringLiterals(sourceText))) {
-            problems += "o projeto precisa incluir ao menos um componente visual Compose/nativo reconhecível, não apenas delegar a uma tela vazia"
-        }
-        if (readme.length < 80) {
-            problems += "README.md precisa explicar como configurar e executar o projeto"
-        }
-
-        // Match explicit unfinished-code markers, not legitimate UI APIs such as
-        // Compose's `placeholder = { Text(...) }` parameter or variables named placeholder.
-        val unfinishedComment = Regex(
-            """(?im)^\s*(?://|/\*+|\*|#|<!--)\s*(?:(TODO|FIXME|XXX|HACK|PLACEHOLDER|STUB)\b.*|.*\b(not implemented|will be implemented later|coming soon|não implementado|nao implementado|ainda não implementado|ainda nao implementado|implementar depois)\b.*)$"""
-        )
-        val unfinishedCode = Regex(
-            """(?i)\b(?:TODO|FIXME)\s*\(|\b(?:NotImplementedError|NotImplementedException)\b"""
-        )
-        val hasObviousPlaceholder = files.any { (path, text) ->
-            val sourceFile = path.endsWith(".kt", true) || path.endsWith(".java", true) ||
-                path.endsWith(".xml", true) || path.endsWith(".kts", true)
-            sourceFile && (unfinishedComment.containsMatchIn(text) || unfinishedCode.containsMatchIn(text))
-        }
-        if (hasObviousPlaceholder) {
-            problems += "há marcadores de recurso pendente/placeholder no código gerado"
-        }
-
-        return problems.take(MAX_VALIDATION_ERRORS).takeIf { it.isNotEmpty() }
-            ?.joinToString("; ")
+        if (readme.length < 60) problems += "README.md precisa explicar as funções do app"
+        return problems.take(MAX_ERRORS).takeIf { it.isNotEmpty() }?.joinToString("; ")
     }
 
-    private fun stripCommentsAndStringLiterals(source: String): String {
-        return source
-            .replace(Regex("(?s)\\\"\\\"\\\".*?\\\"\\\"\\\""), " ")
-            .replace(Regex("\\\"(?:\\\\.|[^\\\"\\\\])*\\\"|'(?:\\\\.|[^'\\\\])*'"), " ")
-            .replace(Regex("(?s)/\\*.*?\\*/"), " ")
-            .replace(Regex("(?m)//.*$"), " ")
-    }
+    private fun stripCommentsAndStrings(value: String): String = value
+        .replace(Regex("(?s)/\\*.*?\\*/"), " ")
+        .replace(Regex("(?m)//.*$"), " ")
+        .replace(Regex("\"(?:\\\\.|[^\"\\\\])*\""), " ")
+        .replace(Regex("'(?:\\\\.|[^'\\\\])*'"), " ")
 
-    private const val MAX_VALIDATION_ERRORS = 5
+    private const val MAX_ERRORS = 6
 }
