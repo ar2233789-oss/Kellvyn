@@ -2,7 +2,7 @@
 
 ## Fase 1 — Aplicativo Android nativo
 - [x] Projeto Kotlin/Jetpack Compose.
-- [x] Tema preto com brilho verde-esmeralda conforme a imagem enviada; layout reorganizado para chat central, barra superior compacta, compositor e navegação inferior (código alterado, compilação ainda pendente).
+- [x] Tema preto com brilho verde-esmeralda conforme a imagem: barra superior e indicadores mantidos, compositor em duas linhas com seletor funcional de modo/motor, e navegação AI/Navegador/Editor/Terminal/Git/Abas (código alterado, build e teste visual pendentes).
 - [x] Chat com histórico local limitado, ação para limpar e rolagem automática.
 - [x] Botão de copiar abaixo das respostas.
 - [x] Entrada por ditado e saída por voz usando serviços instalados no Android.
@@ -25,7 +25,7 @@
 - [x] Gerar código de projeto estruturado com o modelo selecionado.
 - [x] Validar caminhos/tamanho e salvar dentro do workspace privado.
 - [x] Listar, editar, apagar e exportar projetos em ZIP.
-- [ ] **Implementar toolchain de compilação Android local no aparelho ARM64.**
+- [ ] **Implementar toolchain de compilação Android local no aparelho ARM64**, seguindo uma arquitetura de mini IDE local (toolchains verificadas e instaladas no aparelho, engine de build local, logs e APK assinado).
 - [ ] Nenhuma compilação de projeto criado deverá depender de GitHub Actions, token, servidor remoto, Replit ou outro serviço de build.
 - [ ] Identificar versões/compatibilidade de Android SDK, Kotlin/Java compiler, AAPT2, D8/R8, zipalign e assinatura.
 - [ ] Executar a toolchain sob limites de CPU, RAM, armazenamento e tempo.
