@@ -19,6 +19,10 @@ import java.io.File
  * this class stores it in app-private storage and never sends prompts to a server.
  */
 class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoCloseable {
+    private companion object {
+        const val MAX_SYSTEM_CONTEXT_CHARS = 12_000
+    }
+
     private val appContext = context.applicationContext
     private val modelFile = File(File(appContext.filesDir, "models"), "kellvyn-model.litertlm")
     @Volatile private var engine: Engine? = null
@@ -123,8 +127,17 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             val answer = StringBuilder()
             val config = ConversationConfig(
                 systemInstruction = Contents.of(
-                    "Você é Kellvyn IA, um assistente útil, direto e honesto. Responda em português brasileiro por padrão. " +
-                        "Não invente capacidades, não afirme ter realizado ações que não realizou e explique claramente limitações."
+                    buildString {
+                        append(
+                            "Você é Kellvyn IA, um assistente útil, direto e honesto. Responda em português brasileiro por padrão. " +
+                                "Não invente capacidades, não afirme ter realizado ações que não realizou e explique claramente limitações."
+                        )
+                        conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }
+                            ?.content
+                            ?.take(MAX_SYSTEM_CONTEXT_CHARS)
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { appendLine(); appendLine(); append(it) }
+                    }
                 ),
                 initialMessages = priorMessages
             )
