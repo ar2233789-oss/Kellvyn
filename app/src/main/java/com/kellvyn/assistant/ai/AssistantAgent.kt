@@ -596,7 +596,10 @@ class AssistantAgent(
         // fails to emit a structured tool call. All these operations are read-only.
         val lastUser = conversation.lastOrNull { it.role == AssistantTurn.Role.USER }?.content.orEmpty()
         val githubFileRequest = if (internetAllowed) parseGitHubBlobRequest(lastUser) else null
-        val localFileRequest = if (githubFileRequest == null) {
+        val localFileListRequest = if (githubFileRequest == null) {
+            withContext(Dispatchers.IO) { tools.explicitProjectFileListArguments(lastUser) }
+        } else null
+        val localFileRequest = if (githubFileRequest == null && localFileListRequest == null) {
             withContext(Dispatchers.IO) { tools.explicitLocalFileReadArguments(lastUser) }
         } else null
         val explicitPageUrl = if (internetAllowed) extractExplicitPageUrl(lastUser) else null
@@ -629,6 +632,12 @@ class AssistantAgent(
                 "Conteúdo do repositório público: " + runCatching {
                     tools.execute("github_file", githubFileRequest, internetAllowed)
                 }.getOrElse { "Falha ao ler o arquivo público: ${it.message}" }
+            }
+            localFileListRequest != null -> {
+                onToolStatus("Listando arquivos do projeto diretamente no workspace…")
+                "Arquivos do projeto local: " + runCatching {
+                    tools.execute("list_files", localFileListRequest, internetAllowed)
+                }.getOrElse { "Falha ao listar arquivos: ${it.message}" }
             }
             localFileRequest != null -> {
                 onToolStatus("Lendo o arquivo do workspace diretamente, sem usar o terminal…")
