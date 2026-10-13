@@ -32,6 +32,7 @@ O modo online opcional é separado da compilação. Se for configurado, a conver
 
 ## Documentação
 - [Especificação central do produto](docs/PRODUCT_SPEC.md)
+- [Ferramentas do agente e permissões](docs/AGENT_TOOLS.md)
 - [Motor de IA local](docs/LOCAL_AI.md)
 - [Roadmap técnico](docs/ROADMAP.md)
 - [Arquitetura de compilação local estilo mini Android Studio](docs/LOCAL_BUILD_ARCHITECTURE.md)
