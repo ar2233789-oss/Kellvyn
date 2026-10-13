@@ -170,10 +170,15 @@ fun KellvynApp() {
     var showSdkLicenseDialog by remember { mutableStateOf(false) }
     var pendingLicenseRepairBrief by remember { mutableStateOf<String?>(null) }
     var pendingLicenseRepairOnline by remember { mutableStateOf(false) }
-    val sdkLicenseText = remember(context) {
-        runCatching { context.resources.openRawResource(com.kellvyn.assistant.R.raw.android_sdk_license).bufferedReader().use { it.readText() } }
-            .getOrDefault("Texto da licença não pôde ser carregado. Não aceite sem ler o contrato oficial do Android SDK.")
+    val loadedSdkLicense = remember(context) {
+        runCatching {
+            context.resources.openRawResource(com.kellvyn.assistant.R.raw.android_sdk_license)
+                .bufferedReader().use { it.readText() }
+        }.getOrNull()
     }
+    val sdkLicenseText = loadedSdkLicense
+        ?: "O texto oficial da licença não pôde ser carregado. O aceite fica desativado até o texto estar disponível."
+
     val existingProjects = remember(workspaceStore) {
         mutableStateListOf<WorkspaceProject>().apply { addAll(workspaceStore.listProjects()) }
     }
@@ -367,11 +372,12 @@ fun KellvynApp() {
         val text = draft.trim()
         if (text.isEmpty() || isGenerating) return
         val onlineSelected = onlineMode
-        if (onlineSelected && !onlineConfigured) {
+        val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
+        if (onlineSelected && !onlineConfigured && !existingBuildOnly) {
             status = "Configure o provedor online antes de enviar mensagens."
             return
         }
-        if (!onlineSelected && !modelReady) {
+        if (!onlineSelected && !modelReady && !existingBuildOnly) {
             status = "Carregue um modelo .litertlm primeiro. A mensagem não foi enviada."
             showQuickMenu = true
             return
@@ -1867,6 +1873,8 @@ fun KellvynApp() {
                 onDismissRequest = {
                     showSdkLicenseDialog = false
                     pendingLicenseProjectId = null
+                    pendingLicenseRepairBrief = null
+                    pendingLicenseRepairOnline = false
                     status = "Licença não aceita; o download da plataforma e a compilação foram cancelados."
                 },
                 title = { Text("Licença oficial do Android SDK") },
@@ -1890,6 +1898,7 @@ fun KellvynApp() {
                 },
                 confirmButton = {
                     TextButton(
+                        enabled = !loadedSdkLicense.isNullOrBlank(),
                         onClick = {
                             val projectId = pendingLicenseProjectId
                             val repairBrief = pendingLicenseRepairBrief
@@ -1920,6 +1929,8 @@ fun KellvynApp() {
                         onClick = {
                             showSdkLicenseDialog = false
                             pendingLicenseProjectId = null
+                            pendingLicenseRepairBrief = null
+                            pendingLicenseRepairOnline = false
                             status = "Licença não aceita; nenhum download foi iniciado."
                         }
                     ) { Text("Não aceitar", color = Warning) }
