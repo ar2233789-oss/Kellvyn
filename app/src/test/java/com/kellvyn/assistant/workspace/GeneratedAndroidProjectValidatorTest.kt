@@ -115,6 +115,18 @@ class GeneratedAndroidProjectValidatorTest {
     }
 
     @Test
+    fun rejectsEmptyComposeContent() {
+        val files = validProject().toMutableMap()
+        files["app/src/main/java/com/example/app/MainActivity.kt"] =
+            files.getValue("app/src/main/java/com/example/app/MainActivity.kt")
+                .replace("setContent { Text(\"Hello Kellvyn\") }", "setContent { }")
+
+        val issue = GeneratedAndroidProjectValidator.validate(files)
+        assertNotNull(issue)
+        assertTrue(issue!!.contains("setContent vazio"))
+    }
+
+    @Test
     fun rejectsObviousCodePlaceholdersAnywhereInSourceFiles() {
         val files = validProject().toMutableMap()
         files["app/src/main/java/com/example/app/SecondActivity.kt"] =
@@ -191,10 +203,11 @@ class GeneratedAndroidProjectValidatorTest {
             import android.os.Bundle
             import androidx.activity.ComponentActivity
             import androidx.activity.compose.setContent
+            import androidx.compose.material3.Text
             class MainActivity : ComponentActivity() {
                 override fun onCreate(savedInstanceState: Bundle?) {
                     super.onCreate(savedInstanceState)
-                    setContent { }
+                    setContent { Text("Hello Kellvyn") }
                 }
             }
         """.trimIndent(),
