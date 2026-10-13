@@ -1475,7 +1475,7 @@ fun KellvynApp() {
                 onlineMode = onlineMode,
                 onlineConfigured = onlineConfigured,
                 onDismiss = { showConsoleDialog = false },
-                onAskAgent = { request ->
+                onAskAgent = { request, requestApproval ->
                     if (isGenerating) {
                         "O agente principal já está processando outra solicitação. Aguarde terminar antes de pedir ajuda pelo terminal."
                     } else if (onlineMode && !onlineConfigured) {
@@ -1495,7 +1495,7 @@ fun KellvynApp() {
                                     conversation = turns,
                                     internetAllowed = internetToolsEnabled,
                                     onToolStatus = { toolStatus -> status = toolStatus },
-                                    requestApproval = { summary -> requestAgentApproval(summary) }
+                                    requestApproval = requestApproval
                                 )
                             ) {
                                 is AssistantResult.Success -> {
