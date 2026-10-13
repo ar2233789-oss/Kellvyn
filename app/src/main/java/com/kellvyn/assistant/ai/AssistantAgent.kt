@@ -267,31 +267,14 @@ class AgentToolRouter(
         projectId: String,
         path: String,
         startLine: Int? = null,
-        maxLines: Int = MAX_FILE_READ_LINES
-    ): String {
-        val text = workspace.readFile(projectId, path)
-        if (startLine == null) {
-            require(text.length <= MAX_FILE_READ_CHARS) {
-                "Arquivo muito grande para retornar inteiro (${text.length} caracteres). Use read_file com start_line e max_lines para ler por partes."
-            }
-            return "Arquivo: $projectId/$path (arquivo completo)\n```\n$text\n```"
-        }
-
-        require(startLine >= 1) { "start_line precisa ser 1 ou maior." }
-        require(maxLines in 1..MAX_FILE_READ_LINES) {
-            "max_lines precisa ficar entre 1 e $MAX_FILE_READ_LINES."
-        }
-        val lines = text.split('\n')
-        require(startLine <= lines.size) {
-            "A linha $startLine não existe; o arquivo contém ${lines.size} linhas."
-        }
-        val endExclusive = minOf(lines.size, startLine - 1 + maxLines)
-        val excerpt = lines.subList(startLine - 1, endExclusive).joinToString("\n")
-        require(excerpt.length <= MAX_FILE_READ_CHARS) {
-            "Este trecho ainda é grande demais. Reduza max_lines para ler uma seção menor."
-        }
-        return "Arquivo: $projectId/$path (linhas $startLine-${endExclusive} de ${lines.size})\n```\n$excerpt\n```"
-    }
+        maxLines: Int = BoundedSourceReader.MAX_LINES
+    ): String = BoundedSourceReader.render(
+        projectId = projectId,
+        path = path,
+        text = workspace.readFile(projectId, path),
+        startLine = startLine,
+        maxLines = maxLines
+    )
 
     private fun searchWorkspace(query: String): String {
         val needle = query.trim()
@@ -818,8 +801,6 @@ class AgentToolRouter(
         const val MAX_FILES_RETURNED = 300
         const val MAX_FILES_SCANNED = 600
         const val MAX_SEARCH_MATCHES = 40
-        const val MAX_FILE_READ_CHARS = 12_000
-        const val MAX_FILE_READ_LINES = 120
         const val MAX_WRITE_CHARS = 40_000
         const val MAX_PATCH_CHARS = 20_000
         const val MAX_PATCH_FILE_CHARS = 512 * 1024
