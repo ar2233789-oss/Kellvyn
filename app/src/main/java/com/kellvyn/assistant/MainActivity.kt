@@ -304,6 +304,16 @@ fun KellvynApp() {
                     }
                 } else {
                     val turns = buildConversationTurns()
+                    val editorProjectIdBefore = activeEditProject?.id
+                    val editorPathBefore = activeFilePath
+                    val editorDraftBefore = editorContent
+                    val savedEditorBefore = if (editorProjectIdBefore != null && editorPathBefore.isNotBlank()) {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                workspaceStore.readFile(editorProjectIdBefore, editorPathBefore)
+                            }
+                        }.getOrNull()
+                    } else null
                     val agentResult = assistantAgent.respond(
                         engine = selectedEngine,
                         conversation = turns,
@@ -314,6 +324,34 @@ fun KellvynApp() {
                     val refreshedProjects = withContext(Dispatchers.IO) { workspaceStore.listProjects() }
                     existingProjects.clear()
                     existingProjects.addAll(refreshedProjects)
+
+                    // Refresh the open editor after chat-driven file edits, but never discard a draft.
+                    val editorProjectAfter = editorProjectIdBefore?.let { id ->
+                        refreshedProjects.firstOrNull { it.id == id }
+                    }
+                    if (
+                        editorProjectAfter != null &&
+                        activeEditProject?.id == editorProjectIdBefore &&
+                        activeFilePath == editorPathBefore
+                    ) {
+                        activeEditProject = editorProjectAfter
+                        editablePaths = withContext(Dispatchers.IO) {
+                            workspaceStore.listFiles(editorProjectAfter.id)
+                        }
+                        val savedEditorAfter = runCatching {
+                            withContext(Dispatchers.IO) {
+                                workspaceStore.readFile(editorProjectAfter.id, editorPathBefore)
+                            }
+                        }.getOrNull()
+                        if (savedEditorBefore != null && savedEditorAfter != null && savedEditorAfter != savedEditorBefore) {
+                            if (editorDraftBefore == savedEditorBefore && editorContent == editorDraftBefore) {
+                                editorContent = savedEditorAfter.take(MAX_EDITOR_CHARS)
+                                editorStatus = "Arquivo sincronizado após edição pelo chat. O editor mostra a versão salva mais recente."
+                            } else {
+                                editorStatus = "A IA alterou a versão salva deste arquivo, mas mantive seu rascunho aberto para não apagar alterações não salvas. Reabra o arquivo para comparar."
+                            }
+                        }
+                    }
                     if (activeEditProject != null && refreshedProjects.none { it.id == activeEditProject?.id }) {
                         showEditorDialog = false
                         activeEditProject = null
