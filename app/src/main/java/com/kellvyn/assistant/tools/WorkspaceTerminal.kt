@@ -21,6 +21,8 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
         lastOutput = value.takeLast(MAX_OUTPUT_CHARS)
     }
 
+    fun currentDirectoryFile(): File = currentDirectory.canonicalFile
+
     fun pathLabel(): String {
         val relative = currentDirectory.relativeTo(root).invariantSeparatorsPath
         return if (relative == ".") "/workspace" else "/workspace/$relative"
