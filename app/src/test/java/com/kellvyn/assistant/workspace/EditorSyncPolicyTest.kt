@@ -18,6 +18,19 @@ class EditorSyncPolicyTest {
     }
 
     @Test
+    fun loadsFileCreatedForAnEmptyOpenEditor() {
+        assertEquals(
+            EditorSyncPolicy.Action.REFRESH_SAVED_CONTENT,
+            EditorSyncPolicy.decide(
+                savedBefore = null,
+                savedAfter = "new file content",
+                draftBefore = "",
+                draftNow = ""
+            )
+        )
+    }
+
+    @Test
     fun preservesDraftWhenUserHadUnsavedChangesBeforeAgentEdit() {
         assertEquals(
             EditorSyncPolicy.Action.PRESERVE_LOCAL_DRAFT,
