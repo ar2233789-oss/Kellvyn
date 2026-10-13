@@ -27,6 +27,18 @@ class GeneratedAndroidProjectValidatorTest {
     }
 
     @Test
+    fun rejectsInconsistentJavaAndKotlinTargets() {
+        val files = validProject().toMutableMap()
+        files["app/build.gradle.kts"] = files.getValue("app/build.gradle.kts")
+            .replace("JavaVersion.VERSION_17", "JavaVersion.VERSION_1_8")
+            .replace("JvmTarget.JVM_17", "JvmTarget.JVM_1_8")
+
+        val issue = GeneratedAndroidProjectValidator.validate(files)
+        assertNotNull(issue)
+        assertTrue(issue!!.contains("JVM 17"))
+    }
+
+    @Test
     fun rejectsKotlinAndComposeVersionMismatch() {
         val files = validProject().toMutableMap()
         files["build.gradle.kts"] = files.getValue("build.gradle.kts")
@@ -107,6 +119,15 @@ class GeneratedAndroidProjectValidatorTest {
                     applicationId = "com.example.app"
                     minSdk = 26
                     targetSdk = 35
+                }
+                compileOptions {
+                    sourceCompatibility = JavaVersion.VERSION_17
+                    targetCompatibility = JavaVersion.VERSION_17
+                }
+            }
+            kotlin {
+                compilerOptions {
+                    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
                 }
             }
             dependencies {
