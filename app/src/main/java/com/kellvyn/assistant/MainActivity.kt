@@ -693,7 +693,7 @@ fun KellvynApp() {
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            "Descreva o app. O agente vai pedir ao modelo ativo um projeto Android, validar os caminhos e guardar os arquivos localmente. O código gerado não é executado dentro do Kellvyn.",
+                            "Descreva o app. O agente pede ao modelo ativo um projeto Android, valida os caminhos e guarda os arquivos localmente. A compilação local ainda não está integrada: a saída é código, não um APK.",
                             color = Muted,
                             fontSize = 12.sp
                         )
@@ -727,7 +727,7 @@ fun KellvynApp() {
                         }
                         builtProject?.let { project ->
                             Text("Arquivos: ${project.fileCount}", color = Color.White, fontWeight = FontWeight.Bold)
-                            Text("Projeto guardado no armazenamento privado do aparelho. Exporte o ZIP para usar os arquivos fora do Kellvyn.", color = Muted, fontSize = 12.sp)
+                            Text("Arquivos guardados localmente. Isto ainda não é um APK: a compilação local precisa ser integrada. ZIP é apenas uma exportação opcional.", color = Muted, fontSize = 12.sp)
                         }
                     }
                 },
@@ -869,7 +869,7 @@ fun KellvynApp() {
                                         existingProjects.clear()
                                         existingProjects.addAll(workspaceStore.listProjects())
                                         activeEditProject = workspaceStore.getProject(project.id)
-                                        editorStatus = "Salvo localmente. Exporte o ZIP para compilar e testar."
+                                        editorStatus = "Salvo no workspace local. O compilador local ainda não está integrado, então este arquivo não foi compilado."
                                     } catch (e: Exception) {
                                         editorStatus = "Falha ao salvar: " + (e.message ?: e.javaClass.simpleName)
                                     } finally {
