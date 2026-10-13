@@ -692,8 +692,9 @@ class AssistantAgent(
             "procure na internet por", "busque na internet por",
             "pesquise na web sobre", "pesquisa na web sobre",
             "procure na web por", "busque na web por",
-            "pesquise no github por", "pesquise no github", "pesquise repositórios", "pesquise repositorios",
-            "procure um repositório", "procure um repositorio",
+            "pesquise no github por", "pesquise no github", "busque no github por", "procure no github por",
+            "pesquise repositórios", "pesquise repositorios", "procure repositório", "procure repositorio",
+            "busque repositório", "busque repositorio", "procure um repositório", "procure um repositorio",
             "pesquise na internet", "pesquisa na internet", "procure na internet", "busque na internet",
             "pesquise na web", "procure na web", "busque na web",
             "pesquise sobre", "pesquisa sobre"
@@ -715,7 +716,9 @@ class AssistantAgent(
             "pesquise na web", "procure na web", "busque na web", "pesquise sobre", "pesquisa sobre",
             "notícias atuais", "noticias atuais", "informação atualizada", "informacao atualizada",
             "repositório no github", "repositorio no github", "procure um repositório", "procure um repositorio",
-            "pesquise no github", "pesquise repositórios", "pesquise repositorios"
+            "procure repositório", "procure repositorio", "busque repositório", "busque repositorio",
+            "pesquise repositório", "pesquise repositorio", "pesquise no github", "busque no github",
+            "procure no github", "pesquise repositórios", "pesquise repositorios"
         ).any { it in t }
     }
 
