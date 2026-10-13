@@ -576,6 +576,7 @@ class AssistantAgent(
         val localFileRequest = if (githubFileRequest == null) {
             withContext(Dispatchers.IO) { tools.explicitLocalFileReadArguments(lastUser) }
         } else null
+        val explicitPageUrl = if (internetAllowed) extractExplicitPageUrl(lastUser) else null
         val preflight = when {
             looksLikeTerminalHelp(lastUser) -> {
                 onToolStatus("Conectando ao terminal local para diagnosticar o problema…")
@@ -611,6 +612,12 @@ class AssistantAgent(
                 "Conteúdo do arquivo local: " + runCatching {
                     tools.execute("read_file", localFileRequest, internetAllowed)
                 }.getOrElse { "Falha ao ler o arquivo local: ${it.message}" }
+            }
+            explicitPageUrl != null -> {
+                onToolStatus("Lendo a página HTTPS que você indicou…")
+                "Conteúdo da página pública: " + runCatching {
+                    tools.execute("open_web_page", JSONObject().put("url", explicitPageUrl), internetAllowed)
+                }.getOrElse { "Falha ao ler a página indicada: ${it.message}" }
             }
             internetAllowed && looksLikeWebResearch(lastUser) -> {
                 val normalizedQuery = extractResearchQuery(lastUser)
@@ -704,6 +711,29 @@ class AssistantAgent(
             }
             else -> last
         }
+    }
+
+    private fun extractExplicitPageUrl(text: String): String? {
+        val lower = text.lowercase(Locale.ROOT)
+        val asksToRead = listOf(
+            "leia esta página", "leia a página", "leia essa página", "analise esta página",
+            "analise o link", "analise esta url", "resuma a página", "resuma esta página",
+            "resuma o link", "abra o link", "abra esta página", "veja este site",
+            "leia este link", "leia o link", "read this page", "summarize this page",
+            "analyze this url", "open this link"
+        ).any { it in lower }
+        if (!asksToRead) return null
+        val start = lower.indexOf("https://")
+        if (start < 0) return null
+        val end = text.indexOfFirstFrom(start) { it.isWhitespace() || it == '<' || it == '>' || it == '"' || it == '\\'' }
+        val candidate = (if (end < 0) text.substring(start) else text.substring(start, end))
+            .trimEnd(',', '.', ')', ']', '}')
+        return candidate.takeIf { it.startsWith("https://", ignoreCase = true) && it.length <= 2_000 }
+    }
+
+    private fun String.indexOfFirstFrom(start: Int, predicate: (Char) -> Boolean): Int {
+        for (index in start until length) if (predicate(this[index])) return index
+        return -1
     }
 
     private fun parseGitHubBlobRequest(text: String): JSONObject? {
