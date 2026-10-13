@@ -180,6 +180,8 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
         platformDir.mkdirs()
         val archive = File(platformDir, "platform-36.zip")
         val partial = File(platformDir, "platform-36.zip.part")
+        // Discard any stale archive after an interrupted or invalid attempt.
+        archive.delete()
         partial.delete()
         report(onProgress, "Baixando a plataforma oficial do Android para a primeira build…")
         val connection = (URL(PLATFORM_URL).openConnection() as HttpURLConnection).apply {
