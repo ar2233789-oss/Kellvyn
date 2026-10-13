@@ -88,6 +88,8 @@ fun KellvynApp() {
     var status by remember { mutableStateOf("Selecione um modelo local ou configure um provedor online") }
     var modelReady by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
+    var isLoadingModel by remember { mutableStateOf(false) }
+    var isRemovingModel by remember { mutableStateOf(false) }
     var onlineMode by remember { mutableStateOf(false) }
     var onlineConfigured by remember { mutableStateOf(initialOnlineSettings.isConfigured) }
     var showOnlineSettings by remember { mutableStateOf(false) }
@@ -176,8 +178,13 @@ fun KellvynApp() {
     ) { uri ->
         if (uri != null) {
             scope.launch {
+                isLoadingModel = true
                 if (!onlineMode) status = "Copiando e inicializando o modelo local…"
-                updateModelResult(localEngine.importAndLoad(uri))
+                try {
+                    updateModelResult(localEngine.importAndLoad(uri))
+                } finally {
+                    isLoadingModel = false
+                }
             }
         }
     }
@@ -202,8 +209,13 @@ fun KellvynApp() {
 
     LaunchedEffect(localEngine) {
         if (localEngine.hasSavedModel()) {
+            isLoadingModel = true
             if (!onlineMode) status = "Modelo local encontrado; inicializando…"
-            updateModelResult(localEngine.loadSavedModel())
+            try {
+                updateModelResult(localEngine.loadSavedModel())
+            } finally {
+                isLoadingModel = false
+            }
         }
     }
 
@@ -337,11 +349,51 @@ fun KellvynApp() {
 
                     if (!onlineMode) {
                         Button(
+                            enabled = !isGenerating && !isLoadingModel && !isRemovingModel,
                             onClick = { modelPicker.launch(arrayOf("*/*")) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text(if (modelReady) "Trocar modelo local (.litertlm)" else "Selecionar modelo local (.litertlm)")
+                            Text(
+                                when {
+                                    isLoadingModel -> "Carregando modelo…"
+                                    modelReady -> "Trocar modelo local (.litertlm)"
+                                    else -> "Selecionar modelo local (.litertlm)"
+                                }
+                            )
+                        }
+                        if (localEngine.hasSavedModel()) {
+                            Text(
+                                "Modelo armazenado: ${localEngine.savedModelSizeBytes() / (1024L * 1024L)} MB",
+                                color = Muted,
+                                fontSize = 10.sp
+                            )
+                            TextButton(
+                                enabled = !isGenerating && !isLoadingModel && !isRemovingModel,
+                                onClick = {
+                                    isRemovingModel = true
+                                    status = "Removendo o modelo local…"
+                                    scope.launch {
+                                        try {
+                                            val removed = withContext(Dispatchers.IO) {
+                                                localEngine.removeSavedModel()
+                                            }
+                                            modelReady = false
+                                            status = if (removed) {
+                                                "Modelo removido do aparelho e espaço liberado."
+                                            } else {
+                                                "Não foi possível apagar o arquivo do modelo."
+                                            }
+                                        } catch (e: Exception) {
+                                            status = "Falha ao remover o modelo: " + (e.message ?: e.javaClass.simpleName)
+                                        } finally {
+                                            isRemovingModel = false
+                                        }
+                                    }
+                                }
+                            ) {
+                                Text(if (isRemovingModel) "Removendo…" else "Apagar modelo salvo", color = Warning, fontSize = 11.sp)
+                            }
                         }
                         Text(
                             "O modelo fica no armazenamento privado do aparelho. A inferência local não envia mensagens a um servidor.",
