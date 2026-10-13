@@ -42,6 +42,19 @@ class ProjectWorkspaceStore(context: Context) {
 
     fun getProject(projectId: String): WorkspaceProject? = readProject(projectId)
 
+    /**
+     * Returns the validated private working directory for local-only tools such as Git.
+     * Callers must not expose this path to generated code or launch arbitrary commands.
+     */
+    fun projectDirectory(projectId: String): File {
+        validateProjectId(projectId)
+        val directory = File(root, projectId).canonicalFile
+        val canonicalRoot = root.canonicalFile
+        require(directory.parentFile == canonicalRoot) { "O projeto está fora do workspace privado." }
+        require(readProject(projectId) != null) { "Projeto não encontrado." }
+        return directory
+    }
+
     @Synchronized
     fun createProject(name: String, description: String, files: List<ProjectFileInput>): WorkspaceProject {
         val cleanName = name.trim().take(MAX_NAME_CHARS).ifBlank { "Projeto Kellvyn" }
@@ -106,6 +119,7 @@ class ProjectWorkspaceStore(context: Context) {
         val directory = File(root, projectId)
         require(readProject(projectId) != null) { "Projeto não encontrado." }
         return directory.walkTopDown()
+            .onEnter { it.name != ".git" }
             .filter { it.isFile && it.name != PROJECT_METADATA }
             .map { it.relativeTo(directory).invariantSeparatorsPath }
             .sorted()
@@ -174,7 +188,10 @@ class ProjectWorkspaceStore(context: Context) {
     }
 
     private fun listFilesWithoutMetadata(directory: File): List<File> =
-        directory.walkTopDown().filter { it.isFile && it.name != PROJECT_METADATA }.toList()
+        directory.walkTopDown()
+            .onEnter { it.name != ".git" }
+            .filter { it.isFile && it.name != PROJECT_METADATA }
+            .toList()
 
     private fun writeProjectFiles(directory: File, files: List<ProjectFileInput>) {
         files.forEach { item ->
