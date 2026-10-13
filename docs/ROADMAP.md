@@ -8,7 +8,7 @@
 - [x] Entrada por ditado e saída por voz usando serviços instalados no Android.
 - [x] Memória explícita controlada pelo usuário.
 - [x] Terminal local de workspace com comandos de arquivos e Git via JGit; shell manual opcional para comando digitado pelo usuário, com confirmação e limites. O agente automático não recebe o shell manual, somente sua lista interna de ferramentas.
-- [x] Agente do chat consegue consultar o workspace e fazer diagnóstico somente de leitura quando o usuário pede ajuda com terminal.
+- [x] Agente do chat usa APIs diretas para listar/ler/pesquisar arquivos e projetos, sem chamar comandos de terminal. Diagnóstico manual de terminal usa o texto de saída que o próprio usuário encaminha ao agente.
 - [x] A tela Terminal possui campo/botão de ajuda que encaminha pergunta e saída recente ao agente principal.
 - [x] Pesquisa web HTTPS, descoberta/listagem de repositórios públicos do GitHub, leitura de arquivos e importação limitada após confirmação explícita quando o pedido é importar; tudo exige internet autorizada e trata conteúdo externo como dado não confiável.
 - [ ] Testar instalação e uso no Poco F6 real.
