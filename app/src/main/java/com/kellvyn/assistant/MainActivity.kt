@@ -72,6 +72,22 @@ private const val MAX_CONTEXT_MESSAGES = 24
 private const val MAX_INPUT_CHARS = 12_000
 private const val MAX_EDITOR_CHARS = 80_000
 
+private fun isExplicitAppBuildRequest(text: String): Boolean {
+    val t = text.lowercase(Locale.ROOT)
+    val action = listOf("crie", "criar", "construa", "construir", "desenvolva", "desenvolver", "gere", "gerar", "faça", "faca", "monta", "monte", "implemente")
+        .any { it in t }
+    val target = listOf("aplicativo", "app android", "apk", "aplicação android", "aplicacao android", "projeto android", "app com", "aplicativo com")
+        .any { it in t }
+    return action && target && !listOf("como criar", "como faço", "como faco", "me explique", "explique como").any { it in t }
+}
+
+private fun isBuildBrief(text: String): Boolean {
+    val t = text.trim().lowercase(Locale.ROOT)
+    if (t.length < 30 || '?' in t) return false
+    if (listOf("terminal", "console", "problema", "erro", "ajuda", "explique", "me explica", "o que é", "o que e", "quem é", "quem e", "por que", "como funciona", "olá", "ola", "bom dia", "boa tarde", "boa noite").any { it in t }) return false
+    return listOf("tela", "login", "cadastro", "botão", "botao", "salvar", "banco de dados", "offline", "notificação", "notificacao", "gerenciador", "usuários", "usuarios", "funções", "funcoes", "interface", "categorias", "busca").any { it in t }
+}
+
 data class ChatMessage(val text: String, val fromUser: Boolean)
 
 class MainActivity : ComponentActivity() {
@@ -127,7 +143,7 @@ fun KellvynApp() {
     var showNavigatorDialog by remember { mutableStateOf(false) }
     var showTabsDialog by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf("https://developer.android.com") }
-    var interactionMode by remember { mutableStateOf("Conversa") }
+    var interactionMode by remember { mutableStateOf("Build") }
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
     var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     var selectedNav by remember { mutableStateOf("AI") }
@@ -215,8 +231,10 @@ fun KellvynApp() {
         messages.add(ChatMessage(text, true))
         saveHistory()
         draft = ""
+        val wantsBuild = isExplicitAppBuildRequest(text) ||
+            (interactionMode == "Build" && isBuildBrief(text))
         isGenerating = true
-        status = if (interactionMode == "Build") {
+        status = if (wantsBuild) {
             "Planejando e gerando arquivos do projeto com o motor selecionado…"
         } else if (onlineSelected) {
             "Enviando ao endpoint online escolhido…"
@@ -227,7 +245,7 @@ fun KellvynApp() {
         val selectedEngine: AssistantEngine = if (onlineSelected) onlineEngine else localEngine
         scope.launch {
             try {
-                if (interactionMode == "Build") {
+                if (wantsBuild) {
                     when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
                         is AppBuildResult.Success -> {
                             val project = result.project
