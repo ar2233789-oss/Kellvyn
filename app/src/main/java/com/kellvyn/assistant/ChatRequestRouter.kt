@@ -19,18 +19,32 @@ object ChatRequestRouter {
                 "como ", "me explique", "explique como", "tutorial", "passo a passo",
                 "o que é", "o que e", "por que", "você consegue", "voce consegue"
             ).any { it in t }) return false
-        return listOf(
+
+        val compileAction = listOf(
             "compile o projeto", "compila o projeto", "compilar o projeto",
             "compile esse projeto", "compile este projeto", "compile meu projeto",
             "compilar meu projeto", "compilar esse projeto", "compilar este projeto",
+            "compile o apk", "compilar o apk", "compila o apk", "compile apk", "compilar apk",
+            "compile o app", "compila o app", "compilar o app", "compile meu app",
+            "compila meu app", "compilar meu app", "compile meu aplicativo",
+            "compile o projeto existente", "compilar projeto existente",
+            "compile o projeto salvo", "build apk"
+        ).any { it in t }
+        if (compileAction) return true
+
+        val existingReference = listOf(
+            "desse projeto", "deste projeto", "do meu projeto", "no meu projeto",
+            "projeto existente", "projeto salvo", "meu app", "meu aplicativo",
+            "desse app", "deste app", "do app existente", "aplicativo existente",
+            "projeto que você criou", "projeto que voce criou", "app que você criou",
+            "app que voce criou", "que já existe", "que ja existe"
+        ).any { it in t }
+        if (!existingReference) return false
+
+        return listOf(
             "gere o apk", "gera o apk", "gerar o apk", "crie o apk", "criar o apk",
-            "compile o apk", "compilar o apk", "compilar apk", "compile apk",
-            "compile o app", "compila o app", "compilar o app", "gere apk desse projeto",
-            "gerar apk desse projeto", "gere o apk desse projeto", "gere apk desse app",
-            "gerar apk desse app", "compile o projeto existente", "compila o projeto existente",
-            "gerar apk do projeto existente", "build desse projeto", "build desse app",
-            "faça o build", "faca o build", "gerar apk do projeto", "gere apk do projeto",
-            "transforme em apk", "compila meu app", "compile meu app", "construa o apk", "construir o apk"
+            "gere apk", "gerar apk", "crie apk", "criar apk", "transforme em apk",
+            "construa o apk", "construir o apk", "faça o build", "faca o build", "build "
         ).any { it in t }
     }
 
