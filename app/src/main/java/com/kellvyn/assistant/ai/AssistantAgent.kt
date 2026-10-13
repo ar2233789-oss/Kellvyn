@@ -177,7 +177,7 @@ class AgentToolRouter(
         onStatus: (String) -> Unit = {}
     ): String = withContext(Dispatchers.IO) {
             when (name) {
-                "build_project_apk" -> {
+            "build_project_apk" -> {
                     val compiler = requireNotNull(localCompiler) {
                         "O construtor local não foi conectado ao agente desta sessão."
                     }
@@ -205,7 +205,7 @@ class AgentToolRouter(
                         }
                     }
                 }
-                                "workspace_status" -> workspaceStatus()
+                "workspace_status" -> workspaceStatus()
                 "list_projects" -> listProjects()
                 "list_files" -> listFiles(required(args, "project_id"))
                 "read_file" -> readFile(
