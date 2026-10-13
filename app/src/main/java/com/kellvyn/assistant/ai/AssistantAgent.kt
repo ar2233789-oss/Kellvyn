@@ -881,7 +881,7 @@ class AssistantAgent(
             withContext(Dispatchers.IO) { tools.explicitLocalFileReadArguments(lastUser) }
         } else null
         val preflight = when {
-            looksLikeTerminalHelp(lastUser) -> {
+            !hasExternalLinkRequest && looksLikeTerminalHelp(lastUser) -> {
                 onToolStatus("Conectando ao terminal local para diagnosticar o problema…")
                 val status = runCatching { tools.execute("terminal_read", JSONObject().put("command", "status"), internetAllowed) }
                     .getOrElse { "Falha no status do terminal: ${it.message}" }
@@ -889,13 +889,13 @@ class AssistantAgent(
                     .getOrElse { "Falha ao ler ajuda do terminal: ${it.message}" }
                 "Diagnóstico automático do terminal local (somente leitura):\nSTATUS:\n$status\nAJUDA:\n$help"
             }
-            looksLikeProjectList(lastUser) -> {
+            !hasExternalLinkRequest && looksLikeProjectList(lastUser) -> {
                 onToolStatus("Consultando seus projetos locais…")
                 "Lista atual dos projetos locais: " + runCatching {
                     tools.execute("list_projects", JSONObject(), internetAllowed)
                 }.getOrElse { "Falha ao listar projetos: ${it.message}" }
             }
-            looksLikeLocalCodeSearch(lastUser) -> {
+            !hasExternalLinkRequest && looksLikeLocalCodeSearch(lastUser) -> {
                 val needle = extractLocalSearchQuery(lastUser)
                 if (needle.length < 2) null else {
                     onToolStatus("Buscando nos arquivos locais do projeto…")
