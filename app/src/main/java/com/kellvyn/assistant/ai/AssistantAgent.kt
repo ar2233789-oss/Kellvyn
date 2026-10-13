@@ -26,6 +26,50 @@ class AgentToolRouter(
     private val workspace: ProjectWorkspaceStore,
     private val terminal: WorkspaceTerminal
 ) {
+    fun explicitLocalFileReadArguments(text: String): JSONObject? {
+        val lower = text.lowercase(Locale.ROOT)
+        val action = listOf(
+            "leia", "ler ", "abra", "abrir", "mostre", "mostrar", "exiba", "exibir",
+            "analise", "analisar", "revise", "revisar", "corrija", "corrigir",
+            "modifique", "modificar", "altere", "alterar", "atualize", "atualizar",
+            "edite", "editar", "inspect", "read ", "open ", "review ", "fix ", "edit "
+        ).any { it in lower }
+        val mentionsFile = "arquivo" in lower || "ficheiro" in lower ||
+            Regex("\\.(kt|kts|java|xml|gradle|md|json|properties|txt)(\\b|$)", RegexOption.IGNORE_CASE)
+                .containsMatchIn(text)
+        if (!action || !mentionsFile) return null
+
+        val projects = workspace.listProjects()
+        if (projects.isEmpty()) return null
+        val namedProjects = projects.filter { project ->
+            lower.contains(project.id.lowercase(Locale.ROOT)) ||
+                lower.contains(project.name.lowercase(Locale.ROOT))
+        }
+        val project = when {
+            namedProjects.size == 1 -> namedProjects.first()
+            namedProjects.size > 1 -> namedProjects.maxByOrNull { it.id.length + it.name.length } ?: return null
+            projects.size == 1 -> projects.first()
+            else -> return null
+        }
+
+        val files = runCatching { workspace.listFiles(project.id) }.getOrDefault(emptyList())
+        if (files.isEmpty()) return null
+        val exactPaths = files.filter { path -> lower.contains(path.lowercase(Locale.ROOT)) }
+        val candidates = if (exactPaths.isNotEmpty()) {
+            exactPaths
+        } else {
+            files.filter { path -> lower.contains(path.substringAfterLast('/').lowercase(Locale.ROOT)) }
+        }
+        val chosen = when {
+            candidates.size == 1 -> candidates.first()
+            candidates.isNotEmpty() -> candidates.maxByOrNull { it.length } ?: return null
+            else -> return null
+        }
+        return JSONObject()
+            .put("project_id", project.id)
+            .put("path", chosen)
+    }
+
     fun approvalRequired(name: String): Boolean = name in setOf(
         "terminal_command", "write_file", "delete_file", "delete_project"
     )
