@@ -1147,11 +1147,21 @@ class AssistantAgent(
     private fun looksLikeGitHubImport(text: String): Boolean {
         val lower = text.lowercase(Locale.ROOT)
         if ("github.com/" !in lower) return false
+        if (listOf(
+                "não importe", "nao importe", "não quero importar", "nao quero importar",
+                "não quero que importe", "nao quero que importe", "não clonar", "nao clonar",
+                "não baixe", "nao baixe", "como importar", "como clonar", "como baixar",
+                "me explique como importar", "me explica como importar", "qual o comando para clonar"
+            ).any { it in lower }) return false
         return listOf(
-            "importe", "importar", "importa ", "importa o", "importa esse",
-            "clonar", "clone ", "faça clone", "faca clone", "baixe o repositório",
-            "baixe o repositorio", "baixe esse repo", "copie o repositório",
-            "copie o repositorio", "traga para meus projetos", "salve esse repo"
+            "importe esse repositório", "importe esse repositorio",
+            "importe este repositório", "importe este repositorio",
+            "importa esse repo", "importar esse repositório", "importar esse repositorio",
+            "importar o repo", "quero importar", "clonar esse repositório", "clonar esse repositorio",
+            "clonar o repositório", "clonar o repositorio", "clone esse repo", "faça clone",
+            "faca clone", "baixe esse repo", "baixe esse repositório", "baixe esse repositorio",
+            "baixar esse repo", "copie esse repo", "copie o repositório", "copie o repositorio",
+            "traga para meus projetos", "salve esse repo"
         ).any { it in lower }
     }
 
