@@ -386,7 +386,7 @@ class AssistantAgent(
             appendLine("- write_file {project_id,path,content}: grava ou substitui um arquivo; precisa de aprovação")
             appendLine("- delete_file {project_id,path}: exclui um arquivo; precisa de aprovação")
             appendLine("- delete_project {project_id}: exclui um projeto inteiro; precisa de aprovação")
-            appendLine("- web_search {query}: pesquisa pública na internet; só quando o modo online está ativo")
+            appendLine("- web_search {query}: pesquisa pública na internet; só quando a permissão separada de internet das ferramentas está ligada")
             appendLine("- open_web_page {url}: lê página HTTPS pública; só quando o modo online está ativo")
             appendLine()
             appendLine("Responda SOMENTE com um JSON de uma destas formas, sem markdown:")
