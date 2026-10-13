@@ -25,6 +25,9 @@ import javax.net.ssl.HttpsURLConnection
 class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoCloseable {
     private companion object {
         const val MAX_SYSTEM_CONTEXT_CHARS = 12_000
+        const val ACTIVE_MODEL_KEY = "active_model"
+        const val CONVERSATION_MODEL_KEY = "conversation"
+        const val CODER_MODEL_KEY = "coder"
         const val RECOMMENDED_MODEL_URL = "https://huggingface.co/litert-community/SmolLM2-360M-Instruct/resolve/main/SmolLM2_360M_instruct.litertlm?download=true"
         const val RECOMMENDED_MODEL_BYTES = 373_719_040L
         const val MAX_RECOMMENDED_MODEL_BYTES = 500_000_000L
@@ -130,7 +133,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 if (!directory.exists() && !directory.mkdirs()) {
                     throw IllegalStateException("Não foi possível criar a pasta privada do modelo.")
                 }
-                recoverPreviousModelFile(backup)
+                recoverPreviousModelFile(modelFile, backup)
                 if (temporary.exists() && !temporary.delete()) {
                     throw IllegalStateException("Não foi possível limpar uma importação anterior interrompida.")
                 }
@@ -181,13 +184,13 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 }
                 result
             } else {
-                restorePreviousModel(backup)
+                restorePreviousModel(modelFile, backup)
                 result
             }
         } catch (e: Exception) {
             val restoreError = runCatching {
                 withContext(Dispatchers.IO) { temporary.delete() }
-                if (backup.exists()) restorePreviousModel(backup)
+                if (backup.exists()) restorePreviousModel(modelFile, backup)
             }.exceptionOrNull()
             val detail = e.message ?: "Falha ao importar o modelo local."
             AssistantResult.Failure(
@@ -197,10 +200,10 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         }
     }
 
-    private fun recoverPreviousModelFile(backup: File) {
+    private fun recoverPreviousModelFile(target: File, backup: File) {
         if (!backup.exists()) return
-        if (!modelFile.exists()) {
-            if (!backup.renameTo(modelFile)) {
+        if (!target.exists()) {
+            if (!backup.renameTo(target)) {
                 throw IllegalStateException("Foi encontrado um backup de modelo e não foi possível restaurá-lo.")
             }
         } else if (!backup.delete()) {
@@ -208,12 +211,12 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         }
     }
 
-    private suspend fun restorePreviousModel(backup: File) {
+    private suspend fun restorePreviousModel(target: File, backup: File) {
         withContext(Dispatchers.IO) {
-            if (modelFile.exists() && !modelFile.delete()) {
+            if (target.exists() && !target.delete()) {
                 throw IllegalStateException("O novo modelo falhou e não foi possível removê-lo para restaurar o anterior.")
             }
-            if (backup.exists() && !backup.renameTo(modelFile)) {
+            if (backup.exists() && !backup.renameTo(target)) {
                 throw IllegalStateException("O novo modelo falhou e o backup não pôde ser restaurado.")
             }
         }
@@ -358,7 +361,21 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         if (!hasSavedModel()) {
             return AssistantResult.Unavailable("Nenhum modelo local foi selecionado.")
         }
+        return loadModel(selectedModelFile())
+    }
+
+    suspend fun loadConversationModel(): AssistantResult {
+        if (!hasSavedConversationModel()) {
+            return AssistantResult.Unavailable("O modelo leve de conversa não está instalado.")
+        }
         return loadModel(modelFile)
+    }
+
+    suspend fun loadCoderModel(): AssistantResult {
+        if (!hasSavedCoderModel()) {
+            return AssistantResult.Unavailable("O modelo programador Qwen ainda não está instalado.")
+        }
+        return loadModel(coderModelFile)
     }
 
     private suspend fun loadModel(file: File): AssistantResult = withContext(Dispatchers.IO) {
@@ -375,6 +392,9 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             val previous = engine
             engine = candidate
             candidate = null
+            modelPreferences.edit()
+                .putString(ACTIVE_MODEL_KEY, if (file.canonicalFile == coderModelFile.canonicalFile) CODER_MODEL_KEY else CONVERSATION_MODEL_KEY)
+                .apply()
             try { previous?.close() } catch (_: Exception) { }
             AssistantResult.Success("Modelo local carregado e pronto para responder.")
         } catch (e: Exception) {
