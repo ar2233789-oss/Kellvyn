@@ -336,6 +336,32 @@ fun KellvynApp() {
                         }
                     )
                     DropdownMenuItem(
+                        text = { Text("Apagar modelo local salvo") },
+                        enabled = localEngine.hasSavedModel() && !isGenerating && !isDownloadingModel && !isLoadingModel && !isRemovingModel,
+                        onClick = {
+                            showQuickMenu = false
+                            isRemovingModel = true
+                            status = "Removendo o modelo local…"
+                            scope.launch {
+                                try {
+                                    val removed = withContext(Dispatchers.IO) {
+                                        localEngine.removeSavedModel()
+                                    }
+                                    modelReady = false
+                                    status = if (removed) {
+                                        "Modelo removido do aparelho e espaço liberado."
+                                    } else {
+                                        "Não foi possível apagar o arquivo do modelo."
+                                    }
+                                } catch (e: Exception) {
+                                    status = "Falha ao remover o modelo: " + (e.message ?: e.javaClass.simpleName)
+                                } finally {
+                                    isRemovingModel = false
+                                }
+                            }
+                        }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Configurar provedor online") },
                         onClick = {
                             showQuickMenu = false
