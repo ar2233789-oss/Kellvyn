@@ -681,6 +681,7 @@ class AssistantAgent(
         "delete_file", "delete_project" -> "Executando ação local autorizada…"
         "web_search" -> "Pesquisando na internet…"
         "open_web_page" -> "Lendo página pública da internet…"
+        "github_file" -> "Lendo arquivo de um repositório público…"
         else -> "Executando ferramenta…"
     }
 
