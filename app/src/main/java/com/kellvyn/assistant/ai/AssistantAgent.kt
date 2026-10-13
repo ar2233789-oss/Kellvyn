@@ -478,10 +478,14 @@ class AssistantAgent(
                 }.getOrElse { "Falha ao listar projetos: ${it.message}" }
             }
             internetAllowed && looksLikeWebResearch(lastUser) -> {
-                onToolStatus("Pesquisando na internet para responder com fontes…")
-                "Resultados atuais da pesquisa pública na internet: " + runCatching {
-                    tools.execute("web_search", JSONObject().put("query", lastUser), internetAllowed)
-                }.getOrElse { "Falha na pesquisa web: ${it.message}" }
+                val asksForRepository = listOf("github", "repositório", "repositorio", "open source", "código aberto", "codigo aberto")
+                    .any { it in lastUser.lowercase(Locale.ROOT) }
+                onToolStatus(if (asksForRepository) "Procurando repositórios públicos de código…" else "Pesquisando na internet para responder com fontes…")
+                val tool = if (asksForRepository) "github_search" else "web_search"
+                val label = if (asksForRepository) "Repositórios públicos encontrados" else "Resultados atuais da pesquisa pública na internet"
+                "$label: " + runCatching {
+                    tools.execute(tool, JSONObject().put("query", lastUser), internetAllowed)
+                }.getOrElse { "Falha na pesquisa: ${it.message}" }
             }
             else -> null
         }
@@ -571,7 +575,9 @@ class AssistantAgent(
         return listOf(
             "pesquise na internet", "pesquisa na internet", "procure na internet", "busque na internet",
             "pesquise na web", "procure na web", "busque na web", "pesquise sobre", "pesquisa sobre",
-            "notícias atuais", "noticias atuais", "informação atualizada", "informacao atualizada"
+            "notícias atuais", "noticias atuais", "informação atualizada", "informacao atualizada",
+            "repositório no github", "repositorio no github", "procure um repositório", "procure um repositorio",
+            "pesquise no github", "pesquise repositórios", "pesquise repositorios"
         ).any { it in t }
     }
 
