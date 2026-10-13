@@ -31,6 +31,16 @@ class ChatRequestRouterTest {
     }
 
     @Test
+    fun installedCoderIsPreferredForCodeWorkButNotOrdinaryQuestions() {
+        assertTrue(ChatRequestRouter.shouldPreferCoder("Corrija o arquivo MainActivity.kt"))
+        assertTrue(ChatRequestRouter.shouldPreferCoder("Adicione login ao meu app existente"))
+        assertTrue(ChatRequestRouter.shouldPreferCoder("Continue o projeto que você criou"))
+        assertFalse(ChatRequestRouter.shouldPreferCoder("Explique o que é Kotlin"))
+        assertFalse(ChatRequestRouter.shouldPreferCoder("Pesquise na internet sobre Kotlin coroutines"))
+        assertFalse(ChatRequestRouter.shouldPreferCoder("Bom dia"))
+    }
+
+    @Test
     fun detailedBriefUsesBuildOnlyWhenBuildModeIsSelected() {
         val brief = "Quero um gerenciador de tarefas com tela de login, cadastro de usuários, categorias e busca."
         assertFalse(ChatRequestRouter.shouldBuild(brief, buildModeSelected = false))
