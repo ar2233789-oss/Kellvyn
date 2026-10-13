@@ -139,7 +139,10 @@ class GeneratedAndroidProjectValidatorTest {
         """.trimIndent()
         files["app/src/main/java/com/example/app/AppScreen.kt"] = """
             package com.example.app
-            @Composable fun AppScreen() { }
+            @Composable fun AppScreen() {
+                // Text("This comment is not a real UI control")
+                val note = "Button(\"not really a control\")"
+            }
         """.trimIndent()
 
         val issue = GeneratedAndroidProjectValidator.validate(files)
