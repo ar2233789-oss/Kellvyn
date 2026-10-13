@@ -3,6 +3,7 @@ package com.kellvyn.assistant
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
@@ -116,7 +117,13 @@ fun KellvynApp() {
     var showOnlineSettings by remember { mutableStateOf(false) }
     var showConsoleDialog by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
-    var selectedNav by remember { mutableStateOf("Chat") }
+    var showModeMenu by remember { mutableStateOf(false) }
+    var showNavigatorDialog by remember { mutableStateOf(false) }
+    var showTabsDialog by remember { mutableStateOf(false) }
+    var browserUrl by remember { mutableStateOf("https://developer.android.com") }
+    var interactionMode by remember { mutableStateOf("Build") }
+    var selectedNav by remember { mutableStateOf("AI") }
+    var openTabs by remember { mutableStateOf(emptyList<String>()) }
     var endpointInput by remember { mutableStateOf(initialOnlineSettings.endpoint) }
     var modelInput by remember { mutableStateOf(initialOnlineSettings.model) }
     var apiKeyInput by remember { mutableStateOf(initialOnlineSettings.apiKey) }
@@ -162,6 +169,102 @@ fun KellvynApp() {
 
     fun saveHistory() {
         historyStore.save(messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) })
+    }
+
+    fun rememberOpenTab(projectId: String, path: String) {
+        val tab = "$projectId::$path"
+        openTabs = (openTabs + tab).distinct().takeLast(40)
+    }
+
+    fun submitDraft() {
+        val text = draft.trim()
+        if (text.isEmpty() || isGenerating) return
+        val onlineSelected = onlineMode
+        if (onlineSelected && !onlineConfigured) {
+            status = "Configure o provedor online antes de enviar mensagens."
+            return
+        }
+        if (!onlineSelected && !modelReady) {
+            status = "Carregue um modelo .litertlm primeiro. A mensagem não foi enviada."
+            showQuickMenu = true
+            return
+        }
+
+        messages.add(ChatMessage(text, true))
+        saveHistory()
+        draft = ""
+        isGenerating = true
+        status = if (interactionMode == "Build") {
+            "Planejando e gerando arquivos do projeto com o motor selecionado…"
+        } else if (onlineSelected) {
+            "Enviando ao endpoint online escolhido…"
+        } else {
+            "Gerando resposta no aparelho…"
+        }
+
+        val selectedEngine: AssistantEngine = if (onlineSelected) onlineEngine else localEngine
+        scope.launch {
+            try {
+                if (interactionMode == "Build") {
+                    when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
+                        is AppBuildResult.Success -> {
+                            val project = result.project
+                            existingProjects.clear()
+                            existingProjects.addAll(workspaceStore.listProjects())
+                            builtProject = project
+                            messages.add(
+                                ChatMessage(
+                                    "Projeto \"${project.name}\" criado e validado com ${project.fileCount} arquivos. Os arquivos foram guardados neste aparelho. Ainda não é um APK: a compilação Android local precisa ser integrada e testada. Use Editor para revisar o código, Git para versionar e ZIP como exportação secundária.",
+                                    false
+                                )
+                            )
+                            status = "Arquivos de projeto criados localmente. Nenhum APK foi compilado."
+                        }
+                        is AppBuildResult.Failure -> {
+                            messages.add(ChatMessage("Não consegui concluir a geração do projeto: ${result.reason}", false))
+                            status = result.reason
+                        }
+                    }
+                } else {
+                    val memoryContext = memoryStore.promptContext()
+                    val turns = buildList {
+                        if (memoryContext.isNotBlank()) add(
+                            AssistantTurn(role = AssistantTurn.Role.SYSTEM, content = memoryContext)
+                        )
+                        addAll(messages.takeLast(MAX_CONTEXT_MESSAGES).mapNotNull { message ->
+                            if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) null
+                            else AssistantTurn(
+                                role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
+                                content = message.text
+                            )
+                        })
+                    }
+                    when (val result = selectedEngine.reply(turns)) {
+                        is AssistantResult.Success -> {
+                            messages.add(ChatMessage(result.text, false))
+                            status = if (onlineSelected) "Resposta recebida do provedor online"
+                                else "Resposta gerada localmente • nenhuma mensagem enviada a servidor"
+                        }
+                        is AssistantResult.Unavailable -> {
+                            messages.add(ChatMessage("IA indisponível: ${result.reason}", false))
+                            status = result.reason
+                        }
+                        is AssistantResult.Failure -> {
+                            messages.add(ChatMessage("Falha da IA: ${result.reason}", false))
+                            status = result.reason
+                        }
+                    }
+                }
+                saveHistory()
+            } catch (e: Exception) {
+                val reason = e.message ?: e.javaClass.simpleName
+                messages.add(ChatMessage("Falha inesperada: $reason", false))
+                saveHistory()
+                status = "Falha inesperada: $reason"
+            } finally {
+                isGenerating = false
+            }
+        }
     }
 
     fun updateModelResult(result: AssistantResult) {
@@ -529,19 +632,17 @@ fun KellvynApp() {
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1A7660)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier.padding(start = 7.dp, end = 5.dp, top = 2.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.padding(start = 8.dp, end = 6.dp, top = 3.dp, bottom = 3.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 3.dp)) {
-                        Text("+", color = Neon, fontSize = 20.sp)
-                    }
                     OutlinedTextField(
                         value = draft,
                         onValueChange = { if (it.length <= MAX_INPUT_CHARS) draft = it },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("Pergunte qualquer coisa…", color = Muted, fontSize = 13.sp) },
                         shape = RoundedCornerShape(12.dp),
+                        minLines = 1,
                         maxLines = 4,
                         enabled = !isGenerating,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -552,133 +653,171 @@ fun KellvynApp() {
                             cursorColor = Neon
                         )
                     )
-                    TextButton(
-                        enabled = !isGenerating,
-                        onClick = {
-                            try {
-                                speechLauncher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
-                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale sua mensagem para o Kellvyn Assistente")
-                                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                                })
-                            } catch (_: ActivityNotFoundException) {
-                                status = "Nenhum reconhecedor de voz está instalado ou disponível."
-                            } catch (e: Exception) {
-                                status = "Não foi possível abrir o microfone: " + (e.message ?: e.javaClass.simpleName)
-                            }
-                        },
-                        contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) { Text("♩", color = Neon, fontSize = 17.sp) }
-                    Button(
-                        enabled = !isGenerating,
-                        onClick = {
-                            val text = draft.trim()
-                            val onlineSelected = onlineMode
-                            if (text.isNotEmpty()) {
-                                if (onlineSelected && !onlineConfigured) {
-                                    status = "Configure o provedor online antes de enviar mensagens."
-                                } else if (!onlineSelected && !modelReady) {
-                                    status = "Carregue um modelo .litertlm primeiro. A mensagem não foi enviada."
-                                    showQuickMenu = true
-                                } else {
-                                    messages.add(ChatMessage(text, true))
-                                    saveHistory()
-                                    draft = ""
-                                    isGenerating = true
-                                    status = if (onlineSelected) "Enviando ao endpoint online escolhido…" else "Gerando resposta no aparelho…"
-                                    val selectedEngine: AssistantEngine = if (onlineSelected) onlineEngine else localEngine
-                                    val memoryContext = memoryStore.promptContext()
-                                    val turns = buildList {
-                                        if (memoryContext.isNotBlank()) add(AssistantTurn(role = AssistantTurn.Role.SYSTEM, content = memoryContext))
-                                        addAll(messages.takeLast(MAX_CONTEXT_MESSAGES).mapNotNull { message ->
-                                            if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) null
-                                            else AssistantTurn(
-                                                role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
-                                                content = message.text
-                                            )
-                                        })
-                                    }
-                                    scope.launch {
-                                        try {
-                                            when (val result = selectedEngine.reply(turns)) {
-                                                is AssistantResult.Success -> {
-                                                    messages.add(ChatMessage(result.text, false))
-                                                    saveHistory()
-                                                    status = if (onlineSelected) "Resposta recebida do provedor online" else "Resposta gerada localmente • nenhuma mensagem enviada a servidor"
-                                                }
-                                                is AssistantResult.Unavailable -> status = result.reason
-                                                is AssistantResult.Failure -> status = result.reason
-                                            }
-                                        } catch (e: Exception) {
-                                            status = "Falha inesperada: " + (e.message ?: e.javaClass.simpleName)
-                                        } finally {
-                                            isGenerating = false
-                                        }
-                                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        TextButton(
+                            onClick = { showQuickMenu = true },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                        ) { Text("+", color = Neon, fontSize = 20.sp) }
+
+                        Box {
+                            Surface(
+                                color = Color(0xFF061510),
+                                shape = RoundedCornerShape(9.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                            ) {
+                                TextButton(
+                                    onClick = { showModeMenu = true },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                ) {
+                                    val modelLabel = if (onlineMode) {
+                                        modelInput.trim().ifBlank { "IA online" }.take(20)
+                                    } else "IA local"
+                                    Text("$interactionMode · $modelLabel ⌄", color = Neon, fontSize = 10.sp, maxLines = 1)
                                 }
                             }
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 13.dp, vertical = 9.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Neon, contentColor = Night)
-                    ) { Text(if (isGenerating) "…" else "↑", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+                            DropdownMenu(
+                                expanded = showModeMenu,
+                                onDismissRequest = { showModeMenu = false },
+                                modifier = Modifier.background(Panel)
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Conversa normal") },
+                                    onClick = { interactionMode = "Conversa"; showModeMenu = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Build · criar aplicativo") },
+                                    onClick = { interactionMode = "Build"; showModeMenu = false }
+                                )
+                                Divider()
+                                DropdownMenuItem(
+                                    text = { Text("Núcleo local · offline") },
+                                    onClick = {
+                                        onlineMode = false
+                                        showModeMenu = false
+                                        status = if (modelReady) "Núcleo local selecionado." else "Núcleo local selecionado; carregue um modelo antes de conversar."
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(if (onlineConfigured) "Usar provedor online" else "Configurar provedor online") },
+                                    onClick = {
+                                        showModeMenu = false
+                                        if (onlineConfigured) {
+                                            onlineMode = true
+                                            status = "Modo online selecionado."
+                                        } else {
+                                            val saved = onlineSettingsStore.load()
+                                            endpointInput = saved.endpoint
+                                            modelInput = saved.model
+                                            apiKeyInput = saved.apiKey
+                                            settingsError = ""
+                                            showOnlineSettings = true
+                                        }
+                                    }
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.weight(1f))
+
+                        TextButton(
+                            enabled = !isGenerating,
+                            onClick = {
+                                try {
+                                    speechLauncher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+                                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale sua mensagem para o Kellvyn Assistente")
+                                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                                    })
+                                } catch (_: ActivityNotFoundException) {
+                                    status = "Nenhum reconhecedor de voz está instalado ou disponível."
+                                } catch (e: Exception) {
+                                    status = "Não foi possível abrir o microfone: " + (e.message ?: e.javaClass.simpleName)
+                                }
+                            },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                        ) { Text("♩", color = Neon, fontSize = 17.sp) }
+
+                        Button(
+                            enabled = !isGenerating,
+                            onClick = { submitDraft() },
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 13.dp, vertical = 5.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Neon, contentColor = Night)
+                        ) { Text(if (isGenerating) "…" else "↑", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+                    }
                 }
             }
 
             Spacer(Modifier.height(5.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 3.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 1.dp, bottom = 1.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    TextButton(onClick = { selectedNav = "Chat" }, contentPadding = PaddingValues(3.dp)) {
-                        Text("✧", color = if (selectedNav == "Chat") Neon else Muted, fontSize = 19.sp)
-                    }
-                    Text("Chat", color = if (selectedNav == "Chat") Neon else Muted, fontSize = 9.sp)
+                    TextButton(
+                        onClick = { selectedNav = "AI" },
+                        contentPadding = PaddingValues(1.dp)
+                    ) { Text("✧", color = if (selectedNav == "AI") Neon else Muted, fontSize = 20.sp) }
+                    Text("AI", color = if (selectedNav == "AI") Neon else Muted, fontSize = 8.sp)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    TextButton(
+                        onClick = { selectedNav = "Navegador"; showNavigatorDialog = true },
+                        contentPadding = PaddingValues(1.dp)
+                    ) { Text("◎", color = if (selectedNav == "Navegador") Neon else Muted, fontSize = 19.sp) }
+                    Text("Navegador", color = if (selectedNav == "Navegador") Neon else Muted, fontSize = 8.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                     TextButton(
                         onClick = {
-                            selectedNav = "Projetos"
+                            selectedNav = "Editor"
                             existingProjects.clear()
                             existingProjects.addAll(workspaceStore.listProjects())
-                            showProjectsDialog = true
-                        },
-                        contentPadding = PaddingValues(3.dp)
-                    ) { Text("▦", color = if (selectedNav == "Projetos") Neon else Muted, fontSize = 19.sp) }
-                    Text("Projetos", color = if (selectedNav == "Projetos") Neon else Muted, fontSize = 9.sp)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    Box(
-                        modifier = Modifier.size(42.dp).background(Panel, CircleShape).border(1.dp, Neon, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        TextButton(
-                            onClick = {
-                                selectedNav = "Núcleo"
+                            if (existingProjects.isEmpty()) {
                                 builderBrief = ""
-                                builderMessage = ""
+                                builderMessage = "Crie um projeto antes de abrir o editor."
                                 builtProject = null
                                 showBuilderDialog = true
-                            },
-                            contentPadding = PaddingValues(0.dp)
-                        ) { Text("◉", color = Neon, fontSize = 22.sp) }
-                    }
-                    Text("Núcleo", color = Neon, fontSize = 9.sp)
+                            } else showProjectsDialog = true
+                        },
+                        contentPadding = PaddingValues(1.dp)
+                    ) { Text("</>", color = if (selectedNav == "Editor") Neon else Muted, fontSize = 14.sp) }
+                    Text("Editor", color = if (selectedNav == "Editor") Neon else Muted, fontSize = 8.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    TextButton(onClick = { selectedNav = "Ferramentas"; showConsoleDialog = true }, contentPadding = PaddingValues(3.dp)) {
-                        Text("⌘", color = if (selectedNav == "Ferramentas") Neon else Muted, fontSize = 19.sp)
-                    }
-                    Text("Ferramentas", color = if (selectedNav == "Ferramentas") Neon else Muted, fontSize = 9.sp)
+                    TextButton(
+                        onClick = {
+                            selectedNav = "Terminal"
+                            status = "Terminal local: use projects, cd <id>, ls, cat, write, git status e git commit."
+                            showConsoleDialog = true
+                        },
+                        contentPadding = PaddingValues(1.dp)
+                    ) { Text(">_", color = if (selectedNav == "Terminal") Neon else Muted, fontSize = 17.sp) }
+                    Text("Terminal", color = if (selectedNav == "Terminal") Neon else Muted, fontSize = 8.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(3.dp)) {
-                        Text("▤", color = Neon, fontSize = 19.sp)
-                    }
-                    Text("Config", color = Neon, fontSize = 9.sp)
+                    TextButton(
+                        onClick = {
+                            selectedNav = "Git"
+                            status = "Git local: abra Terminal, use projects, cd <id>, git init, git status, git add . e git commit <mensagem>. Nada é enviado a um servidor."
+                            showConsoleDialog = true
+                        },
+                        contentPadding = PaddingValues(1.dp)
+                    ) { Text("⑂", color = if (selectedNav == "Git") Neon else Muted, fontSize = 19.sp) }
+                    Text("Git", color = if (selectedNav == "Git") Neon else Muted, fontSize = 8.sp)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    TextButton(
+                        onClick = { selectedNav = "Abas"; showTabsDialog = true },
+                        contentPadding = PaddingValues(1.dp)
+                    ) { Text("▦", color = if (selectedNav == "Abas") Neon else Muted, fontSize = 19.sp) }
+                    Text("Abas", color = if (selectedNav == "Abas") Neon else Muted, fontSize = 8.sp)
                 }
             }
         }
@@ -811,6 +950,7 @@ fun KellvynApp() {
                                                 editorStatus = "Arquivo grande demais para editar nesta tela. Exporte o ZIP para editá-lo fora do app."
                                             } else {
                                                 activeFilePath = path
+                                                rememberOpenTab(project.id, path)
                                                 editorContent = fileText
                                                 editorStatus = ""
                                             }
@@ -931,6 +1071,7 @@ fun KellvynApp() {
                                                     activeEditProject = project
                                                     editablePaths = paths
                                                     activeFilePath = paths.firstOrNull().orEmpty()
+                                                    if (activeFilePath.isNotBlank()) rememberOpenTab(project.id, activeFilePath)
                                                     editorContent = if (activeFilePath.isNotBlank()) {
                                                         workspaceStore.readFile(project.id, activeFilePath).take(MAX_EDITOR_CHARS)
                                                     } else ""
@@ -999,6 +1140,90 @@ fun KellvynApp() {
                 dismissButton = {
                     TextButton(onClick = { projectToDelete = null }) { Text("Cancelar") }
                 }
+            )
+        }
+
+        if (showNavigatorDialog) {
+            AlertDialog(
+                onDismissRequest = { showNavigatorDialog = false },
+                title = { Text("Navegador do Android") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Para manter o Kellvyn nativo e sem WebView, os links são abertos no navegador instalado no Android.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        OutlinedTextField(
+                            value = browserUrl,
+                            onValueChange = { browserUrl = it.take(2_000) },
+                            label = { Text("Endereço HTTPS") },
+                            placeholder = { Text("https://exemplo.com") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val typed = browserUrl.trim()
+                        val url = if (typed.startsWith("https://", true) || typed.startsWith("http://", true)) typed else "https://$typed"
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            status = "Link entregue ao navegador do Android."
+                            showNavigatorDialog = false
+                        } catch (e: Exception) {
+                            status = "Não há navegador disponível ou o endereço é inválido: " + (e.message ?: e.javaClass.simpleName)
+                        }
+                    }) { Text("Abrir") }
+                },
+                dismissButton = { TextButton(onClick = { showNavigatorDialog = false }) { Text("Fechar") } }
+            )
+        }
+
+        if (showTabsDialog) {
+            AlertDialog(
+                onDismissRequest = { showTabsDialog = false },
+                title = { Text("Abas abertas") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (openTabs.isEmpty()) {
+                            Text("Nenhuma aba de arquivo aberta ainda. Entre em Editor e abra um arquivo de projeto.", color = Muted, fontSize = 12.sp)
+                        } else {
+                            openTabs.forEach { entry ->
+                                val parts = entry.split("::", limit = 2)
+                                val projectId = parts.firstOrNull().orEmpty()
+                                val filePath = parts.getOrNull(1).orEmpty()
+                                val project = workspaceStore.getProject(projectId)
+                                if (project != null && filePath.isNotBlank()) {
+                                    TextButton(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        onClick = {
+                                            try {
+                                                activeEditProject = project
+                                                editablePaths = workspaceStore.listFiles(project.id)
+                                                activeFilePath = filePath
+                                                editorContent = workspaceStore.readFile(project.id, filePath).take(MAX_EDITOR_CHARS)
+                                                editorStatus = ""
+                                                showTabsDialog = false
+                                                showEditorDialog = true
+                                            } catch (e: Exception) {
+                                                status = "Não foi possível reabrir a aba: " + (e.message ?: e.javaClass.simpleName)
+                                            }
+                                        }
+                                    ) {
+                                        Text("${project.name} / ${filePath}", color = if (activeEditProject?.id == projectId && activeFilePath == filePath) Neon else Color.White, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { openTabs = emptyList(); status = "Lista de abas limpa."; showTabsDialog = false }) { Text("Fechar todas") } },
+                dismissButton = { TextButton(onClick = { showTabsDialog = false }) { Text("Fechar") } }
             )
         }
 
