@@ -43,6 +43,17 @@ class ProjectWorkspaceStore(context: Context) {
     fun getProject(projectId: String): WorkspaceProject? = readProject(projectId)
 
     /**
+     * Exposes only the app-private root folder for the confined local terminal.
+     * This path must never be passed to a shell or remote service.
+     */
+    fun workspaceDirectory(): File {
+        if (!root.exists() && !root.mkdirs()) {
+            throw IllegalStateException("Não foi possível preparar a pasta privada de projetos.")
+        }
+        return root.canonicalFile
+    }
+
+    /**
      * Returns the validated private working directory for local-only tools such as Git.
      * Callers must not expose this path to generated code or launch arbitrary commands.
      */
