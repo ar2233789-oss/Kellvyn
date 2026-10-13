@@ -42,5 +42,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:7.7.1.202607240634-r")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
