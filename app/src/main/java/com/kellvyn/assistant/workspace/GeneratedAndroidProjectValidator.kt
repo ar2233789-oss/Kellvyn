@@ -102,7 +102,7 @@ internal object GeneratedAndroidProjectValidator {
         val nativeComposeWidget = Regex(
             """(?i)\b(?:Text|Button|OutlinedTextField|TextField|Column|Row|Box|Surface|Scaffold|LazyColumn|LazyRow|Card|Canvas|Image|Icon|Switch|Checkbox|Slider|DropdownMenu|BasicText|BasicTextField|Spacer|LinearProgressIndicator|CircularProgressIndicator|NavigationBar|TopAppBar)\s*(?:<[^>]*>)?\s*\("""
         )
-        if (!nativeComposeWidget.containsMatchIn(sourceText)) {
+        if (!nativeComposeWidget.containsMatchIn(stripCommentsAndStringLiterals(sourceText))) {
             problems += "o projeto precisa incluir ao menos um componente visual Compose/nativo reconhecível, não apenas delegar a uma tela vazia"
         }
         if (readme.length < 80) {
@@ -128,6 +128,14 @@ internal object GeneratedAndroidProjectValidator {
 
         return problems.take(MAX_VALIDATION_ERRORS).takeIf { it.isNotEmpty() }
             ?.joinToString("; ")
+    }
+
+    private fun stripCommentsAndStringLiterals(source: String): String {
+        return source
+            .replace(Regex("(?s)\\\"\\\"\\\".*?\\\"\\\"\\\""), " ")
+            .replace(Regex("\\\"(?:\\\\.|[^\\\"\\\\])*\\\"|'(?:\\\\.|[^'\\\\])*'"), " ")
+            .replace(Regex("(?s)/\\*.*?\\*/"), " ")
+            .replace(Regex("(?m)//.*$"), " ")
     }
 
     private const val MAX_VALIDATION_ERRORS = 5
