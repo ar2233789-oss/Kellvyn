@@ -619,7 +619,7 @@ class AssistantAgent(
                 }.getOrElse { "Falha ao listar projetos: ${it.message}" }
             }
             looksLikeLocalCodeSearch(lastUser) -> {
-                val needle = lastUser.substringAfterLast(' ').trim().trim(',', '.', '?', '!', '"', '\'')
+                val needle = lastUser.substringAfterLast(' ').trim().trim(',', '.', '?', '!', '"').removeSurrounding("'")
                 if (needle.length < 2) null else {
                     onToolStatus("Buscando nos arquivos locais do projeto…")
                     "Resultado da busca local: " + runCatching {
