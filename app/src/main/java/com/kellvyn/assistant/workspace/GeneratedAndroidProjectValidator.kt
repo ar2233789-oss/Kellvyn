@@ -95,7 +95,7 @@ internal object GeneratedAndroidProjectValidator {
         // Match explicit unfinished-code markers, not legitimate UI APIs such as
         // Compose's `placeholder = { Text(...) }` parameter or variables named placeholder.
         val unfinishedComment = Regex(
-            """(?im)^\s*(?://|/\*+|\*|#|<!--)\s*.*\b(TODO|FIXME|XXX|HACK|placeholder|stub|not implemented|will be implemented later|coming soon|não implementado|nao implementado|ainda não implementado|ainda nao implementado|implementar depois)\b.*$"""
+            """(?im)^\s*(?://|/\*+|\*|#|<!--)\s*(?:(TODO|FIXME|XXX|HACK|PLACEHOLDER|STUB)\b.*|.*\b(not implemented|will be implemented later|coming soon|não implementado|nao implementado|ainda não implementado|ainda nao implementado|implementar depois)\b.*)$"""
         )
         val unfinishedCode = Regex(
             """(?i)\b(?:TODO|FIXME)\s*\(|\b(?:NotImplementedError|NotImplementedException)\b"""
