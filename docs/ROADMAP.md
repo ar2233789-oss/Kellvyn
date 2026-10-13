@@ -18,7 +18,8 @@
 - [x] Adaptador inicial LiteRT-LM.
 - [x] Importar arquivo de modelo compatível.
 - [x] Download inicial de modelo pequeno com verificação de tamanho e SHA-256.
-- [x] Mostrar tamanho e remover modelo local.
+- [x] Segundo perfil Qwen Coder (~1,12 GB), salvo separadamente, com SHA-256 e alternância entre modelos.
+- [x] Mostrar tamanho e remover o modelo ativo.
 - [ ] Obter uma resposta real com modelo compatível no Poco F6.
 - [ ] Medir RAM, tempo, aquecimento e qualidade.
 - [ ] Validar alternância entre modo local e modo online opcional.
