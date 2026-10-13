@@ -588,6 +588,11 @@ class AssistantAgent(
             ))
         }
 
+        val maxToolResultChars = if (engine.displayName.contains("local", ignoreCase = true)) {
+            MAX_LOCAL_TOOL_RESULT_CHARS
+        } else {
+            MAX_TOOL_RESULT_CHARS
+        }
         var deniedActionKey: String? = null
         repeat(MAX_TOOL_ROUNDS) {
             val modelResult = engine.reply(turns)
@@ -627,7 +632,7 @@ class AssistantAgent(
                     onToolStatus(toolStatus(name))
                     val result = runCatching { tools.execute(name, args, internetAllowed) }
                         .fold(
-                            onSuccess = { it.take(MAX_TOOL_RESULT_CHARS) },
+                            onSuccess = { it.take(maxToolResultChars) },
                             onFailure = { "A ferramenta falhou: ${it.message ?: it.javaClass.simpleName}" }
                         )
                     turns.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, modelResult.text))
@@ -756,6 +761,7 @@ class AssistantAgent(
     private companion object {
         const val MAX_TOOL_ROUNDS = 5
         const val MAX_TOOL_RESULT_CHARS = 6_000
+        const val MAX_LOCAL_TOOL_RESULT_CHARS = 2_000
         const val MAX_USER_CONTEXT_CHARS = 5_000
         const val MAX_QUERY_CHARS = 300
         const val MAX_PREFLIGHT_CHARS = 4_000
