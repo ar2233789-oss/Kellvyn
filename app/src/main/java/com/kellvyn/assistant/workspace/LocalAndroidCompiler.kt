@@ -45,7 +45,7 @@ sealed interface LocalApkBuildResult {
 class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorkspaceStore) {
     private val appContext = context.applicationContext
     private val preferences = appContext.getSharedPreferences("kellvyn_local_builder", Context.MODE_PRIVATE)
-    private val platformDir = File(appContext.filesDir, "kellvyn_toolchain/android-36")
+    private val platformDir = File(appContext.filesDir, "kellvyn_toolchain/android-35")
     private val androidJar = File(platformDir, "android.jar")
     private val buildRoot = File(appContext.filesDir, "kellvyn_builds")
 
@@ -328,10 +328,10 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
         const val MAX_SOURCE_FILES = 80
         const val MAX_LOG_CHARS = 16_000
         const val MIN_ANDROID_JAR_BYTES = 20_000_000L
-        const val PLATFORM_URL = "https://dl.google.com/android/repository/platform-36_r02.zip"
-        const val PLATFORM_ARCHIVE_SHA1 = "2c1a80dd4d9f7d0e6dd336ec603d9b5c55a6f576"
-        const val PLATFORM_ARCHIVE_BYTES = 65_878_410L
-        const val PLATFORM_JAR_ENTRY = "android-36/android.jar"
+        const val PLATFORM_URL = "https://dl.google.com/android/repository/platform-35_r02.zip"
+        const val PLATFORM_ARCHIVE_SHA1 = "0bb560a90a7a2cbd0dd8348224d518b638fe7949"
+        const val PLATFORM_ARCHIVE_BYTES = 64_273_788L
+        const val PLATFORM_JAR_ENTRY = "android-35/android.jar"
         const val CONNECT_TIMEOUT_MS = 20_000
         const val READ_TIMEOUT_MS = 60_000
     }
