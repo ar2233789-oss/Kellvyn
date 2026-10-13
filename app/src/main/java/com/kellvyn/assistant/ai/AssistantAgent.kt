@@ -573,9 +573,9 @@ class AssistantAgent(
         // fails to emit a structured tool call. All these operations are read-only.
         val lastUser = conversation.lastOrNull { it.role == AssistantTurn.Role.USER }?.content.orEmpty()
         val githubFileRequest = if (internetAllowed) parseGitHubBlobRequest(lastUser) else null
-        val localFileRequest = withContext(Dispatchers.IO) {
-            tools.explicitLocalFileReadArguments(lastUser)
-        }
+        val localFileRequest = if (githubFileRequest == null) {
+            withContext(Dispatchers.IO) { tools.explicitLocalFileReadArguments(lastUser) }
+        } else null
         val preflight = when {
             looksLikeTerminalHelp(lastUser) -> {
                 onToolStatus("Conectando ao terminal local para diagnosticar o problema…")
@@ -600,17 +600,17 @@ class AssistantAgent(
                     }.getOrElse { "Falha na busca local: ${it.message}" }
                 }
             }
-            localFileRequest != null -> {
-                onToolStatus("Lendo o arquivo do workspace diretamente, sem usar o terminal…")
-                "Conteúdo do arquivo local: " + runCatching {
-                    tools.execute("read_file", localFileRequest, internetAllowed)
-                }.getOrElse { "Falha ao ler o arquivo local: ${it.message}" }
-            }
             githubFileRequest != null -> {
                 onToolStatus("Lendo o arquivo público indicado no GitHub…")
                 "Conteúdo do repositório público: " + runCatching {
                     tools.execute("github_file", githubFileRequest, internetAllowed)
                 }.getOrElse { "Falha ao ler o arquivo público: ${it.message}" }
+            }
+            localFileRequest != null -> {
+                onToolStatus("Lendo o arquivo do workspace diretamente, sem usar o terminal…")
+                "Conteúdo do arquivo local: " + runCatching {
+                    tools.execute("read_file", localFileRequest, internetAllowed)
+                }.getOrElse { "Falha ao ler o arquivo local: ${it.message}" }
             }
             internetAllowed && looksLikeWebResearch(lastUser) -> {
                 val normalizedQuery = extractResearchQuery(lastUser)
