@@ -35,7 +35,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             appendLine("""{"name":"Nome curto","description":"Resumo","files":[{"path":"README.md","content":"conteúdo completo"}]}""")
             appendLine("Requisitos técnicos:")
             appendLine("- Use Kotlin, Jetpack Compose, Android Gradle Kotlin DSL, namespace com.example.app.")
-            appendLine("- Use Android Gradle Plugin 8.7.3, Kotlin Android plugin 2.4.21 e Compose compiler plugin 2.4.21; as versões do plugin Kotlin e do plugin Compose precisam ser iguais.")
+            appendLine("- Use Android Gradle Plugin 8.7.3, Kotlin Android plugin 2.0.21 e Compose compiler plugin 2.0.21; as versões do plugin Kotlin e do plugin Compose precisam ser iguais.")
             appendLine("- Use compileSdk 35, targetSdk 35 e minSdk 26; use Compose BOM 2024.12.01 e activity-compose 1.10.0, salvo se o pedido exigir algo específico.")
             appendLine("- Inclua settings.gradle.kts, build.gradle.kts, gradle.properties, app/build.gradle.kts, app/src/main/AndroidManifest.xml, app/src/main/java/com/example/app/MainActivity.kt e README.md.")
             appendLine("- O projeto deve ser coerente: namespace, applicationId e caminho/pacote Kotlin precisam concordar.")
