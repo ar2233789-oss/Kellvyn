@@ -106,6 +106,8 @@ fun KellvynApp() {
     var isGenerating by remember { mutableStateOf(false) }
     var isLoadingModel by remember { mutableStateOf(false) }
     var isRemovingModel by remember { mutableStateOf(false) }
+    var isDownloadingModel by remember { mutableStateOf(false) }
+    var modelDownloadPercent by remember { mutableStateOf(0) }
     var onlineMode by remember { mutableStateOf(false) }
     var onlineConfigured by remember { mutableStateOf(initialOnlineSettings.isConfigured) }
     var showOnlineSettings by remember { mutableStateOf(false) }
@@ -369,7 +371,7 @@ fun KellvynApp() {
 
                     if (!onlineMode) {
                         Button(
-                            enabled = !isGenerating && !isLoadingModel && !isRemovingModel,
+                            enabled = !isGenerating && !isLoadingModel && !isRemovingModel && !isDownloadingModel,
                             onClick = { modelPicker.launch(arrayOf("*/*")) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
@@ -382,6 +384,53 @@ fun KellvynApp() {
                                 }
                             )
                         }
+                        if (!localEngine.hasSavedModel()) {
+                            OutlinedButton(
+                                enabled = !isGenerating && !isLoadingModel && !isRemovingModel && !isDownloadingModel,
+                                onClick = {
+                                    isDownloadingModel = true
+                                    modelDownloadPercent = 0
+                                    status = "Conectando à fonte pública do modelo local…"
+                                    scope.launch {
+                                        try {
+                                            val result = localEngine.downloadRecommendedModel { downloadedBytes, totalBytes ->
+                                                val percent = if (totalBytes > 0L) {
+                                                    ((downloadedBytes * 100L) / totalBytes).toInt().coerceIn(0, 100)
+                                                } else 0
+                                                scope.launch(Dispatchers.Main) {
+                                                    modelDownloadPercent = percent
+                                                    status = "Baixando modelo offline: $percent% " +
+                                                        "(${downloadedBytes / (1024L * 1024L)} MB)"
+                                                }
+                                            }
+                                            updateModelResult(result)
+                                            if (result is AssistantResult.Success) {
+                                                status = "Modelo local carregado. Você já pode conversar offline."
+                                            }
+                                        } catch (e: Exception) {
+                                            status = "Falha ao baixar modelo: " + (e.message ?: e.javaClass.simpleName)
+                                        } finally {
+                                            isDownloadingModel = false
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    if (isDownloadingModel) "Baixando modelo… $modelDownloadPercent%"
+                                    else "Baixar modelo offline básico (~374 MB)"
+                                )
+                            }
+                            if (isDownloadingModel) {
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            }
+                            Text(
+                                "SmolLM2 360M Instruct • licença Apache-2.0. O primeiro download usa internet; depois o modelo fica salvo neste aparelho. É uma IA pequena para tarefas básicas, não um modelo grande de programação.",
+                                color = Muted,
+                                fontSize = 10.sp
+                            )
+                        }
                         if (localEngine.hasSavedModel()) {
                             Text(
                                 "Modelo armazenado: ${localEngine.savedModelSizeBytes() / (1024L * 1024L)} MB",
@@ -389,7 +438,7 @@ fun KellvynApp() {
                                 fontSize = 10.sp
                             )
                             TextButton(
-                                enabled = !isGenerating && !isLoadingModel && !isRemovingModel,
+                                enabled = !isGenerating && !isLoadingModel && !isRemovingModel && !isDownloadingModel,
                                 onClick = {
                                     isRemovingModel = true
                                     status = "Removendo o modelo local…"
