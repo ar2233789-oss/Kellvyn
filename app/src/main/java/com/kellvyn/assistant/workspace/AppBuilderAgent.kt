@@ -35,22 +35,20 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             appendLine("Esquema obrigatório:")
             appendLine("""{"name":"Nome curto","description":"Resumo","files":[{"path":"README.md","content":"conteúdo completo"}]}""")
             appendLine("Requisitos técnicos:")
-            appendLine("- Use Kotlin, Jetpack Compose, Android Gradle Kotlin DSL, namespace com.example.app.")
-            appendLine("- Use Android Gradle Plugin ${AndroidBuildVersions.ANDROID_GRADLE_PLUGIN}, Gradle ${AndroidBuildVersions.GRADLE}, Kotlin Android plugin ${AndroidBuildVersions.KOTLIN} e Compose compiler plugin ${AndroidBuildVersions.KOTLIN}; as versões do plugin Kotlin e do plugin Compose precisam ser iguais.")
-            appendLine("- Use compileSdk ${AndroidBuildVersions.COMPILE_SDK}, targetSdk ${AndroidBuildVersions.TARGET_SDK} e minSdk ${AndroidBuildVersions.MIN_SDK}; use Compose BOM ${AndroidBuildVersions.COMPOSE_BOM} e activity-compose ${AndroidBuildVersions.ACTIVITY_COMPOSE}, salvo se o pedido exigir algo específico.")
-            appendLine("- Use JDK 17 para a build. No app/build.gradle.kts, configure compileOptions sourceCompatibility/targetCompatibility como JavaVersion.VERSION_17 e kotlin.compilerOptions.jvmTarget como JvmTarget.JVM_17.")
-            appendLine("- Use gradle.properties econômico para build local em celular: org.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8, org.gradle.parallel=false, org.gradle.workers.max=2 e kotlin.compiler.execution.strategy=in-process.")
-            appendLine("- Inclua settings.gradle.kts, build.gradle.kts, gradle.properties, app/build.gradle.kts, app/src/main/AndroidManifest.xml, app/src/main/java/com/example/app/MainActivity.kt e README.md. O projeto raiz deve declarar as versões fixadas acima.")
-            appendLine("- O AndroidManifest.xml deve declarar .MainActivity com android:exported=\"true\" e um intent-filter contendo MAIN e LAUNCHER.")
-            appendLine("- O projeto deve ser coerente: namespace, applicationId e caminho/pacote Kotlin precisam concordar.")
-            appendLine("- Crie uma aplicação pequena mas funcional, não apenas pseudocódigo, placeholders ou textos dizendo que a função será feita depois.")
-            appendLine("- Não invente tokens, chaves, APIs privadas nem dependências inexistentes.")
-            appendLine("- Não crie WebView para a interface; use componentes Android nativos com Jetpack Compose.")
-            appendLine("- Não use compilação remota, serviços de build, GitHub Actions ou tokens de terceiros; o build pretendido será local no aparelho.")
+            appendLine("- Gere um aplicativo Android NATIVO em Java puro, com namespace e applicationId com.example.app. O compilador inicial do Kellvyn compila Java diretamente neste aparelho; não gere Kotlin nem Compose.")
+            appendLine("- Use Android Gradle Plugin ${AndroidBuildVersions.ANDROID_GRADLE_PLUGIN}, compileSdk ${AndroidBuildVersions.COMPILE_SDK}, targetSdk ${AndroidBuildVersions.TARGET_SDK} e minSdk ${AndroidBuildVersions.MIN_SDK}. A fonte principal é app/src/main/java/com/example/app/MainActivity.java.")
+            appendLine("- MainActivity deve estender android.app.Activity e chamar setContentView com uma interface útil criada por código usando android.widget (LinearLayout, TextView, Button, EditText, ScrollView etc.). Crie listeners usando classes anônimas.")
+            appendLine("- Evite lambdas, method references, invokedynamic, Kotlin, Compose, bibliotecas externas, annotation processors, AndroidX, XML de layout, recursos R, imagens externas e NDK. Use Java compatível com o Android e APIs públicas do framework.")
+            appendLine("- Não declare bibliotecas externas em app/build.gradle.kts. A configuração Gradle fica para exportação futura; a build local inicial compila fontes Java e não executa scripts Gradle.")
+            appendLine("- Inclua settings.gradle.kts, build.gradle.kts, gradle.properties, app/build.gradle.kts, app/src/main/AndroidManifest.xml, app/src/main/java/com/example/app/MainActivity.java e README.md.")
+            appendLine("- O manifesto declara .MainActivity, android:exported=\"true\" e intent-filter MAIN/LAUNCHER. Inclua permissões apenas quando realmente necessárias.")
+            appendLine("- Crie uma aplicação funcional com controles, validação de entradas e ações reais, não apenas pseudocódigo ou placeholders.")
+            appendLine("- Não invente tokens, chaves, APIs privadas, caminhos absolutos nem dependências inexistentes.")
+            appendLine("- Não crie WebView. Não use compilação remota, GitHub Actions ou serviços externos de build.")
             appendLine("- Não inclua binários, gradlew, .git, .gradle ou qualquer caminho absoluto.")
-            appendLine("- Cada item de files deve conter exatamente path e content como strings. Escape corretamente quebras de linha, aspas e barras para formar JSON válido.")
-            appendLine("- Prefira no máximo 8 arquivos e aprox. 12.000 caracteres de código/texto para manter o primeiro build mais leve em um telefone; nunca ultrapasse 12 arquivos e 18.000 caracteres.")
-            appendLine("- Se o pedido for grande, priorize uma primeira versão executável e documente claramente os limites no README.")
+            appendLine("- Cada item de files deve conter path e content como strings. Escape corretamente quebras de linha, aspas e barras para formar JSON válido.")
+            appendLine("- Prefira no máximo 8 arquivos e aprox. 12.000 caracteres; nunca ultrapasse 12 arquivos e 18.000 caracteres.")
+            appendLine("- Em um pedido grande, implemente uma primeira versão útil e documente as funções no README.")
             appendLine()
             appendLine("PEDIDO DO USUÁRIO:")
             appendLine(idea)
@@ -187,7 +185,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     "gradle.properties",
                     "app/build.gradle.kts",
                     "app/src/main/AndroidManifest.xml",
-                    "app/src/main/java/com/example/app/MainActivity.kt",
+                    "app/src/main/java/com/example/app/MainActivity.java",
                     "README.md"
                 )
                 val missing = required.filterNot { it in normalizedPaths }
