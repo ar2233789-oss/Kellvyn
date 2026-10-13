@@ -452,7 +452,7 @@ class AgentToolRouter(
             require(code in 200..299) {
                 "A árvore do GitHub respondeu HTTP $code. Confira se o repositório é público e a branch existe."
             }
-            val body = connection.inputStream.use { String(it.readAtMost(MAX_WEB_BYTES), StandardCharsets.UTF_8) }
+            val body = connection.inputStream.use { String(it.readAtMost(MAX_GITHUB_TREE_BYTES), StandardCharsets.UTF_8) }
             val json = JSONObject(body)
             val tree = json.optJSONArray("tree") ?: JSONArray()
             val files = JSONArray()
@@ -789,6 +789,7 @@ class AgentToolRouter(
         const val MAX_GITHUB_RESULTS = 8
         const val MAX_GITHUB_FILE_CHARS = 12_000
         const val MAX_GITHUB_TREE_FILES = 100
+        const val MAX_GITHUB_TREE_BYTES = 7 * 1024 * 1024
         const val MAX_GITHUB_IMPORT_FILES = 30
         const val MAX_GITHUB_IMPORT_FILE_CHARS = 32_000
         const val MAX_GITHUB_IMPORT_TOTAL_CHARS = 180_000
