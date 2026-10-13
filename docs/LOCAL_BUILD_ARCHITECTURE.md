@@ -18,7 +18,7 @@ A referência de engenharia consultada é o projeto aberto AIDE-OS, cuja documen
 
 ## Versões-alvo dos projetos gerados
 
-O perfil de projeto Android com Gradle/Compose é mantido como alvo de exportação futura. O pipeline rápido atualmente integrado ao Kellvyn é mais restrito: ECJ compila fontes Java 8 com APIs do framework Android, D8 converte as classes em DEX, `BinaryAndroidManifest` escreve o manifesto nativo mínimo e `apksig` assina/verifica o APK. O perfil inicial não aceita Kotlin/Compose, `res/`, `assets/` ou bibliotecas externas; ele não executa scripts Gradle do projeto.
+O perfil de projeto Android com Gradle/Compose é mantido como alvo de exportação futura. O pipeline rápido atualmente integrado ao Kellvyn é mais restrito: ECJ compila fontes Java 8 com APIs do framework Android, D8 converte as classes em DEX, `BinaryAndroidManifest` escreve o manifesto nativo mínimo e `apksig` assina/verifica o APK. O perfil inicial usa as bibliotecas Android 15/API 35, alinhadas ao aparelho-alvo, e não aceita Kotlin/Compose, `res/`, `assets/` ou bibliotecas externas; ele não executa scripts Gradle do projeto.
 
 ## Requisitos do motor local
 
