@@ -87,16 +87,16 @@ fun WorkspaceConsoleDialog(
                 "projects" -> {
                     val projects = workspace.listProjects()
                     if (projects.isEmpty()) "Nenhum projeto local."
-                    else projects.joinToString("\\n") { "${it.id} — ${it.name} (${it.fileCount} arquivos)" }
+                    else projects.joinToString("\n") { "${it.id} — ${it.name} (${it.fileCount} arquivos)" }
                 }
                 "memories" -> {
                     val facts = memories.list()
                     if (facts.isEmpty()) "Nenhuma memória salva."
-                    else facts.mapIndexed { index, fact -> "${index + 1}. ${fact.text}" }.joinToString("\\n")
+                    else facts.mapIndexed { index, fact -> "${index + 1}. ${fact.text}" }.joinToString("\n")
                 }
                 "files" -> {
                     if (parts.size < 2) "Uso: files <id>"
-                    else workspace.listFiles(parts[1]).joinToString("\\n").ifBlank { "O projeto não tem arquivos." }
+                    else workspace.listFiles(parts[1]).joinToString("\n").ifBlank { "O projeto não tem arquivos." }
                 }
                 "read" -> {
                     if (parts.size < 3) {
@@ -115,7 +115,7 @@ fun WorkspaceConsoleDialog(
         } catch (e: Exception) {
             "ERRO: " + (e.message ?: e.javaClass.simpleName)
         }
-        output = (output + "\\n\\n> " + line + "\\n" + result).takeLast(MAX_OUTPUT_CHARS)
+        output = (output + "\n\n> " + line + "\n" + result).takeLast(MAX_OUTPUT_CHARS)
     }
 
     Dialog(
