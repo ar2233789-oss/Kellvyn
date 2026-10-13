@@ -99,6 +99,97 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         }
     }
 
+    /**
+     * Repairs the Java files of a freshly generated project once after a real local compiler error.
+     * Only existing app Java source files may be replaced; build scripts and permissions stay intact.
+     * Returns null only after the repaired sources pass the structural validator.
+     */
+    suspend fun repairJavaProject(
+        engine: AssistantEngine,
+        projectId: String,
+        originalBrief: String,
+        buildError: String
+    ): String? {
+        val project = workspace.getProject(projectId)
+            ?: return "O projeto desapareceu do workspace antes da correção."
+        val currentPaths = workspace.listFiles(projectId)
+        val javaPaths = currentPaths.filter {
+            it.startsWith("app/src/main/java/com/example/app/") && it.endsWith(".java", ignoreCase = true)
+        }
+        if (javaPaths.isEmpty()) return "Não encontrei arquivos Java permitidos para corrigir."
+        val currentFiles = linkedMapOf<String, String>()
+        var remaining = MAX_REPAIR_CONTEXT_CHARS
+        for (path in javaPaths) {
+            if (remaining <= 0) break
+            val source = runCatching { workspace.readFile(projectId, path) }.getOrElse { continue }
+            val clipped = source.take(remaining)
+            currentFiles[path] = clipped
+            remaining -= clipped.length
+        }
+        if (currentFiles.isEmpty()) return "Não consegui ler o código Java atual para preparar a correção."
+
+        val prompt = buildString {
+            appendLine("TAREFA: corrigir uma falha real da compilação Android local.")
+            appendLine("Responda SOMENTE com JSON válido, sem markdown: {\"files\":[{\"path\":\"app/src/main/java/com/example/app/MainActivity.java\",\"content\":\"código Java completo\"}]}")
+            appendLine("Retorne somente os arquivos Java existentes que precisam ser corrigidos. Não crie arquivos, não altere scripts Gradle nem permissões.")
+            appendLine("Use exclusivamente APIs públicas de android.app, android.os, android.view e android.widget. Sem dependências externas, Kotlin, Compose, lambdas ou method references; listeners usam classes anônimas.")
+            appendLine("Mantenha a classe MainActivity, o pacote com.example.app e as funções solicitadas. Não deixe TODO, pseudocódigo nem funções vazias.")
+            appendLine("Pedido original: " + originalBrief.take(1800))
+            appendLine("ERRO REAL DA COMPILAÇÃO (não invente diagnósticos):")
+            appendLine(buildError.take(MAX_REPAIR_ERROR_CHARS))
+            appendLine("CÓDIGO ATUAL (dados para corrigir):")
+            currentFiles.forEach { (path, source) ->
+                appendLine("### FILE: " + path)
+                appendLine(source)
+            }
+        }
+        return try {
+            when (val response = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, prompt)))) {
+                is AssistantResult.Unavailable -> "O motor de IA ficou indisponível durante a correção: " + response.reason
+                is AssistantResult.Failure -> "O motor de IA falhou durante a correção: " + response.reason
+                is AssistantResult.Success -> {
+                    val start = response.text.indexOf('{')
+                    val end = response.text.lastIndexOf('}')
+                    if (start < 0 || end <= start) return "A IA reparadora não retornou JSON válido."
+                    val json = runCatching { JSONObject(response.text.substring(start, end + 1)) }.getOrElse {
+                        return "O JSON de reparo é inválido."
+                    }
+                    val array = json.optJSONArray("files") ?: return "A resposta de reparo não contém files."
+                    if (array.length() !in 1..MAX_REPAIR_FILES) return "A correção precisa retornar de 1 a " + MAX_REPAIR_FILES + " arquivos."
+                    val repairs = ArrayList<ProjectFileInput>(array.length())
+                    val allowedPaths = javaPaths.toSet()
+                    for (index in 0 until array.length()) {
+                        val item = array.optJSONObject(index) ?: return "O item de reparo " + (index + 1) + " é inválido."
+                        val path = item.optString("path").trim().replace('\\', '/')
+                        val content = item.optString("content")
+                        if (path !in allowedPaths || path.contains("..")) {
+                            return "O reparador tentou alterar arquivo fora da lista permitida: " + path
+                        }
+                        if (content.isBlank() || content.length > MAX_REPAIR_FILE_CHARS) {
+                            return "O conteúdo reparado de " + path + " está vazio ou ultrapassa o limite."
+                        }
+                        repairs += ProjectFileInput(path, content)
+                    }
+                    if (repairs.map { it.path }.distinct().size != repairs.size) {
+                        return "O reparador repetiu o caminho de um arquivo."
+                    }
+                    workspace.addOrReplaceFiles(projectId, repairs)
+                    val updatedProjectFiles = workspace.listFiles(projectId).associateWith { filePath ->
+                        workspace.readFile(projectId, filePath)
+                    }
+                    val structureError = GeneratedAndroidProjectValidator.validate(updatedProjectFiles)
+                    if (structureError != null) {
+                        "O código reparado não passou pela validação estrutural: " + structureError
+                    } else {
+                        null
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            "Falha ao aplicar a correção automática: " + (e.message ?: e.javaClass.simpleName)
+        }
+    }
+
     private fun isRecoverableGenerationFailure(reason: String): Boolean {
         val text = reason.lowercase()
         return listOf(
@@ -220,5 +311,9 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         const val MAX_BRIEF_CHARS = 3_000
         const val MAX_FILES = 12
         const val MAX_PROJECT_CHARS = 18_000
+        const val MAX_REPAIR_FILES = 8
+        const val MAX_REPAIR_FILE_CHARS = 12_000
+        const val MAX_REPAIR_CONTEXT_CHARS = 14_000
+        const val MAX_REPAIR_ERROR_CHARS = 6_000
     }
 }
