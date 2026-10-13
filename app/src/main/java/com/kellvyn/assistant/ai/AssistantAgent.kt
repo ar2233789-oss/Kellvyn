@@ -26,6 +26,29 @@ class AgentToolRouter(
     private val workspace: ProjectWorkspaceStore,
     private val terminal: WorkspaceTerminal
 ) {
+    fun explicitProjectFileListArguments(text: String): JSONObject? {
+        val lower = text.lowercase(Locale.ROOT)
+        val intent = listOf(
+            "liste os arquivos", "listar os arquivos", "listar arquivos", "liste arquivos",
+            "quais arquivos", "mostre os arquivos", "mostrar arquivos", "lista de arquivos",
+            "arquivos que existem", "files in project", "list files"
+        ).any { it in lower }
+        if (!intent) return null
+        val projects = workspace.listProjects()
+        if (projects.isEmpty()) return null
+        val namedProjects = projects.filter { project ->
+            lower.contains(project.id.lowercase(Locale.ROOT)) ||
+                lower.contains(project.name.lowercase(Locale.ROOT))
+        }
+        val project = when {
+            namedProjects.size == 1 -> namedProjects.first()
+            namedProjects.size > 1 -> return null
+            projects.size == 1 -> projects.first()
+            else -> return null
+        }
+        return JSONObject().put("project_id", project.id)
+    }
+
     fun explicitLocalFileReadArguments(text: String): JSONObject? {
         val lower = text.lowercase(Locale.ROOT)
         val action = listOf(
