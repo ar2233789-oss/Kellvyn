@@ -399,23 +399,42 @@ class AssistantAgent(
             appendLine("Não use ferramenta web quando esse valor for false. Não afirme que compilou APKs; o compilador local ainda não está integrado.")
         }
         if (systemIndex >= 0) {
-            turns[systemIndex] = turns[systemIndex].copy(content = turns[systemIndex].content + "\n\n" + agentPrompt)
+            // Put agent policy first so memory never truncates tool definitions or approval rules.
+            val existingContext = turns[systemIndex].content.take(MAX_USER_CONTEXT_CHARS)
+            turns[systemIndex] = turns[systemIndex].copy(content = agentPrompt + "\n\n" + existingContext)
         } else {
             turns.add(0, AssistantTurn(AssistantTurn.Role.SYSTEM, agentPrompt))
         }
 
-        // Terminal help/error requests always get a real local preflight, even if a tiny model
-        // fails to select a tool. This is read-only and remains inside the user's workspace.
+        // Reliable preflight for common requests, even when a small local model
+        // fails to emit a structured tool call. All these operations are read-only.
         val lastUser = conversation.lastOrNull { it.role == AssistantTurn.Role.USER }?.content.orEmpty()
-        if (looksLikeTerminalHelp(lastUser)) {
-            onToolStatus("Conectando ao terminal local para diagnosticar o problema…")
-            val status = runCatching { tools.execute("terminal_read", JSONObject().put("command", "status"), internetAllowed) }
-                .getOrElse { "Falha no status do terminal: ${it.message}" }
-            val help = runCatching { tools.execute("terminal_read", JSONObject().put("command", "help"), internetAllowed) }
-                .getOrElse { "Falha ao ler ajuda do terminal: ${it.message}" }
-            val toolContext = "Resultado da conexão automática de diagnóstico ao terminal local (somente leitura):\nSTATUS:\n$status\nAJUDA:\n$help"
+        val preflight = when {
+            looksLikeTerminalHelp(lastUser) -> {
+                onToolStatus("Conectando ao terminal local para diagnosticar o problema…")
+                val status = runCatching { tools.execute("terminal_read", JSONObject().put("command", "status"), internetAllowed) }
+                    .getOrElse { "Falha no status do terminal: ${it.message}" }
+                val help = runCatching { tools.execute("terminal_read", JSONObject().put("command", "help"), internetAllowed) }
+                    .getOrElse { "Falha ao ler ajuda do terminal: ${it.message}" }
+                "Diagnóstico automático do terminal local (somente leitura):\nSTATUS:\n$status\nAJUDA:\n$help"
+            }
+            looksLikeProjectList(lastUser) -> {
+                onToolStatus("Consultando seus projetos locais…")
+                "Lista atual dos projetos locais: " + runCatching {
+                    tools.execute("list_projects", JSONObject(), internetAllowed)
+                }.getOrElse { "Falha ao listar projetos: ${it.message}" }
+            }
+            internetAllowed && looksLikeWebResearch(lastUser) -> {
+                onToolStatus("Pesquisando na internet para responder com fontes…")
+                "Resultados atuais da pesquisa pública na internet: " + runCatching {
+                    tools.execute("web_search", JSONObject().put("query", lastUser), internetAllowed)
+                }.getOrElse { "Falha na pesquisa web: ${it.message}" }
+            }
+            else -> null
+        }
+        if (!preflight.isNullOrBlank()) {
             val ix = turns.indexOfFirst { it.role == AssistantTurn.Role.SYSTEM }
-            if (ix >= 0) turns[ix] = turns[ix].copy(content = turns[ix].content + "\n\n" + toolContext)
+            if (ix >= 0) turns[ix] = turns[ix].copy(content = turns[ix].content + "\n\n" + preflight)
         }
 
         repeat(MAX_TOOL_ROUNDS) {
@@ -471,6 +490,20 @@ class AssistantAgent(
         }
     }
 
+    private fun looksLikeProjectList(text: String): Boolean {
+        val t = text.lowercase(Locale.ROOT)
+        return listOf("meus projetos", "listar projetos", "liste projetos", "quais projetos", "projetos que tenho", "projetos salvos").any { it in t }
+    }
+
+    private fun looksLikeWebResearch(text: String): Boolean {
+        val t = text.lowercase(Locale.ROOT)
+        return listOf(
+            "pesquise na internet", "pesquisa na internet", "procure na internet", "busque na internet",
+            "pesquise na web", "procure na web", "busque na web", "pesquise sobre", "pesquisa sobre",
+            "notícias atuais", "noticias atuais", "informação atualizada", "informacao atualizada"
+        ).any { it in t }
+    }
+
     private fun looksLikeTerminalHelp(text: String): Boolean {
         val t = text.lowercase(Locale.ROOT)
         val terminal = listOf("terminal", "console", "linha de comando", "comando").any { it in t }
@@ -504,6 +537,7 @@ class AssistantAgent(
     private companion object {
         const val MAX_TOOL_ROUNDS = 5
         const val MAX_TOOL_RESULT_CHARS = 14_000
+        const val MAX_USER_CONTEXT_CHARS = 5_000
         const val AGENT_SYSTEM = "Você é Kellvyn IA, um agente conversacional capaz de usar ferramentas reais do aplicativo com permissão. Converse normalmente, raciocine e ajude o usuário. Quando precisar verificar terminal, projetos, arquivos ou internet, escolha uma ferramenta e aguarde o resultado. Nunca invente ações ou resultados."
     }
 }
