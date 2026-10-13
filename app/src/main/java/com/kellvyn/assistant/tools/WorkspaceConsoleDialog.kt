@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,14 +63,16 @@ fun WorkspaceConsoleDialog(
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val manualShell = remember { ManualShellExecutor() }
     var command by remember { mutableStateOf("help") }
     var terminalBusy by remember { mutableStateOf(false) }
+    var pendingShellCommand by remember { mutableStateOf<String?>(null) }
     var output by remember(terminal) {
         mutableStateOf(
             terminal.storedOutput().ifBlank {
                 "KELLVYN WORKSPACE TERMINAL v2\\n" +
                     "Pasta inicial: /workspace\\n" +
-                    "Digite help para ver comandos. Para trabalhar num projeto, use: projects e depois cd <id>."
+                    "Digite help; use ! comando para executar manualmente após confirmação. Para um projeto: projects e cd <id>."
             }
         )
     }
