@@ -280,7 +280,11 @@ class AgentToolRouter(
             "O conteúdo precisa ter até $MAX_WRITE_CHARS caracteres e não pode estar vazio."
         }
         val updated = workspace.addOrReplaceFiles(projectId, listOf(ProjectFileInput(path, content)))
-        return "Arquivo gravado localmente: $projectId/$path. Total de arquivos do projeto: ${updated.fileCount}."
+        val verifiedContent = workspace.readFile(projectId, path)
+        require(verifiedContent == content) {
+            "A releitura do arquivo após a gravação falhou; não foi possível confirmar o conteúdo."
+        }
+        return "Arquivo gravado e verificado por releitura em $projectId/$path. Total de arquivos do projeto: ${updated.fileCount}."
     }
 
     private fun patchFile(projectId: String, path: String, oldText: String, newText: String): String {
@@ -303,7 +307,11 @@ class AgentToolRouter(
             append(current, firstIndex + oldText.length, current.length)
         }
         workspace.addOrReplaceFiles(projectId, listOf(ProjectFileInput(path, updatedContent)))
-        return "Patch aplicado e gravado localmente em $projectId/$path. Trecho substituído uma única vez; tamanho final: ${updatedContent.length} caracteres."
+        val verifiedContent = workspace.readFile(projectId, path)
+        require(verifiedContent == updatedContent) {
+            "A releitura após a gravação não corresponde ao conteúdo esperado; verificação falhou."
+        }
+        return "Patch aplicado, gravado e verificado por releitura em $projectId/$path. Trecho substituído uma única vez; tamanho final: ${updatedContent.length} caracteres."
     }
 
     private fun deleteFile(projectId: String, path: String): String {
