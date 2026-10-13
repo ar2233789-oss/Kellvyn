@@ -37,6 +37,8 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         const val CODER_MODEL_URL = "https://huggingface.co/litert-community/Qwen2.5-Coder-1.5B-Instruct/resolve/main/Qwen2.5-Coder-1.5B-Instruct_int4.litertlm"
         const val CODER_MODEL_SHA256 = "273ecc7771ba2dd5fe1bb6d4d4726ad0353102f04ad094082ccf59bca9f21213"
         const val MAX_CODER_MODEL_BYTES = 1_400_000_000L
+        const val MIN_LIGHT_DOWNLOAD_FREE_BYTES = 450_000_000L
+        const val MIN_CODER_DOWNLOAD_FREE_BYTES = 1_300_000_000L
         const val CONNECT_TIMEOUT_MS = 20_000
         const val DOWNLOAD_READ_TIMEOUT_MS = 90_000
         const val PROGRESS_UPDATE_BYTES = 8L * 1024L * 1024L
@@ -132,6 +134,9 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 }
                 if (!directory.exists() && !directory.mkdirs()) {
                     throw IllegalStateException("Não foi possível criar a pasta privada do modelo.")
+                }
+                require(directory.usableSpace >= MIN_LIGHT_DOWNLOAD_FREE_BYTES) {
+                    "Há pouco espaço livre para baixar o modelo leve com segurança. Libere pelo menos 450 MB e tente novamente."
                 }
                 recoverPreviousModelFile(modelFile, backup)
                 if (temporary.exists() && !temporary.delete()) {
@@ -367,6 +372,9 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             val downloadedModel = withContext(Dispatchers.IO) {
                 if (!modelDirectory.exists() && !modelDirectory.mkdirs()) {
                     throw IllegalStateException("Não foi possível preparar a pasta privada dos modelos.")
+                }
+                require(modelDirectory.usableSpace >= MIN_CODER_DOWNLOAD_FREE_BYTES) {
+                    "Há pouco espaço livre para baixar Qwen Coder com segurança. Libere pelo menos 1,3 GB e tente novamente."
                 }
                 recoverPreviousModelFile(coderModelFile, backup)
                 if (temporary.exists() && !temporary.delete()) {
