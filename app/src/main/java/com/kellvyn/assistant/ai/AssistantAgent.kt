@@ -554,13 +554,14 @@ class AssistantAgent(
                 }
             }
             internetAllowed && looksLikeWebResearch(lastUser) -> {
+                val normalizedQuery = extractResearchQuery(lastUser)
                 val asksForRepository = listOf("github", "repositório", "repositorio", "open source", "código aberto", "codigo aberto")
                     .any { it in lastUser.lowercase(Locale.ROOT) }
                 onToolStatus(if (asksForRepository) "Procurando repositórios públicos de código…" else "Pesquisando na internet para responder com fontes…")
                 val tool = if (asksForRepository) "github_search" else "web_search"
                 val label = if (asksForRepository) "Repositórios públicos encontrados" else "Resultados atuais da pesquisa pública na internet"
                 "$label: " + runCatching {
-                    tools.execute(tool, JSONObject().put("query", lastUser), internetAllowed)
+                    tools.execute(tool, JSONObject().put("query", normalizedQuery), internetAllowed)
                 }.getOrElse { "Falha na pesquisa: ${it.message}" }
             }
             else -> null
@@ -655,6 +656,32 @@ class AssistantAgent(
         return listOf("meus projetos", "listar projetos", "liste projetos", "quais projetos", "projetos que tenho", "projetos salvos").any { it in t }
     }
 
+    private fun extractResearchQuery(text: String): String {
+        val normalized = text.trim()
+        val lower = normalized.lowercase(Locale.ROOT)
+        val markers = listOf(
+            "pesquise na internet sobre", "pesquisa na internet sobre",
+            "procure na internet por", "busque na internet por",
+            "pesquise na web sobre", "pesquisa na web sobre",
+            "procure na web por", "busque na web por",
+            "pesquise no github por", "pesquise no github", "pesquise repositórios", "pesquise repositorios",
+            "procure um repositório", "procure um repositorio",
+            "pesquise na internet", "pesquisa na internet", "procure na internet", "busque na internet",
+            "pesquise na web", "procure na web", "busque na web",
+            "pesquise sobre", "pesquisa sobre"
+        )
+        val marker = markers.firstOrNull { lower.contains(it) }
+            ?: return normalized.take(MAX_QUERY_CHARS)
+        val index = lower.indexOf(marker)
+        val query = normalized.substring((index + marker.length).coerceAtMost(normalized.length))
+            .trim()
+            .trimStart(':', '-', ' ', '\\t')
+            .trimStart('p', 'o', 'r', ' ', ':')
+            .trim()
+            .trim('"', '\\'', '“', '”', '‘', '’', '.', '?', '!')
+        return query.ifBlank { normalized }.take(MAX_QUERY_CHARS)
+    }
+
     private fun looksLikeWebResearch(text: String): Boolean {
         val t = text.lowercase(Locale.ROOT)
         return listOf(
@@ -701,6 +728,7 @@ class AssistantAgent(
         const val MAX_TOOL_ROUNDS = 5
         const val MAX_TOOL_RESULT_CHARS = 6_000
         const val MAX_USER_CONTEXT_CHARS = 5_000
+        const val MAX_QUERY_CHARS = 300
         const val MAX_PREFLIGHT_CHARS = 4_000
         const val AGENT_SYSTEM = "Você é Kellvyn IA, um agente conversacional capaz de usar ferramentas reais do aplicativo com permissão. Converse normalmente, raciocine e ajude o usuário. Quando precisar verificar terminal, projetos, arquivos ou internet, escolha uma ferramenta e aguarde o resultado. Nunca invente ações ou resultados."
     }
