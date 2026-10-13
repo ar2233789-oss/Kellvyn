@@ -67,7 +67,7 @@ class OpenAiCompatibleAssistantEngine(
                     .put("messages", messages)
                     .put("stream", false)
                     .put("temperature", 0.7)
-                    .put("max_tokens", 1024)
+                    .put("max_tokens", 8192)
 
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
