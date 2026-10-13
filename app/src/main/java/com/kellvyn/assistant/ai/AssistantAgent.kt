@@ -176,7 +176,7 @@ class AgentToolRouter(
         require(trimmed.none { it == '\n' || it == '\r' || it == '\u0000' }) {
             "Um comando por vez; quebras de linha não são permitidas."
         }
-        require(listOf(";", "&&", "||", "|", ">", "<", "${", "$(").none { it in trimmed }) {
+        require(listOf(";", "&&", "||", "|", ">", "<", '$' + "{", "$(").none { it in trimmed }) {
             "Encadeamento, redirecionamento e substituição de comandos não são permitidos."
         }
         require(!trimmed.contains("..")) { "Caminhos com '..' não são permitidos no terminal do agente." }
@@ -240,10 +240,10 @@ class AgentToolRouter(
         anchors.findAll(html).forEach { match ->
             if (results.size >= MAX_WEB_RESULTS) return@forEach
             val tag = match.value
-            val classMatch = Regex("""class\\s*=\\s*["']([^"']*)["']""", RegexOption.IGNORE_CASE)
+            val classMatch = Regex("class\\s*=\\s*[\"']([^\"']*)[\"']", RegexOption.IGNORE_CASE)
                 .find(tag)?.groupValues?.getOrNull(1).orEmpty()
             if (!classMatch.split(Regex("\\s+")).contains("result__a")) return@forEach
-            val href = Regex("""href\\s*=\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+            val href = Regex("href\\s*=\\s*[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
                 .find(tag)?.groupValues?.getOrNull(1).orEmpty()
             val titleHtml = Regex("(?s)>((?:.|\\n)*)</a>", RegexOption.IGNORE_CASE)
                 .find(tag)?.groupValues?.getOrNull(1).orEmpty()
