@@ -1440,14 +1440,27 @@ class AssistantAgent(
                 "como ", "como faço", "como faco", "como faço para", "como faco para",
                 "o que é", "o que e", "por que", "me explique", "explique como"
             ).any { it in t }) return false
-        return listOf(
+
+        val explicitCompile = listOf(
             "compile o projeto", "compila o projeto", "compilar o projeto",
             "compile esse projeto", "compile este projeto", "compile meu projeto",
             "compilar meu projeto", "compilar esse projeto", "compilar este projeto",
+            "compile o apk", "compilar o apk", "compila o apk", "compile apk", "compilar apk",
+            "compile o app", "compila o app", "compilar o app", "compile meu aplicativo",
+            "compile o projeto existente", "compile o projeto salvo", "build apk"
+        ).any { it in t }
+        if (explicitCompile) return true
+
+        val referencesExisting = listOf(
+            "desse projeto", "deste projeto", "do meu projeto", "no meu projeto",
+            "projeto existente", "projeto salvo", "meu app", "meu aplicativo",
+            "desse app", "deste app", "projeto que você criou", "projeto que voce criou",
+            "app que você criou", "app que voce criou", "que já existe", "que ja existe"
+        ).any { it in t }
+        return referencesExisting && listOf(
             "gere o apk", "gera o apk", "gerar o apk", "crie o apk", "criar o apk",
-            "compile o apk", "compilar o apk", "compilar apk", "compile apk",
-            "build apk", "faça o build", "faca o build", "gerar apk do projeto",
-            "gere apk do projeto", "transforme em apk"
+            "gere apk", "gerar apk", "crie apk", "criar apk", "transforme em apk",
+            "construa o apk", "construir o apk", "faça o build", "faca o build", "build "
         ).any { it in t }
     }
 
