@@ -9,12 +9,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,10 +24,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,15 +37,19 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kellvyn.assistant.data.UserMemoryStore
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-private val ConsoleNight = Color(0xFF080B12)
-private val ConsolePanel = Color(0xFF121925)
-private val ConsoleNeon = Color(0xFF4DDBFF)
-private val ConsoleMuted = Color(0xFF9AA8BA)
+private val ConsoleNight = Color(0xFF020806)
+private val ConsolePanel = Color(0xFF071713)
+private val ConsoleNeon = Color(0xFF38E6BC)
+private val ConsoleMuted = Color(0xFF91B8AD)
+private val ConsoleBorder = Color(0xFF164638)
 
 /**
- * Real commands over Kellvyn's own project workspace. This is intentionally not
- * advertised as a system shell and cannot execute arbitrary operating-system commands.
+ * A workspace terminal for local project files and local Git operations. Commands are parsed
+ * by WorkspaceTerminal; arbitrary shell code is never passed to Android's shell.
  */
 @Composable
 fun WorkspaceConsoleDialog(
@@ -53,69 +60,70 @@ fun WorkspaceConsoleDialog(
     onlineConfigured: Boolean,
     onDismiss: () -> Unit
 ) {
+    val terminal = remember(workspace) { WorkspaceTerminal(workspace) }
+    val scope = rememberCoroutineScope()
     var command by remember { mutableStateOf("help") }
+    var terminalBusy by remember { mutableStateOf(false) }
     var output by remember {
         mutableStateOf(
-            "KELLVYN WORKSPACE CONSOLE v1\nComandos disponíveis: help, status, projects, memories, files <id>, read <id> <path>\n" +
-                "Este console opera apenas no espaço de projetos do Kellvyn; não executa comandos do Android."
+            "KELLVYN WORKSPACE TERMINAL v2\n" +
+                "Pasta inicial: /workspace\n" +
+                "Digite help para ver comandos. Para trabalhar num projeto, use: projects e depois cd <id>."
         )
     }
 
     fun execute(raw: String) {
         val line = raw.trim()
-        if (line.isBlank()) return
-        val parts = line.split(Regex("\\s+"), limit = 3)
-        val result = try {
-            when (parts.first().lowercase()) {
-                "help" -> """
-                    help — lista os comandos
-                    status — status dos motores configurados
-                    projects — lista projetos locais
-                    memories — lista as memórias salvas por você
-                    files <id> — lista os arquivos de um projeto
-                    read <id> <path> — lê um arquivo textual do projeto
-                    clear — limpa o histórico do console
-                    """.trimIndent()
-                "status" -> buildString {
-                    appendLine("Motor local: " + if (localModelReady) "carregado" else "sem modelo carregado")
-                    appendLine("Modo selecionado: " + if (onlineMode) "ONLINE" else "LOCAL")
-                    appendLine("Provedor online: " + if (onlineConfigured) "configurado" else "não configurado")
-                    appendLine("Projetos no espaço local: ${workspace.listProjects().size}")
-                    appendLine("Memórias explícitas salvas: ${memories.list().size}")
-                    appendLine("Compilação de APK de projetos gerados dentro do aparelho: ainda não implementada")
-                }
-                "projects" -> {
-                    val projects = workspace.listProjects()
-                    if (projects.isEmpty()) "Nenhum projeto local."
-                    else projects.joinToString("\n") { "${it.id} — ${it.name} (${it.fileCount} arquivos)" }
-                }
-                "memories" -> {
-                    val facts = memories.list()
-                    if (facts.isEmpty()) "Nenhuma memória salva."
-                    else facts.mapIndexed { index, fact -> "${index + 1}. ${fact.text}" }.joinToString("\n")
-                }
-                "files" -> {
-                    if (parts.size < 2) "Uso: files <id>"
-                    else workspace.listFiles(parts[1]).joinToString("\n").ifBlank { "O projeto não tem arquivos." }
-                }
-                "read" -> {
-                    if (parts.size < 3) {
-                        "Uso: read <id> <path>"
-                    } else {
-                        val filePath = parts[2]
-                        workspace.readFile(parts[1], filePath).take(MAX_READ_CHARS)
-                    }
-                }
-                "clear" -> {
-                    output = ""
-                    return
-                }
-                else -> "Comando não reconhecido. Digite help. Este console não aceita comandos arbitrários do sistema."
-            }
-        } catch (e: Exception) {
-            "ERRO: " + (e.message ?: e.javaClass.simpleName)
+        if (line.isBlank() || terminalBusy) return
+        if (line.equals("clear", ignoreCase = true)) {
+            output = ""
+            command = ""
+            return
         }
-        output = (output + "\n\n> " + line + "\n" + result).takeLast(MAX_OUTPUT_CHARS)
+        command = ""
+        terminalBusy = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val parts = line.split(Regex("\\s+"), limit = 3)
+                    when (parts.first().lowercase()) {
+                        "help" -> terminal.execute("help")
+                        "status" -> buildString {
+                            appendLine("Motor local: " + if (localModelReady) "modelo pronto" else "sem modelo carregado")
+                            appendLine("Modo selecionado: " + if (onlineMode) "ONLINE" else "LOCAL")
+                            appendLine("Provedor online: " + if (onlineConfigured) "configurado" else "não configurado")
+                            appendLine("Projetos salvos: ${workspace.listProjects().size}")
+                            appendLine("Memórias explícitas: ${memories.list().size}")
+                            appendLine("Pasta do terminal: ${terminal.pathLabel()}")
+                            appendLine("Compilador Android local: pendente; nenhum APK é gerado pelo terminal ainda")
+                        }.trimEnd()
+                        "projects" -> {
+                            val projects = workspace.listProjects()
+                            if (projects.isEmpty()) "Nenhum projeto local."
+                            else projects.joinToString("\\n") { "${it.id} — ${it.name} (${it.fileCount} arquivos)" }
+                        }
+                        "memories" -> {
+                            val facts = memories.list()
+                            if (facts.isEmpty()) "Nenhuma memória salva."
+                            else facts.mapIndexed { index, fact -> "${index + 1}. ${fact.text}" }.joinToString("\\n")
+                        }
+                        "files" -> {
+                            if (parts.size < 2) "Uso: files <id>"
+                            else workspace.listFiles(parts[1]).joinToString("\\n").ifBlank { "O projeto não tem arquivos." }
+                        }
+                        "read" -> {
+                            if (parts.size < 3) "Uso: read <id> <path>"
+                            else workspace.readFile(parts[1], parts[2]).take(MAX_READ_CHARS)
+                        }
+                        else -> terminal.execute(line)
+                    }
+                } catch (e: Exception) {
+                    "ERRO: " + (e.message ?: e.javaClass.simpleName)
+                }
+            }
+            output = (output + "\\n\\n> ${line}\\n${result}").takeLast(MAX_OUTPUT_CHARS)
+            terminalBusy = false
+        }
     }
 
     Dialog(
@@ -125,7 +133,8 @@ fun WorkspaceConsoleDialog(
         Surface(
             modifier = Modifier.fillMaxSize().padding(8.dp),
             color = ConsoleNight,
-            shape = RoundedCornerShape(18.dp)
+            shape = RoundedCornerShape(18.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, ConsoleBorder)
         ) {
             Column(
                 modifier = Modifier.fillMaxSize().background(ConsoleNight).padding(14.dp),
@@ -133,8 +142,8 @@ fun WorkspaceConsoleDialog(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("CONSOLE DO PROJETO", color = ConsoleNeon, fontSize = 14.sp)
-                        Text("Comandos reais sobre os projetos locais", color = ConsoleMuted, fontSize = 11.sp)
+                        Text("TERMINAL LOCAL", color = ConsoleNeon, fontSize = 14.sp)
+                        Text(terminal.pathLabel(), color = ConsoleMuted, fontSize = 11.sp)
                     }
                     TextButton(onClick = onDismiss) { Text("Fechar", color = Color.White) }
                 }
@@ -145,27 +154,40 @@ fun WorkspaceConsoleDialog(
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         label = { Text("Comando") },
+                        placeholder = { Text("help, ls, cd, git status…") },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { execute(command) })
                     )
-                    Button(onClick = { execute(command) }) { Text("Executar") }
+                    Button(
+                        onClick = { execute(command) },
+                        enabled = !terminalBusy && command.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D604A), contentColor = Color.White)
+                    ) { Text(if (terminalBusy) "Rodando…" else "Executar") }
                 }
                 Surface(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     color = ConsolePanel,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, ConsoleBorder)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)
                     ) {
-                        Text(output, color = Color(0xFFE1F5FF), fontSize = 12.sp, lineHeight = 17.sp)
+                        Text(
+                            output,
+                            color = Color(0xFFC9F6E8),
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
                 }
                 Text(
-                    "Limite de segurança: sem acesso a shell, arquivos fora do workspace ou execução de código gerado.",
+                    "Executa operações locais de arquivos e Git dentro do workspace. Não é um shell irrestrito; compilação Android local ainda pendente.",
                     color = ConsoleMuted,
                     fontSize = 10.sp
                 )
+                Spacer(Modifier.height(1.dp))
             }
         }
     }
