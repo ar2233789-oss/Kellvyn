@@ -9,7 +9,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,18 +20,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
+import com.kellvyn.assistant.ai.OpenAiCompatibleAssistantEngine
 import com.kellvyn.assistant.data.ChatHistoryStore
+import com.kellvyn.assistant.data.OnlineProviderSettingsStore
 import kotlinx.coroutines.launch
 
 private val Night = Color(0xFF080B12)
 private val Panel = Color(0xFF121925)
 private val Neon = Color(0xFF4DDBFF)
 private val Muted = Color(0xFF9AA8BA)
+private val Warning = Color(0xFFFFC857)
 
 data class ChatMessage(val text: String, val fromUser: Boolean)
 
@@ -43,12 +51,24 @@ class MainActivity : ComponentActivity() {
 fun KellvynApp() {
     val context = LocalContext.current.applicationContext
     val historyStore = remember(context) { ChatHistoryStore(context) }
+    val onlineSettingsStore = remember(context) { OnlineProviderSettingsStore(context) }
     val localEngine = remember(context) { LocalLiteRtAssistantEngine(context) }
+    val onlineEngine = remember(onlineSettingsStore) { OpenAiCompatibleAssistantEngine(onlineSettingsStore) }
     val scope = rememberCoroutineScope()
+    val chatListState = rememberLazyListState()
+    val initialOnlineSettings = remember(onlineSettingsStore) { onlineSettingsStore.load() }
+
     var draft by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("Selecione um modelo .litertlm para ativar a IA local") }
+    var status by remember { mutableStateOf("Selecione um modelo local ou configure um provedor online") }
     var modelReady by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
+    var onlineMode by remember { mutableStateOf(false) }
+    var onlineConfigured by remember { mutableStateOf(initialOnlineSettings.isConfigured) }
+    var showOnlineSettings by remember { mutableStateOf(false) }
+    var endpointInput by remember { mutableStateOf(initialOnlineSettings.endpoint) }
+    var modelInput by remember { mutableStateOf(initialOnlineSettings.model) }
+    var apiKeyInput by remember { mutableStateOf(initialOnlineSettings.apiKey) }
+    var settingsError by remember { mutableStateOf("") }
 
     val messages = remember(historyStore) {
         mutableStateListOf<ChatMessage>().apply {
@@ -56,7 +76,7 @@ fun KellvynApp() {
             if (saved.isEmpty()) {
                 add(
                     ChatMessage(
-                        "Kellvyn IA — interface carregada. As respostas serão geradas por um modelo local somente depois que você selecionar um arquivo compatível.",
+                        "Kellvyn IA está pronto. No modo local, selecione um modelo .litertlm compatível. No modo online opcional, configure seu próprio endpoint HTTPS. Nenhum dos modos finge estar ativo antes de ser configurado.",
                         false
                     )
                 )
@@ -70,19 +90,19 @@ fun KellvynApp() {
         historyStore.save(messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) })
     }
 
-    fun applyModelResult(result: AssistantResult) {
+    fun updateModelResult(result: AssistantResult) {
         when (result) {
             is AssistantResult.Success -> {
                 modelReady = true
-                status = result.text
+                if (!onlineMode) status = result.text
             }
             is AssistantResult.Unavailable -> {
                 modelReady = false
-                status = result.reason
+                if (!onlineMode) status = result.reason
             }
             is AssistantResult.Failure -> {
                 modelReady = false
-                status = result.reason
+                if (!onlineMode) status = result.reason
             }
         }
     }
@@ -92,17 +112,22 @@ fun KellvynApp() {
     ) { uri ->
         if (uri != null) {
             scope.launch {
-                modelReady = false
-                status = "Copiando e inicializando o modelo local…"
-                applyModelResult(localEngine.importAndLoad(uri))
+                if (!onlineMode) status = "Copiando e inicializando o modelo local…"
+                updateModelResult(localEngine.importAndLoad(uri))
             }
         }
     }
 
     LaunchedEffect(localEngine) {
         if (localEngine.hasSavedModel()) {
-            status = "Modelo local encontrado; inicializando…"
-            applyModelResult(localEngine.loadSavedModel())
+            if (!onlineMode) status = "Modelo local encontrado; inicializando…"
+            updateModelResult(localEngine.loadSavedModel())
+        }
+    }
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            chatListState.animateScrollToItem(messages.lastIndex)
         }
     }
 
@@ -130,54 +155,110 @@ fun KellvynApp() {
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text("KELLVYN IA", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text("ASSISTENTE • MOTOR LOCAL", fontSize = 10.sp, color = Neon)
+                    Text("ASSISTENTE • NÚCLEO HÍBRIDO", fontSize = 10.sp, color = Neon)
                 }
                 TextButton(onClick = {
                     historyStore.clear()
                     messages.clear()
-                    status = if (modelReady) "Histórico apagado; modelo local continua carregado" else "Histórico local apagado"
+                    status = "Histórico local apagado"
                 }) {
                     Text("Limpar", color = Muted, fontSize = 12.sp)
                 }
             }
-            Spacer(Modifier.height(18.dp))
+
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = {
+                        onlineMode = false
+                        status = if (modelReady) "Motor local pronto no aparelho" else "Selecione um modelo .litertlm para ativar a IA local"
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (!onlineMode) Neon else Panel,
+                        contentColor = if (!onlineMode) Night else Color.White
+                    )
+                ) { Text("LOCAL", fontWeight = FontWeight.Bold) }
+                Button(
+                    onClick = {
+                        onlineMode = true
+                        status = if (onlineConfigured) {
+                            "Modo online selecionado. As mensagens serão enviadas ao endpoint configurado."
+                        } else {
+                            "Configure seu endpoint HTTPS e modelo antes de enviar mensagens."
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (onlineMode) Neon else Panel,
+                        contentColor = if (onlineMode) Night else Color.White
+                    )
+                ) { Text("ONLINE", fontWeight = FontWeight.Bold) }
+            }
+
+            Spacer(Modifier.height(12.dp))
             Surface(color = Panel, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp)) {
                     Text("PAINEL DO NÚCLEO", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Interface Android", color = Color.White, modifier = Modifier.weight(1f))
-                        Text("IMPLEMENTADA", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("PRONTA", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(5.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Inferência local", color = Color.White, modifier = Modifier.weight(1f))
-                        Text(if (modelReady) "ATIVA" else "SEM MODELO", color = if (modelReady) Neon else Color(0xFFFFC857), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("Motor local", color = Color.White, modifier = Modifier.weight(1f))
+                        Text(if (modelReady) "CARREGADO" else "SEM MODELO", color = if (modelReady) Neon else Warning, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(5.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Histórico no aparelho", color = Color.White, modifier = Modifier.weight(1f))
-                        Text("ATIVO", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("Provedor online", color = Color.White, modifier = Modifier.weight(1f))
+                        Text(if (onlineConfigured) "CONFIGURADO" else "OPCIONAL", color = if (onlineConfigured) Neon else Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(10.dp))
-                    Button(
-                        onClick = { modelPicker.launch(arrayOf("*/*")) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(if (modelReady) "Trocar modelo local (.litertlm)" else "Selecionar modelo local (.litertlm)")
+
+                    if (!onlineMode) {
+                        Button(
+                            onClick = { modelPicker.launch(arrayOf("*/*")) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (modelReady) "Trocar modelo local (.litertlm)" else "Selecionar modelo local (.litertlm)")
+                        }
+                        Text(
+                            "O modelo fica no armazenamento privado do aparelho. A inferência local não envia mensagens a um servidor.",
+                            color = Muted,
+                            fontSize = 10.sp
+                        )
+                    } else {
+                        Button(
+                            onClick = {
+                                val saved = onlineSettingsStore.load()
+                                endpointInput = saved.endpoint
+                                modelInput = saved.model
+                                apiKeyInput = saved.apiKey
+                                settingsError = ""
+                                showOnlineSettings = true
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("Configurar provedor online") }
+                        Text(
+                            "As mensagens e o contexto da conversa serão enviados ao endpoint escolhido. O uso pode ter custos definidos pelo provedor.",
+                            color = Warning,
+                            fontSize = 10.sp
+                        )
                     }
-                    Text(
-                        "O arquivo do modelo fica no armazenamento privado do app. Modelos podem ocupar centenas de MB.",
-                        color = Muted,
-                        fontSize = 10.sp
-                    )
                 }
             }
-            Spacer(Modifier.height(16.dp))
+
+            Spacer(Modifier.height(14.dp))
             Text("CONVERSA", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             LazyColumn(
+                state = chatListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -187,12 +268,7 @@ fun KellvynApp() {
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            message.text,
-                            modifier = Modifier.padding(14.dp),
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
+                        Text(message.text, modifier = Modifier.padding(14.dp), color = Color.White, fontSize = 14.sp)
                     }
                 }
             }
@@ -220,51 +296,139 @@ fun KellvynApp() {
                     enabled = !isGenerating,
                     onClick = {
                         val text = draft.trim()
+                        val onlineSelected = onlineMode
                         if (text.isNotEmpty()) {
-                            if (!modelReady) {
+                            if (onlineSelected && !onlineConfigured) {
+                                status = "Configure o provedor online antes de enviar mensagens."
+                            } else if (!onlineSelected && !modelReady) {
                                 status = "Carregue um modelo .litertlm primeiro. A mensagem não foi enviada."
                             } else {
                                 messages.add(ChatMessage(text, true))
                                 saveHistory()
                                 draft = ""
                                 isGenerating = true
-                                status = "Gerando resposta no aparelho…"
+                                status = if (onlineSelected) "Enviando ao endpoint online escolhido…" else "Gerando resposta no aparelho…"
+                                val selectedEngine: AssistantEngine = if (onlineSelected) onlineEngine else localEngine
+                                val turns = messages.mapNotNull { message ->
+                                    if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) {
+                                        null
+                                    } else {
+                                        AssistantTurn(
+                                            role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
+                                            content = message.text
+                                        )
+                                    }
+                                }
                                 scope.launch {
-                                    val turns = messages.mapNotNull { message ->
-                                        if (!message.fromUser && message.text.startsWith("Kellvyn IA — interface carregada.")) {
-                                            null
-                                        } else {
-                                            AssistantTurn(
-                                                role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
-                                                content = message.text
-                                            )
+                                    try {
+                                        when (val result = selectedEngine.reply(turns)) {
+                                            is AssistantResult.Success -> {
+                                                messages.add(ChatMessage(result.text, false))
+                                                saveHistory()
+                                                status = if (onlineSelected) {
+                                                    "Resposta recebida do provedor online"
+                                                } else {
+                                                    "Resposta gerada localmente • nenhuma mensagem enviada a servidor"
+                                                }
+                                            }
+                                            is AssistantResult.Unavailable -> status = result.reason
+                                            is AssistantResult.Failure -> status = result.reason
                                         }
+                                    } catch (e: Exception) {
+                                        status = "Falha inesperada: " + (e.message ?: e.javaClass.simpleName)
+                                    } finally {
+                                        isGenerating = false
                                     }
-                                    when (val result = localEngine.reply(turns)) {
-                                        is AssistantResult.Success -> {
-                                            messages.add(ChatMessage(result.text, false))
-                                            saveHistory()
-                                            status = "Resposta gerada localmente • nenhuma mensagem foi enviada para um servidor"
-                                        }
-                                        is AssistantResult.Unavailable -> status = result.reason
-                                        is AssistantResult.Failure -> status = result.reason
-                                    }
-                                    isGenerating = false
                                 }
                             }
                         }
                     },
                     shape = RoundedCornerShape(14.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
-                ) {
-                    Text(if (isGenerating) "…" else "➤")
-                }
+                ) { Text(if (isGenerating) "…" else "➤") }
             }
             Spacer(Modifier.height(6.dp))
-            Text(
-                "Versão 0.2.0 • motor local LiteRT-LM • modelo fornecido pelo usuário",
-                color = Muted,
-                fontSize = 10.sp
+            Text("Versão 0.3.0 • IA local + provedor online opcional", color = Muted, fontSize = 10.sp)
+        }
+
+        if (showOnlineSettings) {
+            AlertDialog(
+                onDismissRequest = { showOnlineSettings = false },
+                title = { Text("Provedor online") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            "Use um endpoint compatível com a API Chat Completions e HTTPS. Kellvyn não fornece chave nem assinatura. A chave será criptografada com Android Keystore.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        OutlinedTextField(
+                            value = endpointInput,
+                            onValueChange = { endpointInput = it },
+                            label = { Text("Endpoint HTTPS") },
+                            placeholder = { Text("https://seu-provedor.example/v1") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = modelInput,
+                            onValueChange = { modelInput = it },
+                            label = { Text("Nome do modelo") },
+                            placeholder = { Text("modelo-do-provedor") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = apiKeyInput,
+                            onValueChange = { apiKeyInput = it },
+                            label = { Text("Chave API (opcional)") },
+                            placeholder = { Text("Obrigatória para alguns provedores") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (settingsError.isNotBlank()) {
+                            Text(settingsError, color = Warning, fontSize = 12.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val endpoint = endpointInput.trim()
+                        val model = modelInput.trim()
+                        if (!endpoint.startsWith("https://", ignoreCase = true) || model.isBlank()) {
+                            settingsError = "Informe uma URL HTTPS válida e o nome do modelo."
+                        } else {
+                            try {
+                                onlineSettingsStore.save(endpoint, model, apiKeyInput)
+                                onlineConfigured = onlineSettingsStore.load().isConfigured
+                                showOnlineSettings = false
+                                status = "Provedor online salvo. Mensagens só serão enviadas quando o modo ONLINE estiver selecionado."
+                            } catch (e: Exception) {
+                                settingsError = "Não foi possível salvar as credenciais com segurança: " +
+                                    (e.message ?: e.javaClass.simpleName)
+                            }
+                        }
+                    }) { Text("Salvar") }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(onClick = {
+                            onlineSettingsStore.clear()
+                            endpointInput = ""
+                            modelInput = ""
+                            apiKeyInput = ""
+                            onlineConfigured = false
+                            settingsError = ""
+                            showOnlineSettings = false
+                            status = "Configuração online removida"
+                        }) { Text("Remover") }
+                        TextButton(onClick = { showOnlineSettings = false }) { Text("Cancelar") }
+                    }
+                }
             )
         }
     }
