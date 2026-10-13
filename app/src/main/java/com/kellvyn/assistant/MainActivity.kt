@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,6 +52,8 @@ import com.kellvyn.assistant.workspace.WorkspaceProject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
+import java.util.UUID
 
 private val Night = Color(0xFF080B12)
 private val Panel = Color(0xFF121925)
@@ -82,6 +85,19 @@ fun KellvynApp() {
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
+    var speechOutputReady by remember { mutableStateOf(false) }
+    val speechOutputHolder = remember(context) { arrayOfNulls<TextToSpeech>(1) }
+    val speechOutput = remember(context) {
+        TextToSpeech(context) { result ->
+            if (result == TextToSpeech.SUCCESS) {
+                val languageResult = speechOutputHolder[0]?.setLanguage(Locale("pt", "BR"))
+                    ?: TextToSpeech.LANG_NOT_SUPPORTED
+                speechOutputReady = languageResult >= TextToSpeech.LANG_AVAILABLE
+            } else {
+                speechOutputReady = false
+            }
+        }.also { speechOutputHolder[0] = it }
+    }
     val initialOnlineSettings = remember(onlineSettingsStore) { onlineSettingsStore.load() }
 
     var draft by remember { mutableStateOf("") }
@@ -225,8 +241,12 @@ fun KellvynApp() {
         }
     }
 
-    DisposableEffect(localEngine) {
-        onDispose { localEngine.close() }
+    DisposableEffect(localEngine, speechOutput) {
+        onDispose {
+            localEngine.close()
+            speechOutput.stop()
+            speechOutput.shutdown()
+        }
     }
 
     MaterialTheme(
@@ -447,9 +467,33 @@ fun KellvynApp() {
                         if (!message.fromUser) {
                             val clipboard = LocalClipboardManager.current
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(end = 4.dp, top = 1.dp),
-                                horizontalArrangement = Arrangement.End
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, top = 1.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
+                                TextButton(
+                                    onClick = {
+                                        if (!speechOutputReady) {
+                                            status = "A saída de voz em português não está disponível neste aparelho."
+                                        } else {
+                                            speechOutput.stop()
+                                            val result = speechOutput.speak(
+                                                message.text,
+                                                TextToSpeech.QUEUE_FLUSH,
+                                                null,
+                                                UUID.randomUUID().toString()
+                                            )
+                                            status = if (result == TextToSpeech.SUCCESS) {
+                                                "Lendo a resposta em voz alta…"
+                                            } else {
+                                                "O serviço de voz não conseguiu ler esta resposta."
+                                            }
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text("Ouvir", color = if (speechOutputReady) Neon else Muted, fontSize = 11.sp)
+                                }
                                 TextButton(
                                     onClick = {
                                         clipboard.setText(AnnotatedString(message.text))
