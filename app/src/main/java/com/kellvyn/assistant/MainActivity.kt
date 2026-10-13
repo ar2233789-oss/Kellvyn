@@ -58,7 +58,7 @@ import java.util.UUID
 
 private val Night = Color(0xFF080B12)
 private val Panel = Color(0xFF121925)
-private val Neon = Color(0xFF168BFF)
+private val Neon = Color(0xFF4DDBFF)
 private val Muted = Color(0xFF9AA8BA)
 private val Warning = Color(0xFFFFC857)
 private const val MAX_CONTEXT_MESSAGES = 24
