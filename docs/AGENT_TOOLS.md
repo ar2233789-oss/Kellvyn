@@ -15,6 +15,7 @@ Os pedidos comuns de diagnóstico do terminal são tratados primeiro com leitura
 | Ler arquivo / pesquisar código | Lê arquivos de texto limitados e busca ocorrências | Automática |
 | Terminal de leitura | `help`, `pwd`, `ls`, `tree`, `find`, `cat`, `grep`, `wc`, `stat`, estado de Git | Automática |
 | Terminal de alteração | Criar, gravar, anexar, copiar, mover ou remover arquivos; ações locais de Git | Confirmação explícita |
+| Shell manual opcional (`! comando`) | Executa o comando digitado pelo usuário com `/system/bin/sh`, como UID normal do app, com timeout e saída limitados | Confirmação explícita; nunca acessível ao agente automático |
 | Editar ou excluir arquivo | Atua apenas dentro de um projeto registrado no workspace | Confirmação explícita |
 | Excluir projeto | Apaga um projeto inteiro e seus arquivos | Confirmação explícita |
 | Pesquisa web / ler página HTTPS | Consulta DuckDuckGo ou lê texto de página HTTPS pública | Permissão separada de internet ligada |
@@ -22,7 +23,8 @@ Os pedidos comuns de diagnóstico do terminal são tratados primeiro com leitura
 
 ## Limites de segurança
 
-- O terminal do agente não executa shell arbitrário, scripts gerados, encadeamento de comandos ou redirecionamento. Os comandos são interpretados por uma lista explícita dentro do workspace.
+- O chat autônomo não depende da tela Terminal. As ferramentas internas do agente não executam shell arbitrário, scripts gerados, encadeamento de comandos ou redirecionamento; os comandos são interpretados por uma lista explícita dentro do workspace.
+- O usuário pode optar pelo shell manual via `! comando`, confirmar a execução e rodar `/system/bin/sh` como UID normal do aplicativo (sem root, até 15 s e saída até 64 KB). Este shell não é usado pelo agente automático.
 - Caminhos absolutos, traversal com `..`, pastas internas e metadados protegidos são bloqueados.
 - Escritas, exclusões e comandos de terminal que alteram o workspace aguardam autorização do usuário.
 - As páginas web e os arquivos do workspace são dados não confiáveis. Instruções encontradas neles não ganham privilégios nem podem substituir as regras do agente.
