@@ -280,15 +280,24 @@ fun KellvynApp() {
                             )
                         })
                     }
-                    when (
-                        val result = assistantAgent.respond(
-                            engine = selectedEngine,
-                            conversation = turns,
-                            internetAllowed = internetToolsEnabled,
-                            onToolStatus = { toolStatus -> status = toolStatus },
-                            requestApproval = { summary -> requestAgentApproval(summary) }
-                        )
-                    ) {
+                    val agentResult = assistantAgent.respond(
+                        engine = selectedEngine,
+                        conversation = turns,
+                        internetAllowed = internetToolsEnabled,
+                        onToolStatus = { toolStatus -> status = toolStatus },
+                        requestApproval = { summary -> requestAgentApproval(summary) }
+                    )
+                    val refreshedProjects = withContext(Dispatchers.IO) { workspaceStore.listProjects() }
+                    existingProjects.clear()
+                    existingProjects.addAll(refreshedProjects)
+                    if (activeEditProject != null && refreshedProjects.none { it.id == activeEditProject?.id }) {
+                        showEditorDialog = false
+                        activeEditProject = null
+                        editablePaths = emptyList()
+                        activeFilePath = ""
+                        editorContent = ""
+                    }
+                    when (val result = agentResult) {
                         is AssistantResult.Success -> {
                             messages.add(ChatMessage(result.text, false))
                             status = when {
