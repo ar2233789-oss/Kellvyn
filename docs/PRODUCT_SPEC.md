@@ -65,7 +65,7 @@ O fluxo final desejado ao receber “crie o aplicativo X”:
 7. Apresentar nome, versão, tamanho e ação para salvar/instalar o APK.
 8. Manter logs e código acessíveis para diagnóstico; não mostrar ZIP como se fosse APK.
 
-Estado atual: o construtor cria, valida, guarda, edita e exporta arquivos de código; **a toolchain de compilação local ainda não foi implementada**. Não anunciar que apps criados já viram APK instalável. O próximo bloco crítico é implementar/embutir ferramentas de compilação locais e provar que elas funcionam no aparelho. Não substituir isso por GitHub Actions, Replit ou servidores.
+Pipeline local implementado no código: ECJ compila Java, D8 gera DEX, o empacotador cria o manifesto Android binário mínimo e apksig assina/verifica o APK. O fluxo Build do chat o inicia em segundo plano sem depender da tela Terminal; a ferramenta também está disponível para o agente compilar um projeto salvo. Há uma tentativa limitada de correção automática após erro real. Perfil inicial: Activity Java nativa com APIs Android do framework, sem Kotlin/Compose, recursos externos ou bibliotecas de terceiros. A primeira instalação da plataforma solicita aceite explícito da licença Android SDK e valida o checksum. A saída é um APK no armazenamento privado e o app abre o instalador nativo. Nenhuma build em nuvem é usada.
 
 ## Ferramentas e tarefas futuras
 - Editor de arquivos com salvamento local.
