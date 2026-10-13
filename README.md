@@ -1,43 +1,38 @@
 # Kellvyn IA
 
-Kellvyn IA is a native Android application under active development, built with Kotlin and Jetpack Compose. It aims for an offline-first assistant with an optional online provider.
+Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvolvimento para funcionar primeiro no próprio aparelho.
 
-## Implemented in the source
+## Código implementado até agora
 
-- Dark chat UI with neon-blue accents.
-- Copy button with a small two-page icon below each assistant response.
-- Portuguese speech-to-text input through the Android speech recognizer and text-to-speech playback through an available Portuguese voice.
-- Private conversation history stored on the device, clear-history control, and bounded history size.
-- User-controlled long-term memory: add, inspect, delete a fact, or clear all; facts enter the model context only when explicitly saved.
-- Local inference adapter using Google's LiteRT-LM Kotlin API.
-- One-tap download for a public 374 MB SmolLM2-360M-Instruct LiteRT-LM model under Apache-2.0, verified by expected size and SHA-256; compatible model files can also be imported manually.
-- Optional OpenAI-compatible Chat Completions endpoint over HTTPS. Endpoint/model settings are configurable; optional API token is encrypted with Android Keystore.
-- AI app builder that asks the selected model for structured project source, validates paths and size, stores files privately, and exports a ZIP.
-- In-app source editor for generated project files.
-- Local project workspace and project listing.
-- GitHub Actions workflow that builds, verifies package ID/signature/archive, and publishes a debug APK.
-- App namespace: `com.kellvyn.assistant`; minimum Android API 26; Java/Kotlin target 17.
+- Interface de chat nativa, tema escuro e detalhes azul neon.
+- Botão de copiar (ícone de folhas/páginas) embaixo das respostas do assistente.
+- Entrada por ditado em português e leitura em voz alta, se os serviços de voz do Android estiverem disponíveis.
+- Histórico local limitado e apagável.
+- Memória explícita controlada pelo usuário: guardar, visualizar e apagar fatos.
+- Adaptador inicial LiteRT-LM, importação de modelo compatível e fluxo de download verificado de um modelo pequeno.
+- Modo online opcional para respostas do assistente, com endpoint HTTPS configurado pelo usuário.
+- Construtor que gera arquivos de código, workspace privado, editor de arquivos, exportação ZIP secundária e console limitado ao workspace.
 
-## Important limitations
+## Requisitos que não podem ser violados
 
-The small offline model is for initial on-device chat and basic tasks; it is not equivalent to a large coding model. Model speed, quality, RAM use and heat have not yet been tested on the target phone. Larger compatible models may be imported via the file picker.
+- O app final deve ser Android nativo; não embutir páginas da web em WebView.
+- A criação de APKs deve ocorrer localmente no telefone. Não usar GitHub Actions, tokens, Replit ou serviços de build na nuvem para compilar os projetos criados.
+- O código gerado pode ser exportado em ZIP para inspeção, mas ZIP não é APK.
+- A tela principal deve privilegiar o APK compilado como resultado, depois que o compilador local estiver implementado.
+- Não fingir que recursos pendentes estão prontos.
 
-The online provider is optional and must be configured by the user. In online mode, conversation context and relevant saved memories are sent to the selected endpoint; providers may charge for usage. Voice features depend on speech and TTS services installed on Android.
+## Limitações reais atuais
 
-The app builder creates, validates, saves, edits and exports project source files. It does **not** yet compile arbitrary generated projects into APKs directly on the phone. Generated code must be reviewed and compiled/tested separately. Successful CI builds do not prove installation or inference on a physical Poco F6.
+A IA local ainda precisa de teste com um modelo real no Poco F6. O modelo pequeno baixado é uma opção de entrada para tarefas básicas, não um modelo avançado de programação. A qualidade, RAM, calor e velocidade ainda não foram medidos no aparelho.
 
-## Local model setup
+O construtor atual gera, valida, guarda, permite editar e exportar arquivos de código, mas **ainda não compila projetos gerados em APK no próprio telefone**. O próximo bloco central é uma toolchain de compilação Android local e compatível com o ambiente ARM64 do telefone, sem serviço remoto; ela ainda não está implementada ou validada.
 
-See [docs/LOCAL_AI.md](docs/LOCAL_AI.md). The quick-start model is available at [SmolLM2-360M-Instruct for LiteRT-LM](https://huggingface.co/litert-community/SmolLM2-360M-Instruct), license Apache-2.0, about 374 MB. The app downloads and verifies it when the user taps the download button; weights are not bundled into the APK.
+O modo online opcional é separado da compilação. Se for configurado, a conversa/contexto vai ao endpoint HTTPS escolhido; a compilação de projetos não usará esse endpoint.
 
-## Build the APK
+## Documentação
+- [Especificação central do produto](docs/PRODUCT_SPEC.md)
+- [Motor de IA local](docs/LOCAL_AI.md)
+- [Roadmap técnico](docs/ROADMAP.md)
 
-Pushes to `main` and pull requests trigger the [Android build workflow](https://github.com/ar2233789-oss/Kellvyn/actions). After a successful run, download the artifact named `kellvyn-debug-apk`.
-
-The workflow uses JDK 17, Android SDK Platform 35, Build Tools 35.0.0, and Gradle 8.9. For a local build with the same tools installed, run:
-
-```sh
-gradle :app:assembleDebug
-```
-
-Do not embed API keys or credentials in source code. In local mode, prompts remain on-device; in online mode, messages go only to the explicitly configured HTTPS endpoint.
+## Build do próprio Kellvyn durante o desenvolvimento
+A compilação anterior do próprio app foi feita em ambiente de desenvolvimento e passou por verificações de pacote/assinatura. O fluxo de build em nuvem foi removido conforme o requisito de build local. Não há atualmente um APK novo validado para a revisão depois das últimas alterações.
