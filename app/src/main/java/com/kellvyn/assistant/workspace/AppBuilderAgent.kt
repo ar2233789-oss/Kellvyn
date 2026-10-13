@@ -154,8 +154,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 val invalidPaths = files.filter { file ->
                     val path = file.path.trim()
                     val segments = path.split("/")
-                    path.isBlank() || path.startsWith("/") || path.startsWith("\\\\") ||
-                        path.contains("\\\\") ||
+                    path.isBlank() || path.startsWith("/") || path.any { it.code == 92 } ||
                         segments.any { segment ->
                             segment.isBlank() || segment == "." || segment == ".." ||
                                 segment.contains(":") || segment.any { it.code < 32 } ||
