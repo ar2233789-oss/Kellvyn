@@ -471,7 +471,14 @@ fun KellvynApp() {
                     } else {
                         builtProject = selectedProject
                         messages.add(ChatMessage("Encontrei o projeto \"" + selectedProject.name + "\". Iniciando o build local em segundo plano.", false))
-                        buildProjectAndReport(selectedProject)
+                        val repairEngineForBuild = if (
+                            (onlineSelected && onlineConfigured) || (!onlineSelected && modelReady)
+                        ) selectedEngine else null
+                        buildProjectAndReport(
+                            selectedProject,
+                            repairBrief = text,
+                            repairEngine = repairEngineForBuild
+                        )
                     }
                 } else {
                     val turns = buildConversationTurns()
