@@ -398,9 +398,11 @@ fun KellvynApp() {
                                                     ((downloadedBytes * 100L) / totalBytes).toInt().coerceIn(0, 100)
                                                 } else 0
                                                 scope.launch(Dispatchers.Main) {
-                                                    modelDownloadPercent = percent
-                                                    status = "Baixando modelo offline: $percent% " +
-                                                        "(${downloadedBytes / (1024L * 1024L)} MB)"
+                                                    if (isDownloadingModel) {
+                                                        modelDownloadPercent = percent
+                                                        status = "Baixando modelo offline: $percent% " +
+                                                            "(${downloadedBytes / (1024L * 1024L)} MB)"
+                                                    }
                                                 }
                                             }
                                             updateModelResult(result)
