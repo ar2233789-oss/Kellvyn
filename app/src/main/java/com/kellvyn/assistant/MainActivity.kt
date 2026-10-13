@@ -78,7 +78,7 @@ private fun isExplicitAppBuildRequest(text: String): Boolean {
     val action = listOf("crie", "criar", "construa", "construir", "desenvolva", "desenvolver", "gere", "gerar", "faça", "faca", "monta", "monte", "implemente")
         .any { it in t }
     val target = listOf("aplicativo", "app android", "apk", "aplicação android", "aplicacao android", "projeto android", "app com", "aplicativo com")
-        .any { it in t } || "app" in t
+        .any { it in t } || t.split(Regex("[^a-z0-9]+")).contains("app")
     return action && target && !listOf("como criar", "como faço", "como faco", "me explique", "explique como").any { it in t }
 }
 
@@ -88,7 +88,7 @@ private fun isBuildBrief(text: String): Boolean {
     if (listOf("terminal", "console", "problema", "erro", "ajuda", "me ajuda", "não consigo", "nao consigo", "estou com", "preciso de ajuda", "explique", "me explica", "o que é", "o que e", "quem é", "quem e", "por que", "como funciona", "olá", "ola", "bom dia", "boa tarde", "boa noite").any { it in t }) return false
     val features = listOf("tela", "login", "cadastro", "botão", "botao", "salvar", "banco de dados", "offline", "notificação", "notificacao", "gerenciador", "usuários", "usuarios", "funções", "funcoes", "interface", "categorias", "busca")
     val featureCount = features.count { it in t }
-    val hasProjectNoun = listOf("app", "aplicativo", "sistema", "gerenciador", "aplicação", "aplicacao", "projeto").any { it in t }
+    val hasProjectNoun = listOf("aplicativo", "sistema", "gerenciador", "aplicação", "aplicacao", "projeto").any { it in t } || t.split(Regex("[^a-z0-9]+")).contains("app")
     return featureCount >= 2 || (hasProjectNoun && featureCount >= 1)
 }
 
