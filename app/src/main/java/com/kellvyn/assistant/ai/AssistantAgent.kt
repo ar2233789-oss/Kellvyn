@@ -157,7 +157,7 @@ class AgentToolRouter(
                     projectId = required(args, "project_id"),
                     path = required(args, "path"),
                     startLine = if (args.has("start_line")) args.optInt("start_line") else null,
-                    maxLines = args.optInt("max_lines", MAX_FILE_READ_LINES)
+                    maxLines = args.optInt("max_lines", BoundedSourceReader.MAX_LINES)
                 )
                 "search_workspace" -> searchWorkspace(required(args, "query"))
                 "git_status" -> git.status(required(args, "project_id"))
@@ -290,7 +290,7 @@ class AgentToolRouter(
                 val file = runCatching {
                     workspace.readFile(project.id, path)
                 }.getOrNull() ?: return@fileLoop
-                if (file.length > MAX_FILE_READ_CHARS) return@fileLoop
+                if (file.length > BoundedSourceReader.MAX_CHARS) return@fileLoop
                 file.lineSequence().forEachIndexed { lineNo, line ->
                     if (found < MAX_SEARCH_MATCHES && line.contains(needle, ignoreCase = true)) {
                         matches.put(JSONObject()
