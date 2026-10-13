@@ -673,12 +673,10 @@ class AssistantAgent(
         val marker = markers.firstOrNull { lower.contains(it) }
             ?: return normalized.take(MAX_QUERY_CHARS)
         val index = lower.indexOf(marker)
-        val query = normalized.substring((index + marker.length).coerceAtMost(normalized.length))
-            .trim()
-            .trimStart(':', '-', ' ', '\\t')
-            .trimStart('p', 'o', 'r', ' ', ':')
-            .trim()
-            .trim('"', '\\'', '“', '”', '‘', '’', '.', '?', '!')
+        var query = normalized.substring((index + marker.length).coerceAtMost(normalized.length)).trim()
+        query = query.trimStart(':', '-', ' ')
+        if (query.startsWith("por ", ignoreCase = true)) query = query.drop(4).trimStart()
+        query = query.removeSurrounding("\\\"").removeSurrounding("'").trim().trimEnd('.', '?', '!')
         return query.ifBlank { normalized }.take(MAX_QUERY_CHARS)
     }
 
