@@ -88,6 +88,23 @@ internal object GeneratedAndroidProjectValidator {
         if (Regex("""(?s)setContent\s*\{\s*\}""").containsMatchIn(activity)) {
             problems += "MainActivity.kt não pode ter setContent vazio; inclua conteúdo real na UI Compose"
         }
+        val sourceText = files.filterKeys {
+            it.endsWith(".kt", true) || it.endsWith(".java", true) || it.endsWith(".xml", true) || it.endsWith(".kts", true)
+        }.values.joinToString("\n")
+        val webViewReference = Regex(
+            """(?im)^\s*import\s+android\.webkit\.WebView\b|\bWebView\s*\("""
+        )
+        if (webViewReference.containsMatchIn(sourceText) ||
+            Regex("""(?i)<\s*WebView\b""").containsMatchIn(sourceText)
+        ) {
+            problems += "a interface gerada não deve usar WebView; use componentes Android nativos e Jetpack Compose"
+        }
+        val nativeComposeWidget = Regex(
+            """(?i)\b(?:Text|Button|OutlinedTextField|TextField|Column|Row|Box|Surface|Scaffold|LazyColumn|LazyRow|Card|Canvas|Image|Icon|Switch|Checkbox|Slider|DropdownMenu|BasicText|BasicTextField|Spacer|LinearProgressIndicator|CircularProgressIndicator|NavigationBar|TopAppBar)\s*(?:<[^>]*>)?\s*\("""
+        )
+        if (!nativeComposeWidget.containsMatchIn(sourceText)) {
+            problems += "o projeto precisa incluir ao menos um componente visual Compose/nativo reconhecível, não apenas delegar a uma tela vazia"
+        }
         if (readme.length < 80) {
             problems += "README.md precisa explicar como configurar e executar o projeto"
         }
