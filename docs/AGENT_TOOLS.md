@@ -14,7 +14,8 @@ O agente principal não usa a tela Terminal nem executa comandos por ela. Ele co
 | Projetos e arquivos | Lista projetos e arquivos do workspace privado | Automática |
 | Ler arquivo / pesquisar código | Lê arquivos completos até 12 mil caracteres ou trechos de até 120 linhas com `start_line`/`max_lines`, e busca ocorrências | Automática |
 | Workspace de leitura | Estado do workspace, listar projetos/arquivos, ler arquivo e busca de texto | Automática |
-| Workspace de alteração | Criar/editar/apagar arquivos, apagar projeto | Confirmação explícita |
+| Workspace de alteração | Criar/editar arquivos (`write_file`/`patch_file`) após pedido claro | Automática; confirmar apenas se projeto/arquivo estiver ambíguo |
+| Ações destrutivas | Apagar arquivo/projeto, importar repositório, init/stage/commit Git | Confirmação explícita |
 | Git via JGit | Status/diff/log/branch diretamente no projeto; init/stage/commit são operações diretas sem shell | Leitura automática; init/stage/commit pedem confirmação |
 | Shell manual opcional (`! comando`) | Executa o comando digitado pelo usuário com `/system/bin/sh`, como UID normal do app, com timeout e saída limitados | Confirmação explícita; nunca acessível ao agente automático |
 | Editar ou excluir arquivo | Atua apenas dentro de um projeto registrado no workspace | Confirmação explícita |
