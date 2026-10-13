@@ -47,6 +47,8 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - O modelo pequeno é para o primeiro teste e tarefas básicas; não deve ser vendido como modelo avançado de programação.
 - Modo local e modo online opcional precisam estar claramente separados. No modo local, prompts não devem ser enviados a um servidor. No modo online, a conversa/contexto vai ao endpoint configurado pelo usuário.
 - O núcleo desejado deve planejar, dividir tarefas, usar ferramentas reais, observar resultados, diagnosticar erros, corrigir e tentar novamente com limites/controles.
+- Implementado no código: ciclo limitado de uso de ferramentas no chat (workspace, leitura/busca de arquivos, terminal restrito e pesquisa/páginas HTTPS quando o modo online está selecionado). Para pedidos comuns sobre problemas do terminal, o agente executa status/ajuda em modo somente leitura antes de responder.
+- Gravação/substituição de arquivos, exclusão e comandos de terminal que alteram estado abrem uma confirmação explícita. Não existe shell arbitrário, encadeamento ou redirecionamento de comandos.
 - Memória de conversa não é a mesma coisa que memória duradoura. O código atual permite salvar, ver e apagar fatos explícitos; isso não é treino automático nem alteração dos pesos do modelo.
 
 ## Construtor nativo e APK
@@ -64,7 +66,7 @@ Estado atual: o construtor cria, valida, guarda, edita e exporta arquivos de có
 
 ## Ferramentas e tarefas futuras
 - Editor de arquivos com salvamento local.
-- Console para informações/arquivos/logs do workspace. O console atual só opera no workspace e não é shell geral do Android.
+- Terminal local de workspace com comandos explícitos e Git via JGit, além de ligação ao agente do chat. Não é shell geral do Android. As operações de escrita passam por confirmação.
 - Git local quando implementado de verdade; não deve ser requisito de build.
 - Sem navegador baseado em WebView. Não reintroduzir WebView.
 - Aprender a jogar exige capacidade concreta de observar estado do jogo, receber pixels/dados, executar comandos de controle autorizados e avaliar o resultado. Um LLM sozinho não enxerga nem controla jogo. Essa função ainda não está implementada.
