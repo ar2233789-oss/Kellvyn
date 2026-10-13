@@ -1007,6 +1007,9 @@ class AssistantAgent(
                     tools.execute("open_web_page", JSONObject().put("url", explicitPageUrl), internetAllowed)
                 }.getOrElse { "Falha ao ler a página indicada: ${it.message}" }
             }
+            looksLikeWebResearch(lastUser) && !internetAllowed -> {
+                "A pesquisa na internet está desligada. Não consultei fontes externas. Ative \"Permitir pesquisa na internet\" no menu do chat e envie o pedido novamente; enquanto isso, posso responder apenas com conhecimento prévio, sem afirmar que pesquisei."
+            }
             internetAllowed && looksLikeWebResearch(lastUser) -> {
                 val normalizedQuery = extractResearchQuery(lastUser)
                 val asksForRepository = listOf("github", "repositório", "repositorio", "open source", "código aberto", "codigo aberto")
