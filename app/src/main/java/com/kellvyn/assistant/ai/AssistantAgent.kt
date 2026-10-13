@@ -558,6 +558,8 @@ class AgentToolRouter(
         const val MAX_SEARCH_MATCHES = 40
         const val MAX_FILE_READ_CHARS = 12_000
         const val MAX_WRITE_CHARS = 40_000
+        const val MAX_PATCH_CHARS = 20_000
+        const val MAX_PATCH_FILE_CHARS = 512 * 1024
         const val MAX_TERMINAL_COMMAND_CHARS = 800
         const val MAX_WEB_RESULTS = 8
         const val MAX_GITHUB_RESULTS = 8
@@ -598,6 +600,7 @@ class AssistantAgent(
             appendLine("- terminal_read {command}: executa comandos permitidos somente de leitura")
             appendLine("- terminal_command {command}: operação de escrita no terminal; precisa de aprovação do usuário")
             appendLine("- write_file {project_id,path,content}: grava ou substitui um arquivo; precisa de aprovação")
+            appendLine("- patch_file {project_id,path,old_text,new_text}: substitui uma única ocorrência exata de um trecho; precisa de aprovação e falha sem gravar se o trecho não for único")
             appendLine("- delete_file {project_id,path}: exclui um arquivo; precisa de aprovação")
             appendLine("- delete_project {project_id}: exclui um projeto inteiro; precisa de aprovação")
             appendLine("- web_search {query}: pesquisa pública na internet; só quando a permissão separada de internet das ferramentas está ligada")
@@ -883,6 +886,7 @@ class AssistantAgent(
             "Consultando workspace local…"
         "terminal_read", "terminal_command" -> "Conectando ao terminal local…"
         "write_file" -> "Gravando arquivo autorizado no workspace local…"
+        "patch_file" -> "Validando e aplicando patch autorizado no workspace…"
         "delete_file", "delete_project" -> "Executando ação local autorizada…"
         "web_search" -> "Pesquisando na internet…"
         "open_web_page" -> "Lendo página pública da internet…"
