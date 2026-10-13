@@ -11,6 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -56,10 +58,10 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 import java.util.UUID
 
-private val Night = Color(0xFF080B12)
-private val Panel = Color(0xFF121925)
-private val Neon = Color(0xFF4DDBFF)
-private val Muted = Color(0xFF9AA8BA)
+private val Night = Color(0xFF020806)
+private val Panel = Color(0xFF071713)
+private val Neon = Color(0xFF38E6BC)
+private val Muted = Color(0xFF91B8AD)
 private val Warning = Color(0xFFFFC857)
 private const val MAX_CONTEXT_MESSAGES = 24
 private const val MAX_INPUT_CHARS = 12_000
@@ -113,6 +115,8 @@ fun KellvynApp() {
     var onlineConfigured by remember { mutableStateOf(initialOnlineSettings.isConfigured) }
     var showOnlineSettings by remember { mutableStateOf(false) }
     var showConsoleDialog by remember { mutableStateOf(false) }
+    var showQuickMenu by remember { mutableStateOf(false) }
+    var selectedNav by remember { mutableStateOf("Chat") }
     var endpointInput by remember { mutableStateOf(initialOnlineSettings.endpoint) }
     var modelInput by remember { mutableStateOf(initialOnlineSettings.model) }
     var apiKeyInput by remember { mutableStateOf(initialOnlineSettings.apiKey) }
@@ -258,480 +262,398 @@ fun KellvynApp() {
             background = Night,
             surface = Panel,
             primary = Neon,
+            secondary = Neon,
+            onPrimary = Night,
             onBackground = Color.White,
             onSurface = Color.White
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().background(Night).padding(16.dp)
+            modifier = Modifier.fillMaxSize().background(Night).padding(horizontal = 12.dp, vertical = 7.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier.size(42.dp).background(Panel, RoundedCornerShape(14.dp)),
-                    contentAlignment = Alignment.Center
-                ) { Text("K", color = Neon, fontSize = 25.sp, fontWeight = FontWeight.Black) }
-                Spacer(Modifier.width(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 7.dp)) {
+                    Text("☰", color = Neon, fontSize = 22.sp)
+                }
                 Column(Modifier.weight(1f)) {
-                    Text("KELLVYN IA", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text("ASSISTENTE • NÚCLEO HÍBRIDO", fontSize = 10.sp, color = Neon)
+                    Text("Kellvyn Assistente", color = Neon, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+                    Text("INTELIGÊNCIA LOCAL", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
                 }
-                TextButton(onClick = {
-                    historyStore.clear()
-                    messages.clear()
-                    status = "Histórico local apagado"
-                }) {
-                    Text("Limpar", color = Muted, fontSize = 12.sp)
+                TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    Text("⋮", color = Neon, fontSize = 23.sp)
                 }
-            }
-
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = {
-                        onlineMode = false
-                        status = if (modelReady) "Motor local pronto no aparelho" else "Selecione um modelo .litertlm para ativar a IA local"
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (!onlineMode) Neon else Panel,
-                        contentColor = if (!onlineMode) Night else Color.White
-                    )
-                ) { Text("LOCAL", fontWeight = FontWeight.Bold) }
-                Button(
-                    onClick = {
-                        onlineMode = true
-                        status = if (onlineConfigured) {
-                            "Modo online selecionado. As mensagens serão enviadas ao endpoint configurado."
-                        } else {
-                            "Configure seu endpoint HTTPS e modelo antes de enviar mensagens."
+                DropdownMenu(
+                    expanded = showQuickMenu,
+                    onDismissRequest = { showQuickMenu = false },
+                    modifier = Modifier.background(Panel)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(if (onlineMode) "Mudar para IA local" else "Mudar para IA online") },
+                        onClick = {
+                            showQuickMenu = false
+                            onlineMode = !onlineMode
+                            status = if (onlineMode) {
+                                if (onlineConfigured) "Modo online selecionado; mensagens irão ao provedor configurado."
+                                else "Modo online selecionado. Configure um endpoint HTTPS antes de enviar mensagens."
+                            } else {
+                                if (modelReady) "Modo local ativo neste aparelho."
+                                else "Modo local selecionado. Instale ou carregue um modelo para conversar."
+                            }
                         }
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (onlineMode) Neon else Panel,
-                        contentColor = if (onlineMode) Night else Color.White
                     )
-                ) { Text("ONLINE", fontWeight = FontWeight.Bold) }
-            }
-
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = {
-                        builderBrief = ""
-                        builderMessage = ""
-                        builtProject = null
-                        showBuilderDialog = true
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) { Text("CONSTRUTOR", fontSize = 11.sp) }
-                OutlinedButton(
-                    onClick = {
-                        existingProjects.clear()
-                        existingProjects.addAll(workspaceStore.listProjects())
-                        showProjectsDialog = true
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) { Text("PROJETOS", fontSize = 10.sp) }
-                OutlinedButton(
-                    onClick = {
-                        savedMemories.clear()
-                        savedMemories.addAll(memoryStore.list())
-                        memoryDraft = ""
-                        memoryStatus = ""
-                        showMemoryDialog = true
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) { Text("MEMÓRIA", fontSize = 10.sp) }
-            }
-
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = { showConsoleDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) { Text("CONSOLE DO PROJETO", fontSize = 10.sp) }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            Surface(color = Panel, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp)) {
-                    Text("PAINEL DO NÚCLEO", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Interface Android", color = Color.White, modifier = Modifier.weight(1f))
-                        Text("PRONTA", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(5.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Motor local", color = Color.White, modifier = Modifier.weight(1f))
-                        Text(if (modelReady) "CARREGADO" else "SEM MODELO", color = if (modelReady) Neon else Warning, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(5.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Provedor online", color = Color.White, modifier = Modifier.weight(1f))
-                        Text(if (onlineConfigured) "CONFIGURADO" else "OPCIONAL", color = if (onlineConfigured) Neon else Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(10.dp))
-
-                    if (!onlineMode) {
-                        Button(
-                            enabled = !isGenerating && !isLoadingModel && !isRemovingModel && !isDownloadingModel,
-                            onClick = { modelPicker.launch(arrayOf("*/*")) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(
-                                when {
-                                    isLoadingModel -> "Carregando modelo…"
-                                    modelReady -> "Trocar modelo local (.litertlm)"
-                                    else -> "Selecionar modelo local (.litertlm)"
-                                }
-                            )
-                        }
-                        if (!localEngine.hasSavedModel()) {
-                            OutlinedButton(
-                                enabled = !isGenerating && !isLoadingModel && !isRemovingModel && !isDownloadingModel,
-                                onClick = {
-                                    isDownloadingModel = true
-                                    modelDownloadPercent = 0
-                                    status = "Conectando à fonte pública do modelo local…"
-                                    scope.launch {
-                                        try {
-                                            val result = localEngine.downloadRecommendedModel { downloadedBytes, totalBytes ->
-                                                val percent = if (totalBytes > 0L) {
-                                                    ((downloadedBytes * 100L) / totalBytes).toInt().coerceIn(0, 100)
-                                                } else 0
-                                                scope.launch(Dispatchers.Main) {
-                                                    if (isDownloadingModel) {
-                                                        modelDownloadPercent = percent
-                                                        status = "Baixando modelo offline: $percent% " +
-                                                            "(${downloadedBytes / (1024L * 1024L)} MB)"
-                                                    }
-                                                }
-                                            }
-                                            updateModelResult(result)
-                                            if (result is AssistantResult.Success) {
-                                                status = "Modelo local carregado. Você já pode conversar offline."
-                                            }
-                                        } catch (e: Exception) {
-                                            status = "Falha ao baixar modelo: " + (e.message ?: e.javaClass.simpleName)
-                                        } finally {
-                                            isDownloadingModel = false
+                    DropdownMenuItem(
+                        text = { Text("Carregar modelo local (.litertlm)") },
+                        onClick = { showQuickMenu = false; modelPicker.launch(arrayOf("*/*")) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (localEngine.hasSavedModel()) "Modelo local instalado" else "Baixar modelo offline (~374 MB)") },
+                        enabled = !localEngine.hasSavedModel() && !isDownloadingModel && !isLoadingModel,
+                        onClick = {
+                            showQuickMenu = false
+                            isDownloadingModel = true
+                            modelDownloadPercent = 0
+                            status = "Conectando à fonte pública para baixar o modelo local…"
+                            scope.launch {
+                                try {
+                                    val result = localEngine.downloadRecommendedModel { bytes, total ->
+                                        val percent = if (total > 0L) ((bytes * 100L) / total).toInt().coerceIn(0, 100) else 0
+                                        scope.launch {
+                                            modelDownloadPercent = percent
+                                            status = "Baixando modelo offline: " + percent + "% (" + (bytes / (1024L * 1024L)) + " MB)"
                                         }
                                     }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    if (isDownloadingModel) "Baixando modelo… $modelDownloadPercent%"
-                                    else "Baixar modelo offline básico (~374 MB)"
-                                )
-                            }
-                            if (isDownloadingModel) {
-                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                            }
-                            Text(
-                                "SmolLM2 360M Instruct • licença Apache-2.0. O primeiro download usa internet; depois o modelo fica salvo neste aparelho. É uma IA pequena para tarefas básicas, não um modelo grande de programação.",
-                                color = Muted,
-                                fontSize = 10.sp
-                            )
-                        }
-                        if (localEngine.hasSavedModel()) {
-                            Text(
-                                "Modelo armazenado: ${localEngine.savedModelSizeBytes() / (1024L * 1024L)} MB",
-                                color = Muted,
-                                fontSize = 10.sp
-                            )
-                            TextButton(
-                                enabled = !isGenerating && !isLoadingModel && !isRemovingModel && !isDownloadingModel,
-                                onClick = {
-                                    isRemovingModel = true
-                                    status = "Removendo o modelo local…"
-                                    scope.launch {
-                                        try {
-                                            val removed = withContext(Dispatchers.IO) {
-                                                localEngine.removeSavedModel()
-                                            }
-                                            modelReady = false
-                                            status = if (removed) {
-                                                "Modelo removido do aparelho e espaço liberado."
-                                            } else {
-                                                "Não foi possível apagar o arquivo do modelo."
-                                            }
-                                        } catch (e: Exception) {
-                                            status = "Falha ao remover o modelo: " + (e.message ?: e.javaClass.simpleName)
-                                        } finally {
-                                            isRemovingModel = false
-                                        }
-                                    }
+                                    updateModelResult(result)
+                                    if (result is AssistantResult.Success) status = "Modelo local baixado e inicializado."
+                                } catch (e: Exception) {
+                                    status = "Falha ao baixar modelo: " + (e.message ?: e.javaClass.simpleName)
+                                } finally {
+                                    isDownloadingModel = false
                                 }
-                            ) {
-                                Text(if (isRemovingModel) "Removendo…" else "Apagar modelo salvo", color = Warning, fontSize = 11.sp)
                             }
                         }
-                        Text(
-                            "O modelo fica no armazenamento privado do aparelho. A inferência local não envia mensagens a um servidor.",
-                            color = Muted,
-                            fontSize = 10.sp
-                        )
-                    } else {
-                        Button(
-                            onClick = {
-                                val saved = onlineSettingsStore.load()
-                                endpointInput = saved.endpoint
-                                modelInput = saved.model
-                                apiKeyInput = saved.apiKey
-                                settingsError = ""
-                                showOnlineSettings = true
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) { Text("Configurar provedor online") }
-                        Text(
-                            "As mensagens e o contexto da conversa serão enviados ao endpoint escolhido. O uso pode ter custos definidos pelo provedor.",
-                            color = Warning,
-                            fontSize = 10.sp
-                        )
-                    }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Configurar provedor online") },
+                        onClick = {
+                            showQuickMenu = false
+                            val saved = onlineSettingsStore.load()
+                            endpointInput = saved.endpoint
+                            modelInput = saved.model
+                            apiKeyInput = saved.apiKey
+                            settingsError = ""
+                            showOnlineSettings = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Memória do assistente") },
+                        onClick = {
+                            showQuickMenu = false
+                            savedMemories.clear()
+                            savedMemories.addAll(memoryStore.list())
+                            memoryDraft = ""
+                            memoryStatus = ""
+                            showMemoryDialog = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Limpar conversa") },
+                        onClick = {
+                            showQuickMenu = false
+                            historyStore.clear()
+                            messages.clear()
+                            status = "Histórico local apagado."
+                        }
+                    )
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
-            Text("CONVERSA", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
+            Divider(color = Color(0xFF143D33), thickness = 1.dp)
+            Spacer(Modifier.height(5.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("◉", color = Neon, fontSize = 13.sp)
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    if (isGenerating) "Pensando" else if (isLoadingModel) "Inicializando núcleo" else "Núcleo",
+                    color = Neon,
+                    fontSize = 11.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Text("›", color = Muted, fontSize = 18.sp)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 1.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("◎", color = Neon.copy(alpha = 0.8f), fontSize = 12.sp)
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    when {
+                        isDownloadingModel -> "Instalando modelo local · " + modelDownloadPercent + "%"
+                        isGenerating && onlineMode -> "Resposta em andamento · modo online"
+                        isGenerating -> "Resposta em andamento · modo local"
+                        onlineMode && onlineConfigured -> "Provedor online configurado"
+                        onlineMode -> "Modo online precisa de configuração"
+                        modelReady -> "Modelo local carregado"
+                        else -> "Aguardando modelo local"
+                    },
+                    color = Muted,
+                    fontSize = 10.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Text("›", color = Muted, fontSize = 16.sp)
+            }
+            if (isDownloadingModel) {
+                Spacer(Modifier.height(5.dp))
+                LinearProgressIndicator(
+                    progress = modelDownloadPercent / 100f,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp),
+                    color = Neon,
+                    trackColor = Panel
+                )
+            }
+
             LazyColumn(
                 state = chatListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(top = 11.dp, bottom = 8.dp, start = 2.dp, end = 2.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(messages) { message ->
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Surface(
-                            color = if (message.fromUser) Color(0xFF123044) else Panel,
-                            shape = RoundedCornerShape(16.dp),
+                            color = if (message.fromUser) Color(0xFF0A2D24) else Night,
+                            shape = RoundedCornerShape(14.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (message.fromUser) Color(0xFF14634D) else Color(0xFF0B3329),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 message.text,
-                                modifier = Modifier.padding(14.dp),
-                                color = Color.White,
-                                fontSize = 14.sp
+                                modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
+                                color = if (message.fromUser) Color(0xFFE1FFF5) else Color(0xFF9ED7C8),
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp
                             )
                         }
                         if (!message.fromUser) {
                             val clipboard = LocalClipboardManager.current
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 1.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth().padding(start = 3.dp, end = 3.dp),
+                                horizontalArrangement = Arrangement.End,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 TextButton(
                                     onClick = {
-                                        if (!speechOutputReady) {
-                                            status = "A saída de voz em português não está disponível neste aparelho."
-                                        } else {
+                                        if (!speechOutputReady) status = "A saída de voz em português não está disponível neste aparelho."
+                                        else {
                                             speechOutput.stop()
-                                            val result = speechOutput.speak(
-                                                message.text,
-                                                TextToSpeech.QUEUE_FLUSH,
-                                                null,
-                                                UUID.randomUUID().toString()
-                                            )
-                                            status = if (result == TextToSpeech.SUCCESS) {
-                                                "Lendo a resposta em voz alta…"
-                                            } else {
-                                                "O serviço de voz não conseguiu ler esta resposta."
-                                            }
+                                            val result = speechOutput.speak(message.text, TextToSpeech.QUEUE_FLUSH, null, UUID.randomUUID().toString())
+                                            status = if (result == TextToSpeech.SUCCESS) "Lendo a resposta em voz alta…" else "O serviço de voz não conseguiu ler esta resposta."
                                         }
                                     },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Text("Ouvir", color = if (speechOutputReady) Neon else Muted, fontSize = 11.sp)
-                                }
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                ) { Text("Ouvir", color = Muted, fontSize = 10.sp) }
                                 TextButton(
                                     onClick = {
                                         clipboard.setText(AnnotatedString(message.text))
-                                        status = "Resposta copiada para a área de transferência"
+                                        status = "Resposta copiada para a área de transferência."
                                     },
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
                                 ) {
-                                    Canvas(modifier = Modifier.size(17.dp)) {
-                                        val line = 1.5.dp.toPx()
+                                    Canvas(modifier = Modifier.size(15.dp)) {
+                                        val stroke = Stroke(width = 1.4.dp.toPx())
                                         drawRoundRect(
                                             color = Neon.copy(alpha = 0.65f),
                                             topLeft = Offset(size.width * 0.27f, size.height * 0.08f),
                                             size = Size(size.width * 0.58f, size.height * 0.68f),
                                             cornerRadius = CornerRadius(2.dp.toPx()),
-                                            style = Stroke(width = line)
+                                            style = stroke
                                         )
                                         drawRoundRect(
                                             color = Neon,
                                             topLeft = Offset(size.width * 0.12f, size.height * 0.27f),
                                             size = Size(size.width * 0.58f, size.height * 0.65f),
                                             cornerRadius = CornerRadius(2.dp.toPx()),
-                                            style = Stroke(width = line)
+                                            style = stroke
                                         )
                                     }
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Copiar", color = Muted, fontSize = 11.sp)
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("Copiar", color = Neon, fontSize = 10.sp)
                                 }
                             }
                         }
                     }
                 }
             }
-            Text(status, color = Muted, fontSize = 10.sp)
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { if (it.length <= MAX_INPUT_CHARS) draft = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Escreva uma mensagem…", color = Muted) },
-                    shape = RoundedCornerShape(16.dp),
-                    maxLines = 4,
-                    enabled = !isGenerating,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Neon,
-                        unfocusedBorderColor = Color(0xFF293648),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Neon
-                    )
-                )
-                Spacer(Modifier.width(8.dp))
-                IconButton(
-                    enabled = !isGenerating,
-                    onClick = {
-                        try {
-                            speechLauncher.launch(
-                                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                    putExtra(
-                                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                                    )
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
-                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale sua mensagem para o Kellvyn IA")
-                                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                                }
-                            )
-                        } catch (_: ActivityNotFoundException) {
-                            status = "Nenhum reconhecedor de voz está instalado ou disponível."
-                        } catch (e: Exception) {
-                            status = "Não foi possível abrir o microfone: " + (e.message ?: "erro")
-                        }
-                    }
+
+            if (status.isNotBlank()) {
+                Text(status, color = Muted, fontSize = 9.sp, maxLines = 2,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp))
+            }
+
+            Surface(
+                color = Color(0xFF030D0A),
+                shape = RoundedCornerShape(17.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1A7660)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(start = 7.dp, end = 5.dp, top = 2.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Canvas(modifier = Modifier.size(20.dp)) {
-                        val stroke = Stroke(width = 1.8.dp.toPx())
-                        val micWidth = size.width * 0.28f
-                        drawRoundRect(
-                            color = Neon,
-                            topLeft = Offset((size.width - micWidth) / 2f, size.height * 0.08f),
-                            size = Size(micWidth, size.height * 0.52f),
-                            cornerRadius = CornerRadius(micWidth / 2f)
-                        )
-                        drawArc(
-                            color = Neon,
-                            startAngle = 0f,
-                            sweepAngle = 180f,
-                            useCenter = false,
-                            topLeft = Offset(size.width * 0.24f, size.height * 0.22f),
-                            size = Size(size.width * 0.52f, size.height * 0.54f),
-                            style = stroke
-                        )
-                        drawLine(
-                            color = Neon,
-                            start = Offset(size.width * 0.5f, size.height * 0.75f),
-                            end = Offset(size.width * 0.5f, size.height * 0.92f),
-                            strokeWidth = 1.8.dp.toPx()
-                        )
-                        drawLine(
-                            color = Neon,
-                            start = Offset(size.width * 0.34f, size.height * 0.92f),
-                            end = Offset(size.width * 0.66f, size.height * 0.92f),
-                            strokeWidth = 1.8.dp.toPx()
-                        )
+                    TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 3.dp)) {
+                        Text("+", color = Neon, fontSize = 20.sp)
                     }
-                }
-                Button(
-                    enabled = !isGenerating,
-                    onClick = {
-                        val text = draft.trim()
-                        val onlineSelected = onlineMode
-                        if (text.isNotEmpty()) {
-                            if (onlineSelected && !onlineConfigured) {
-                                status = "Configure o provedor online antes de enviar mensagens."
-                            } else if (!onlineSelected && !modelReady) {
-                                status = "Carregue um modelo .litertlm primeiro. A mensagem não foi enviada."
-                            } else {
-                                messages.add(ChatMessage(text, true))
-                                saveHistory()
-                                draft = ""
-                                isGenerating = true
-                                status = if (onlineSelected) "Enviando ao endpoint online escolhido…" else "Gerando resposta no aparelho…"
-                                val selectedEngine: AssistantEngine = if (onlineSelected) onlineEngine else localEngine
-                                val memoryContext = memoryStore.promptContext()
-                                val turns = buildList {
-                                    if (memoryContext.isNotBlank()) {
-                                        add(
-                                            AssistantTurn(
-                                                role = AssistantTurn.Role.SYSTEM,
-                                                content = memoryContext
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { if (it.length <= MAX_INPUT_CHARS) draft = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Pergunte qualquer coisa…", color = Muted, fontSize = 13.sp) },
+                        shape = RoundedCornerShape(12.dp),
+                        maxLines = 4,
+                        enabled = !isGenerating,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Neon
+                        )
+                    )
+                    TextButton(
+                        enabled = !isGenerating,
+                        onClick = {
+                            try {
+                                speechLauncher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale sua mensagem para o Kellvyn Assistente")
+                                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                                })
+                            } catch (_: ActivityNotFoundException) {
+                                status = "Nenhum reconhecedor de voz está instalado ou disponível."
+                            } catch (e: Exception) {
+                                status = "Não foi possível abrir o microfone: " + (e.message ?: e.javaClass.simpleName)
+                            }
+                        },
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) { Text("♩", color = Neon, fontSize = 17.sp) }
+                    Button(
+                        enabled = !isGenerating,
+                        onClick = {
+                            val text = draft.trim()
+                            val onlineSelected = onlineMode
+                            if (text.isNotEmpty()) {
+                                if (onlineSelected && !onlineConfigured) {
+                                    status = "Configure o provedor online antes de enviar mensagens."
+                                } else if (!onlineSelected && !modelReady) {
+                                    status = "Carregue um modelo .litertlm primeiro. A mensagem não foi enviada."
+                                    showQuickMenu = true
+                                } else {
+                                    messages.add(ChatMessage(text, true))
+                                    saveHistory()
+                                    draft = ""
+                                    isGenerating = true
+                                    status = if (onlineSelected) "Enviando ao endpoint online escolhido…" else "Gerando resposta no aparelho…"
+                                    val selectedEngine: AssistantEngine = if (onlineSelected) onlineEngine else localEngine
+                                    val memoryContext = memoryStore.promptContext()
+                                    val turns = buildList {
+                                        if (memoryContext.isNotBlank()) add(AssistantTurn(role = AssistantTurn.Role.SYSTEM, content = memoryContext))
+                                        addAll(messages.takeLast(MAX_CONTEXT_MESSAGES).mapNotNull { message ->
+                                            if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) null
+                                            else AssistantTurn(
+                                                role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
+                                                content = message.text
                                             )
-                                        )
+                                        })
                                     }
-                                    addAll(
-                                        messages.takeLast(MAX_CONTEXT_MESSAGES).mapNotNull { message ->
-                                            if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) {
-                                                null
-                                            } else {
-                                                AssistantTurn(
-                                                    role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
-                                                    content = message.text
-                                                )
-                                            }
-                                        }
-                                    )
-                                }
-                                scope.launch {
-                                    try {
-                                        when (val result = selectedEngine.reply(turns)) {
-                                            is AssistantResult.Success -> {
-                                                messages.add(ChatMessage(result.text, false))
-                                                saveHistory()
-                                                status = if (onlineSelected) {
-                                                    "Resposta recebida do provedor online"
-                                                } else {
-                                                    "Resposta gerada localmente • nenhuma mensagem enviada a servidor"
+                                    scope.launch {
+                                        try {
+                                            when (val result = selectedEngine.reply(turns)) {
+                                                is AssistantResult.Success -> {
+                                                    messages.add(ChatMessage(result.text, false))
+                                                    saveHistory()
+                                                    status = if (onlineSelected) "Resposta recebida do provedor online" else "Resposta gerada localmente • nenhuma mensagem enviada a servidor"
                                                 }
+                                                is AssistantResult.Unavailable -> status = result.reason
+                                                is AssistantResult.Failure -> status = result.reason
                                             }
-                                            is AssistantResult.Unavailable -> status = result.reason
-                                            is AssistantResult.Failure -> status = result.reason
+                                        } catch (e: Exception) {
+                                            status = "Falha inesperada: " + (e.message ?: e.javaClass.simpleName)
+                                        } finally {
+                                            isGenerating = false
                                         }
-                                    } catch (e: Exception) {
-                                        status = "Falha inesperada: " + (e.message ?: e.javaClass.simpleName)
-                                    } finally {
-                                        isGenerating = false
                                     }
                                 }
                             }
-                        }
-                    },
-                    shape = RoundedCornerShape(14.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
-                ) { Text(if (isGenerating) "…" else "➤") }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 13.dp, vertical = 9.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Neon, contentColor = Night)
+                    ) { Text(if (isGenerating) "…" else "↑", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+                }
             }
-            Spacer(Modifier.height(6.dp))
-            Text("Versão 0.3.0 • IA local + provedor online opcional", color = Muted, fontSize = 10.sp)
+
+            Spacer(Modifier.height(5.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 3.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    TextButton(onClick = { selectedNav = "Chat" }, contentPadding = PaddingValues(3.dp)) {
+                        Text("✧", color = if (selectedNav == "Chat") Neon else Muted, fontSize = 19.sp)
+                    }
+                    Text("IA", color = if (selectedNav == "Chat") Neon else Muted, fontSize = 9.sp)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    TextButton(
+                        onClick = {
+                            selectedNav = "Projetos"
+                            existingProjects.clear()
+                            existingProjects.addAll(workspaceStore.listProjects())
+                            showProjectsDialog = true
+                        },
+                        contentPadding = PaddingValues(3.dp)
+                    ) { Text("▦", color = if (selectedNav == "Projetos") Neon else Muted, fontSize = 19.sp) }
+                    Text("Projetos", color = if (selectedNav == "Projetos") Neon else Muted, fontSize = 9.sp)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier.size(42.dp).background(Panel, CircleShape).border(1.dp, Neon, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        TextButton(
+                            onClick = {
+                                selectedNav = "Núcleo"
+                                builderBrief = ""
+                                builderMessage = ""
+                                builtProject = null
+                                showBuilderDialog = true
+                            },
+                            contentPadding = PaddingValues(0.dp)
+                        ) { Text("◉", color = Neon, fontSize = 22.sp) }
+                    }
+                    Text("Núcleo", color = Neon, fontSize = 9.sp)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    TextButton(onClick = { selectedNav = "Ferramentas"; showConsoleDialog = true }, contentPadding = PaddingValues(3.dp)) {
+                        Text("⌘", color = if (selectedNav == "Ferramentas") Neon else Muted, fontSize = 19.sp)
+                    }
+                    Text("Ferramentas", color = if (selectedNav == "Ferramentas") Neon else Muted, fontSize = 9.sp)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(3.dp)) {
+                        Text("▤", color = Neon, fontSize = 19.sp)
+                    }
+                    Text("Abas", color = Neon, fontSize = 9.sp)
+                }
+            }
         }
 
         if (showBuilderDialog) {
