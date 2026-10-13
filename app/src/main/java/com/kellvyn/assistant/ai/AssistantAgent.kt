@@ -966,9 +966,6 @@ class AssistantAgent(
                     tools.execute("github_file", githubFileRequest, internetAllowed)
                 }.getOrElse { "Falha ao ler o arquivo público: ${it.message}" }
             }
-            githubRepositoryRequest != null && !internetAllowed -> {
-                "Não acessei o repositório do GitHub porque a permissão de internet das ferramentas está desligada. Ative-a no seletor do chat para listar os arquivos."
-            }
             githubRepositoryRequest != null && looksLikeGitHubImport(lastUser) -> {
                 if (!internetAllowed) {
                     "Não importei o repositório porque a permissão de internet das ferramentas está desligada. Ative-a e tente novamente."
@@ -985,6 +982,9 @@ class AssistantAgent(
                         }.getOrElse { "Falha na importação do repositório: ${it.message}" }
                     }
                 }
+            }
+            githubRepositoryRequest != null && !internetAllowed -> {
+                "Não acessei o repositório do GitHub porque a permissão de internet das ferramentas está desligada. Ative-a no seletor do chat para inspecionar os arquivos."
             }
             githubRepositoryRequest != null -> {
                 onToolStatus("Explorando a estrutura do repositório público do GitHub…")
