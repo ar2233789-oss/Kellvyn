@@ -53,12 +53,15 @@ class AgentToolRouter(
         val lower = text.lowercase(Locale.ROOT)
         val action = listOf(
             "leia", "ler ", "abra", "abrir", "mostre", "mostrar", "exiba", "exibir",
-            "analise", "analisar", "revise", "revisar", "corrija", "corrigir",
-            "modifique", "modificar", "altere", "alterar", "atualize", "atualizar",
-            "edite", "editar", "inspect", "read ", "open ", "review ", "fix ", "edit "
+            "olhe", "olhar", "dá uma olhada", "da uma olhada", "confira", "verifique", "verificar",
+            "investigue", "investigar", "inspecione", "inspecionar", "analise", "analisar",
+            "revise", "revisar", "corrija", "corrigir", "conserte", "consertar",
+            "arrume", "arrumar", "modifique", "modificar", "altere", "alterar",
+            "atualize", "atualizar", "edite", "editar", "inspect", "read ", "open ",
+            "review ", "fix ", "edit "
         ).any { it in lower }
         val mentionsFile = "arquivo" in lower || "ficheiro" in lower ||
-            Regex("\\.(kt|kts|java|xml|gradle|md|json|properties|txt)(\\b|$)", RegexOption.IGNORE_CASE)
+            Regex("\\.(kt|kts|java|xml|gradle|md|json|properties|txt|py|js|ts|tsx|html|css|yaml|yml|toml|sql)(\\b|$)", RegexOption.IGNORE_CASE)
                 .containsMatchIn(text)
         if (!action || !mentionsFile) return null
 
@@ -66,30 +69,36 @@ class AgentToolRouter(
         if (projects.isEmpty()) return null
         val namedProjects = projects.filter { project ->
             lower.contains(project.id.lowercase(Locale.ROOT)) ||
-                lower.contains(project.name.lowercase(Locale.ROOT))
+                (project.name.isNotBlank() && lower.contains(project.name.lowercase(Locale.ROOT)))
         }
-        val project = when {
-            namedProjects.size == 1 -> namedProjects.first()
-            namedProjects.size > 1 -> return null
-            projects.size == 1 -> projects.first()
-            else -> return null
+        if (namedProjects.size > 1) return null
+        val scopedProjects = when {
+            namedProjects.size == 1 -> namedProjects
+            else -> projects
         }
 
-        val files = runCatching { workspace.listFiles(project.id) }.getOrDefault(emptyList())
-        if (files.isEmpty()) return null
-        val exactPaths = files.filter { path -> lower.contains(path.lowercase(Locale.ROOT)) }
+        data class FileCandidate(val projectId: String, val path: String)
+        val allFiles = scopedProjects.flatMap { project ->
+            runCatching { workspace.listFiles(project.id) }
+                .getOrDefault(emptyList())
+                .map { FileCandidate(project.id, it) }
+        }
+        if (allFiles.isEmpty()) return null
+        val exactPaths = allFiles.filter { candidate ->
+            lower.contains(candidate.path.lowercase(Locale.ROOT))
+        }
         val candidates = if (exactPaths.isNotEmpty()) {
             exactPaths
         } else {
-            files.filter { path -> lower.contains(path.substringAfterLast('/').lowercase(Locale.ROOT)) }
+            allFiles.filter { candidate ->
+                lower.contains(candidate.path.substringAfterLast('/').lowercase(Locale.ROOT))
+            }
         }
-        val chosen = when {
-            candidates.size == 1 -> candidates.first()
-            else -> return null
-        }
+        if (candidates.size != 1) return null
+        val chosen = candidates.single()
         return JSONObject()
-            .put("project_id", project.id)
-            .put("path", chosen)
+            .put("project_id", chosen.projectId)
+            .put("path", chosen.path)
     }
 
     fun approvalRequired(name: String): Boolean = name in setOf(
