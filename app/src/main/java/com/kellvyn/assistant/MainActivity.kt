@@ -1446,7 +1446,13 @@ fun KellvynApp() {
                 localModelReady = modelReady,
                 onlineMode = onlineMode,
                 onlineConfigured = onlineConfigured,
-                onDismiss = { showConsoleDialog = false }
+                onDismiss = { showConsoleDialog = false },
+                onAskAgent = { request ->
+                    draft = request
+                    interactionMode = "Conversa"
+                    showConsoleDialog = false
+                    submitDraft()
+                }
             )
         }
 
