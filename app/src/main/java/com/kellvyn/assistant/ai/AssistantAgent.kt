@@ -151,7 +151,7 @@ class AgentToolRouter(
     private fun runTerminalRead(command: String): String {
         validateTerminalCommand(command)
         val commandName = command.trim().split(Regex("\\s+")).firstOrNull()?.lowercase(Locale.ROOT).orEmpty()
-        val allowed = setOf("help", "pwd", "ls", "dir", "tree", "find", "cat", "head", "tail", "grep", "wc", "stat", "status", "projects")
+        val allowed = setOf("help", "pwd", "cd", "ls", "dir", "tree", "find", "cat", "head", "tail", "grep", "wc", "stat", "status", "projects")
         val gitRead = command.trim().matches(Regex("git\\s+(status|diff|log|branch)"))
         require(commandName in allowed || gitRead) {
             "Essa operação não é somente leitura. Para alterar arquivos ou o Git, solicite a ferramenta terminal_command; ela pedirá confirmação."
