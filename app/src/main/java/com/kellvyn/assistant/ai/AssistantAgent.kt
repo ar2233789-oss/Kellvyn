@@ -1252,7 +1252,7 @@ class AssistantAgent(
                 changed = true
             }
         }
-        query = query.removeSurrounding("\\\"").removeSurrounding("'").trim().trimEnd('.', '?', '!')
+        query = query.removeSurrounding("\"").removeSurrounding("'").trim().trimEnd('.', '?', '!')
         return query.ifBlank { normalized }.take(MAX_LOCAL_SEARCH_QUERY_CHARS)
     }
 
