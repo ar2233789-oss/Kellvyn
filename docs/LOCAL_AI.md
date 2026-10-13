@@ -8,6 +8,12 @@ A tela LOCAL oferece o botão **Baixar modelo offline básico (~374 MB)**. Ele b
 
 Esse é um modelo pequeno de entrada: serve para verificar o funcionamento do motor e tarefas simples, mas não deve ser tratado como equivalente a um modelo grande para programação. A integridade do arquivo baixado é verificada por tamanho e SHA-256 antes de ser instalado.
 
+## Modelo programador opcional
+
+O menu também oferece **Qwen Coder local (~1,12 GB)**: [Qwen2.5-Coder-1.5B-Instruct em LiteRT-LM](https://huggingface.co/litert-community/Qwen2.5-Coder-1.5B-Instruct). O artefato quantizado está publicado sob Apache-2.0, exige LiteRT-LM ≥ 0.16 e tem SHA-256 fixado no app para validar o download. Esse arquivo é separado do modelo leve: depois de instalados os dois, o menu permite alternar entre eles sem baixar de novo. O primeiro download do Qwen consome cerca de 1,12 GB de armazenamento adicional além do modelo leve.
+
+O Qwen é uma opção com foco em código, mas **não foi testado no Poco F6 deste projeto**; não é possível garantir velocidade, temperatura ou RAM no aparelho. Se a memória ficar insuficiente ou o carregamento falhar, use novamente o modelo leve no mesmo menu. A troca preserva o outro arquivo instalado.
+
 ## Carregar outro modelo
 
 1. Baixe um arquivo .litertlm compatível com a versão LiteRT-LM usada no aplicativo.
