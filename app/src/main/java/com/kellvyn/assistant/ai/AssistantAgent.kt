@@ -735,10 +735,29 @@ class AssistantAgent(
             MAX_TOOL_RESULT_CHARS
         }
         var deniedActionKey: String? = null
+        var schemaRetryUsed = false
         repeat(MAX_TOOL_ROUNDS) {
             val modelResult = engine.reply(turns)
             if (modelResult !is AssistantResult.Success) return modelResult
-            val json = extractJson(modelResult.text) ?: return modelResult
+            val json = extractJson(modelResult.text)
+            if (json == null) {
+                if (!schemaRetryUsed && looksLikeToolTask(lastUser)) {
+                    schemaRetryUsed = true
+                    turns.add(AssistantTurn(
+                        AssistantTurn.Role.ASSISTANT,
+                        modelResult.text.take(MAX_RETRY_ASSISTANT_CHARS)
+                    ))
+                    turns.add(AssistantTurn(
+                        AssistantTurn.Role.USER,
+                        "Você respondeu em texto, mas esta tarefa pode exigir uma ferramenta real. Tente mais uma vez. Responda SOMENTE com JSON válido: " +
+                            """{"kind":"answer","text":"..."}""" + " ou " +
+                            """{"kind":"tool","name":"...","arguments":{...}}""" +
+                            ". Se precisar alterar arquivos, escolha patch_file/write_file e aguarde autorização. Não afirme execução sem resultado."
+                    ))
+                    return@repeat
+                }
+                return modelResult
+            }
             when (json.optString("kind")) {
                 "answer" -> {
                     val answer = json.optString("text").trim()
@@ -848,6 +867,20 @@ class AssistantAgent(
         ).any { it in t }
     }
 
+    private fun looksLikeToolTask(text: String): Boolean {
+        val t = text.lowercase(Locale.ROOT)
+        val action = listOf(
+            "corrija", "corrigir", "conserte", "consertar", "arrume", "arrumar", "altere", "alterar",
+            "modifique", "modificar", "edite", "editar", "atualize", "atualizar", "crie", "criar",
+            "apague", "apagar", "remova", "remover", "liste", "listar", "leia", "ler ",
+            "busque", "buscar", "pesquise", "pesquisar", "procure", "encontre", "execute",
+            "rode o", "terminal", "arquivo", "projeto", "github", "compilar", "compile"
+        )
+        return action.any { it in t } && !listOf(
+            "como corrigir", "como consertar", "como criar", "como usar", "me explique", "explique como"
+        ).any { it in t }
+    }
+
     private fun looksLikeProjectList(text: String): Boolean {
         val t = text.lowercase(Locale.ROOT)
         return listOf("meus projetos", "listar projetos", "liste projetos", "quais projetos", "projetos que tenho", "projetos salvos").any { it in t }
@@ -925,6 +958,7 @@ class AssistantAgent(
 
     private companion object {
         const val MAX_TOOL_ROUNDS = 5
+        const val MAX_RETRY_ASSISTANT_CHARS = 2_000
         const val MAX_TOOL_RESULT_CHARS = 6_000
         const val MAX_LOCAL_TOOL_RESULT_CHARS = 2_000
         const val MAX_USER_CONTEXT_CHARS = 5_000
