@@ -160,14 +160,17 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         val directory = modelFile.parentFile
             ?: return AssistantResult.Failure("Pasta privada de modelos indisponível.")
         val temporary = File(directory, "kellvyn-model.download")
+        val backup = File(directory, "kellvyn-model.previous")
 
         return try {
-            withContext(Dispatchers.IO) {
+            val downloadedModel = withContext(Dispatchers.IO) {
                 if (!directory.exists() && !directory.mkdirs()) {
                     throw IllegalStateException("Não foi possível criar a pasta privada do modelo.")
                 }
+                if (temporary.exists() && !temporary.delete()) {
+                    throw IllegalStateException("Não foi possível limpar um download anterior interrompido.")
+                }
 
-                temporary.delete()
                 val connection = (URL(RECOMMENDED_MODEL_URL).openConnection() as HttpsURLConnection).apply {
                     requestMethod = "GET"
                     connectTimeout = CONNECT_TIMEOUT_MS
@@ -231,8 +234,6 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
 
                     onProgress(downloaded, RECOMMENDED_MODEL_BYTES)
 
-                    // Keep the previous file until the new download has passed verification.
-                    val backup = File(directory, "kellvyn-model.previous")
                     if (backup.exists() && !backup.delete()) {
                         throw IllegalStateException("Não foi possível limpar o backup temporário do modelo.")
                     }
@@ -241,20 +242,44 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                         throw IllegalStateException("Não foi possível proteger o modelo já salvo.")
                     }
                     if (!temporary.renameTo(modelFile)) {
-                        if (hadPrevious) backup.renameTo(modelFile)
+                        if (hadPrevious && backup.exists() && !backup.renameTo(modelFile)) {
+                            throw IllegalStateException("Não foi possível finalizar o download nem restaurar o modelo anterior.")
+                        }
                         throw IllegalStateException("Não foi possível finalizar o arquivo baixado.")
                     }
-                    if (backup.exists()) backup.delete()
                     modelFile
                 } finally {
                     connection.disconnect()
                 }
-            }.let { downloadedModel ->
-                loadModel(downloadedModel)
+            }
+
+            val result = loadModel(downloadedModel)
+            if (result is AssistantResult.Success) {
+                withContext(Dispatchers.IO) {
+                    if (backup.exists() && !backup.delete()) {
+                        // A new model is already loaded; a leftover backup is safer than rollback here.
+                    }
+                }
+                result
+            } else {
+                val restoreError = runCatching { restorePreviousModel(backup) }.exceptionOrNull()
+                if (restoreError == null) result
+                else AssistantResult.Failure(
+                    "${result.message}; também não consegui restaurar o arquivo do modelo anterior: ${restoreError.message}"
+                )
             }
         } catch (e: Exception) {
-            withContext(Dispatchers.IO) { temporary.delete() }
-            AssistantResult.Failure(e.message ?: "Falha ao baixar o modelo local.")
+            val restoreError = runCatching {
+                withContext(Dispatchers.IO) {
+                    temporary.delete()
+                }
+                if (backup.exists()) restorePreviousModel(backup)
+            }.exceptionOrNull()
+            val detail = e.message ?: "Falha ao baixar o modelo local."
+            AssistantResult.Failure(
+                if (restoreError == null) detail
+                else "$detail A restauração do modelo anterior também falhou: ${restoreError.message}"
+            )
         }
     }
 
