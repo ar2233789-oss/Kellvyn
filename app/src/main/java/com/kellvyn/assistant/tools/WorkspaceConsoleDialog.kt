@@ -38,6 +38,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kellvyn.assistant.data.UserMemoryStore
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -61,7 +62,7 @@ fun WorkspaceConsoleDialog(
     onlineMode: Boolean,
     onlineConfigured: Boolean,
     onDismiss: () -> Unit,
-    onAskAgent: suspend (String) -> String
+    onAskAgent: suspend (String, suspend (String) -> Boolean) -> String
 ) {
     val scope = rememberCoroutineScope()
     val manualShell = remember { ManualShellExecutor() }
@@ -69,6 +70,8 @@ fun WorkspaceConsoleDialog(
     var terminalBusy by remember { mutableStateOf(false) }
     var pendingShellCommand by remember { mutableStateOf<String?>(null) }
     var agentQuestion by remember { mutableStateOf("Ajude-me a entender a saída do terminal e diga o próximo passo.") }
+    var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
+    var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     var output by remember(terminal) {
         mutableStateOf(
             terminal.storedOutput().ifBlank {
@@ -166,6 +169,20 @@ fun WorkspaceConsoleDialog(
             output = (output + "\n\n> ${line}\n${result}").takeLast(MAX_OUTPUT_CHARS)
             terminal.saveOutput(output)
             terminalBusy = false
+        }
+    }
+
+    suspend fun requestAgentApproval(summary: String): Boolean {
+        val gate = CompletableDeferred<Boolean>()
+        pendingAgentApproval = summary
+        agentApprovalGate = gate
+        return try {
+            gate.await()
+        } finally {
+            if (agentApprovalGate === gate) {
+                agentApprovalGate = null
+                pendingAgentApproval = null
+            }
         }
     }
 
@@ -277,6 +294,45 @@ fun WorkspaceConsoleDialog(
                 Spacer(Modifier.height(1.dp))
             }
         }
+    }
+
+    if (pendingAgentApproval != null) {
+        AlertDialog(
+            onDismissRequest = { agentApprovalGate?.complete(false) },
+            title = { Text("Autorizar ação do agente?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "O agente auxiliar solicitou uma alteração. Revise a ação: nada será alterado sem sua autorização.",
+                        color = ConsoleMuted,
+                        fontSize = 12.sp
+                    )
+                    Surface(
+                        color = ConsolePanel,
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ConsoleBorder)
+                    ) {
+                        Text(
+                            pendingAgentApproval.orEmpty(),
+                            color = Color(0xFFC9F6E8),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            modifier = Modifier.fillMaxWidth().padding(12.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { agentApprovalGate?.complete(true) }) {
+                    Text("Autorizar", color = ConsoleNeon)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { agentApprovalGate?.complete(false) }) {
+                    Text("Cancelar", color = Color.White)
+                }
+            }
+        )
     }
 
     if (pendingShellCommand != null) {
