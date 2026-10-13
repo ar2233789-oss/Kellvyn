@@ -441,14 +441,18 @@ fun KellvynApp() {
     }
 
     LaunchedEffect(localEngine) {
-        if (localEngine.hasSavedModel()) {
-            isLoadingModel = true
-            if (!onlineMode) status = "Modelo local encontrado; inicializando…"
-            try {
+        isLoadingModel = true
+        try {
+            localEngine.recoverInterruptedModelSwap()
+            if (localEngine.hasSavedModel()) {
+                if (!onlineMode) status = "Modelo local encontrado; inicializando…"
                 updateModelResult(localEngine.loadSavedModel())
-            } finally {
-                isLoadingModel = false
             }
+        } catch (e: Exception) {
+            status = "Não foi possível recuperar/carregar o modelo local: " +
+                (e.message ?: e.javaClass.simpleName)
+        } finally {
+            isLoadingModel = false
         }
     }
 
