@@ -13,7 +13,9 @@ import com.android.tools.r8.D8Command
 import com.android.tools.r8.OutputMode
 import org.eclipse.jdt.core.compiler.batch.BatchCompiler
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.coroutineContext
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -219,6 +221,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 FileOutputStream(partial).buffered().use { output ->
                     val buffer = ByteArray(64 * 1024)
                     while (true) {
+                        coroutineContext.ensureActive()
                         val count = input.read(buffer)
                         if (count < 0) break
                         if (count == 0) continue
