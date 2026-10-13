@@ -20,7 +20,7 @@ Os pedidos comuns de diagnóstico do terminal são tratados primeiro com leitura
 | Aplicar patch de texto | Substitui exatamente uma ocorrência de um trecho dentro de um arquivo local; falha sem alterar se não existir ou for ambíguo | Confirmação explícita |
 | Excluir projeto | Apaga um projeto inteiro e seus arquivos | Confirmação explícita |
 | Pesquisa web / ler página HTTPS | Consulta DuckDuckGo ou lê texto de página HTTPS pública | Permissão separada de internet ligada |
-| Pesquisa GitHub | Busca repositórios públicos e retorna metadados/links, e pode ler um arquivo textual de um repo por branch/tag/commit, sem chave API | Permissão separada de internet ligada |
+| Pesquisa GitHub | Busca repositórios, lista até 100 caminhos de código/texto no repositório público e lê um arquivo por caminho/ref, sem chave API | Permissão separada de internet ligada |
 
 ## Limites de segurança
 
