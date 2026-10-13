@@ -1448,10 +1448,69 @@ fun KellvynApp() {
                 onlineConfigured = onlineConfigured,
                 onDismiss = { showConsoleDialog = false },
                 onAskAgent = { request ->
-                    draft = request
-                    interactionMode = "Conversa"
-                    showConsoleDialog = false
-                    submitDraft()
+                    if (onlineMode && !onlineConfigured) {
+                        "O provedor online não está configurado. Configure-o no menu antes de pedir ajuda ao agente."
+                    } else if (!onlineMode && !modelReady) {
+                        "Nenhum modelo local está carregado. Carregue um modelo .litertlm ou selecione o provedor online para usar o agente."
+                    } else {
+                        messages.add(ChatMessage(request, true))
+                        saveHistory()
+                        isGenerating = true
+                        status = "O agente está analisando o terminal sem fechar esta tela…"
+                        try {
+                            val memoryContext = memoryStore.promptContext()
+                            val turns = buildList {
+                                if (memoryContext.isNotBlank()) {
+                                    add(AssistantTurn(AssistantTurn.Role.SYSTEM, memoryContext))
+                                }
+                                addAll(messages.takeLast(MAX_CONTEXT_MESSAGES).mapNotNull { message ->
+                                    if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) null
+                                    else AssistantTurn(
+                                        role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
+                                        content = message.text
+                                    )
+                                })
+                            }
+                            when (
+                                val result = assistantAgent.respond(
+                                    engine = if (onlineMode) onlineEngine else localEngine,
+                                    conversation = turns,
+                                    internetAllowed = internetToolsEnabled,
+                                    onToolStatus = { toolStatus -> status = toolStatus },
+                                    requestApproval = { summary -> requestAgentApproval(summary) }
+                                )
+                            ) {
+                                is AssistantResult.Success -> {
+                                    messages.add(ChatMessage(result.text, false))
+                                    saveHistory()
+                                    status = "O agente respondeu na tela Terminal."
+                                    result.text
+                                }
+                                is AssistantResult.Unavailable -> {
+                                    val answer = "IA indisponível: ${result.reason}"
+                                    messages.add(ChatMessage(answer, false))
+                                    saveHistory()
+                                    status = result.reason
+                                    answer
+                                }
+                                is AssistantResult.Failure -> {
+                                    val answer = "Falha do agente: ${result.reason}"
+                                    messages.add(ChatMessage(answer, false))
+                                    saveHistory()
+                                    status = result.reason
+                                    answer
+                                }
+                            }
+                        } catch (e: Exception) {
+                            val answer = "Falha inesperada do agente: ${e.message ?: e.javaClass.simpleName}"
+                            messages.add(ChatMessage(answer, false))
+                            saveHistory()
+                            status = answer
+                            answer
+                        } finally {
+                            isGenerating = false
+                        }
+                    }
                 }
             )
         }
