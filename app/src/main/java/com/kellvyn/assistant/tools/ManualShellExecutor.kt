@@ -2,7 +2,7 @@ package com.kellvyn.assistant.tools
 
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -63,13 +63,13 @@ class ManualShellExecutor {
         }
         runCatching { reader.join(1_000) }
 
-        val output = synchronized(captured) { captured.toByteArray().toString(Charset.forName("UTF-8")) }
+        val output = synchronized(captured) { String(captured.toByteArray(), StandardCharsets.UTF_8) }
         val status = if (completed) {
             "exit code: ${runCatching { process.exitValue() }.getOrDefault(-1)}"
         } else {
             "interrompido: limite de ${MAX_RUNTIME_SECONDS}s atingido"
         }
-        val clipped = if (output.length >= MAX_OUTPUT_BYTES) "\n[saída limitada a 64 KB]" else ""
+        val clipped = if (captured.size() >= MAX_OUTPUT_BYTES) "\n[saída limitada a 64 KB]" else ""
         return (output.trimEnd() + clipped + "\n" + status).trim()
     }
 
