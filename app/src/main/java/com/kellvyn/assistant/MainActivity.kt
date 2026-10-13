@@ -3,6 +3,8 @@ package com.kellvyn.assistant
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,7 +19,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kellvyn.assistant.ai.AssistantResult
+import com.kellvyn.assistant.ai.AssistantTurn
+import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
 import com.kellvyn.assistant.data.ChatHistoryStore
+import kotlinx.coroutines.launch
 
 private val Night = Color(0xFF080B12)
 private val Panel = Color(0xFF121925)
@@ -37,15 +43,20 @@ class MainActivity : ComponentActivity() {
 fun KellvynApp() {
     val context = LocalContext.current.applicationContext
     val historyStore = remember(context) { ChatHistoryStore(context) }
+    val localEngine = remember(context) { LocalLiteRtAssistantEngine(context) }
+    val scope = rememberCoroutineScope()
     var draft by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("Motor de IA ainda não conectado") }
+    var status by remember { mutableStateOf("Selecione um modelo .litertlm para ativar a IA local") }
+    var modelReady by remember { mutableStateOf(false) }
+    var isGenerating by remember { mutableStateOf(false) }
+
     val messages = remember(historyStore) {
         mutableStateListOf<ChatMessage>().apply {
             val saved = historyStore.load()
             if (saved.isEmpty()) {
                 add(
                     ChatMessage(
-                        "Kellvyn IA — interface inicial carregada. Suas mensagens podem ser salvas neste aparelho. O modelo de IA ainda não está conectado.",
+                        "Kellvyn IA — interface carregada. As respostas serão geradas por um modelo local somente depois que você selecionar um arquivo compatível.",
                         false
                     )
                 )
@@ -57,6 +68,46 @@ fun KellvynApp() {
 
     fun saveHistory() {
         historyStore.save(messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) })
+    }
+
+    fun applyModelResult(result: AssistantResult) {
+        when (result) {
+            is AssistantResult.Success -> {
+                modelReady = true
+                status = result.text
+            }
+            is AssistantResult.Unavailable -> {
+                modelReady = false
+                status = result.reason
+            }
+            is AssistantResult.Failure -> {
+                modelReady = false
+                status = result.reason
+            }
+        }
+    }
+
+    val modelPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                modelReady = false
+                status = "Copiando e inicializando o modelo local…"
+                applyModelResult(localEngine.importAndLoad(uri))
+            }
+        }
+    }
+
+    LaunchedEffect(localEngine) {
+        if (localEngine.hasSavedModel()) {
+            status = "Modelo local encontrado; inicializando…"
+            applyModelResult(localEngine.loadSavedModel())
+        }
+    }
+
+    DisposableEffect(localEngine) {
+        onDispose { localEngine.close() }
     }
 
     MaterialTheme(
@@ -79,12 +130,12 @@ fun KellvynApp() {
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text("KELLVYN IA", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text("ASSISTENTE • NÚCLEO EM CONSTRUÇÃO", fontSize = 10.sp, color = Neon)
+                    Text("ASSISTENTE • MOTOR LOCAL", fontSize = 10.sp, color = Neon)
                 }
                 TextButton(onClick = {
                     historyStore.clear()
                     messages.clear()
-                    status = "Histórico local apagado"
+                    status = if (modelReady) "Histórico apagado; modelo local continua carregado" else "Histórico local apagado"
                 }) {
                     Text("Limpar", color = Muted, fontSize = 12.sp)
                 }
@@ -100,19 +151,27 @@ fun KellvynApp() {
                     }
                     Spacer(Modifier.height(5.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Modelo de IA", color = Color.White, modifier = Modifier.weight(1f))
-                        Text("PENDENTE", color = Color(0xFFFFC857), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("Inferência local", color = Color.White, modifier = Modifier.weight(1f))
+                        Text(if (modelReady) "ATIVA" else "SEM MODELO", color = if (modelReady) Neon else Color(0xFFFFC857), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(5.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Histórico local", color = Color.White, modifier = Modifier.weight(1f))
+                        Text("Histórico no aparelho", color = Color.White, modifier = Modifier.weight(1f))
                         Text("ATIVO", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
-                    Spacer(Modifier.height(5.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Build APK", color = Color.White, modifier = Modifier.weight(1f))
-                        Text("CI CONFIGURADA", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = { modelPicker.launch(arrayOf("*/*")) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(if (modelReady) "Trocar modelo local (.litertlm)" else "Selecionar modelo local (.litertlm)")
                     }
+                    Text(
+                        "O arquivo do modelo fica no armazenamento privado do app. Modelos podem ocupar centenas de MB.",
+                        color = Muted,
+                        fontSize = 10.sp
+                    )
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -147,6 +206,7 @@ fun KellvynApp() {
                     placeholder = { Text("Escreva uma mensagem…", color = Muted) },
                     shape = RoundedCornerShape(16.dp),
                     maxLines = 4,
+                    enabled = !isGenerating,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Neon,
                         unfocusedBorderColor = Color(0xFF293648),
@@ -157,21 +217,55 @@ fun KellvynApp() {
                 )
                 Spacer(Modifier.width(8.dp))
                 Button(
+                    enabled = !isGenerating,
                     onClick = {
                         val text = draft.trim()
                         if (text.isNotEmpty()) {
-                            messages.add(ChatMessage(text, true))
-                            saveHistory()
-                            draft = ""
-                            status = "Mensagem salva neste aparelho. A IA ainda não responde até o modelo ser integrado."
+                            if (!modelReady) {
+                                status = "Carregue um modelo .litertlm primeiro. A mensagem não foi enviada."
+                            } else {
+                                messages.add(ChatMessage(text, true))
+                                saveHistory()
+                                draft = ""
+                                isGenerating = true
+                                status = "Gerando resposta no aparelho…"
+                                scope.launch {
+                                    val turns = messages.mapNotNull { message ->
+                                        if (!message.fromUser && message.text.startsWith("Kellvyn IA — interface carregada.")) {
+                                            null
+                                        } else {
+                                            AssistantTurn(
+                                                role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
+                                                content = message.text
+                                            )
+                                        }
+                                    }
+                                    when (val result = localEngine.reply(turns)) {
+                                        is AssistantResult.Success -> {
+                                            messages.add(ChatMessage(result.text, false))
+                                            saveHistory()
+                                            status = "Resposta gerada localmente • nenhuma mensagem foi enviada para um servidor"
+                                        }
+                                        is AssistantResult.Unavailable -> status = result.reason
+                                        is AssistantResult.Failure -> status = result.reason
+                                    }
+                                    isGenerating = false
+                                }
+                            }
                         }
                     },
                     shape = RoundedCornerShape(14.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
-                ) { Text("➤") }
+                ) {
+                    Text(if (isGenerating) "…" else "➤")
+                }
             }
             Spacer(Modifier.height(6.dp))
-            Text("Versão 0.1.1 • armazenamento local ativo • IA não conectada", color = Muted, fontSize = 10.sp)
+            Text(
+                "Versão 0.2.0 • motor local LiteRT-LM • modelo fornecido pelo usuário",
+                color = Muted,
+                fontSize = 10.sp
+            )
         }
     }
 }
