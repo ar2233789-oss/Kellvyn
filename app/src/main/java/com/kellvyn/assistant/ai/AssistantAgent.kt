@@ -1239,7 +1239,11 @@ class AssistantAgent(
 
     private fun looksLikeProjectList(text: String): Boolean {
         val t = text.lowercase(Locale.ROOT)
-        return listOf("meus projetos", "listar projetos", "liste projetos", "quais projetos", "projetos que tenho", "projetos salvos").any { it in t }
+        return listOf(
+            "meus projetos", "listar projetos", "liste projetos", "quais projetos", "projetos que tenho",
+            "projetos salvos", "cadê meus projetos", "cade meus projetos", "projetos recentes",
+            "meus aplicativos", "meus apps", "quais apps", "listar apps", "liste apps", "apps que criei"
+        ).any { it in t }
     }
 
     private fun extractResearchQuery(text: String): String {
