@@ -33,6 +33,7 @@ O modo online opcional é separado da compilação. Se for configurado, a conver
 - [Especificação central do produto](docs/PRODUCT_SPEC.md)
 - [Motor de IA local](docs/LOCAL_AI.md)
 - [Roadmap técnico](docs/ROADMAP.md)
+- [Arquitetura de compilação local estilo mini Android Studio](docs/LOCAL_BUILD_ARCHITECTURE.md)
 
 ## Build do próprio Kellvyn durante o desenvolvimento
 A compilação anterior do próprio app foi feita em ambiente de desenvolvimento e passou por verificações de pacote/assinatura. O fluxo de build em nuvem foi removido conforme o requisito de build local. Não há atualmente um APK novo validado para a revisão depois das últimas alterações.
