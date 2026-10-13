@@ -199,6 +199,5 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         const val MAX_BRIEF_CHARS = 3_000
         const val MAX_FILES = 12
         const val MAX_PROJECT_CHARS = 18_000
-        const val MAX_VALIDATION_ERRORS = 5
     }
 }
