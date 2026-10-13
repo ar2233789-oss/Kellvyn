@@ -135,6 +135,7 @@ fun KellvynApp() {
     var isDownloadingModel by remember { mutableStateOf(false) }
     var modelDownloadPercent by remember { mutableStateOf(0) }
     var onlineMode by remember { mutableStateOf(false) }
+    var internetToolsEnabled by remember { mutableStateOf(false) }
     var onlineConfigured by remember { mutableStateOf(initialOnlineSettings.isConfigured) }
     var showOnlineSettings by remember { mutableStateOf(false) }
     var showConsoleDialog by remember { mutableStateOf(false) }
@@ -283,17 +284,18 @@ fun KellvynApp() {
                         val result = assistantAgent.respond(
                             engine = selectedEngine,
                             conversation = turns,
-                            internetAllowed = onlineSelected,
+                            internetAllowed = internetToolsEnabled,
                             onToolStatus = { toolStatus -> status = toolStatus },
                             requestApproval = { summary -> requestAgentApproval(summary) }
                         )
                     ) {
                         is AssistantResult.Success -> {
                             messages.add(ChatMessage(result.text, false))
-                            status = if (onlineSelected) {
-                                "Resposta recebida; ferramentas online foram usadas somente quando solicitadas"
-                            } else {
-                                "Resposta gerada localmente • ferramentas locais disponíveis • sem acesso à internet"
+                            status = when {
+                                onlineSelected && internetToolsEnabled -> "Resposta online; pesquisa web autorizada quando solicitada"
+                                onlineSelected -> "Resposta recebida do provedor online; pesquisa web desligada"
+                                internetToolsEnabled -> "Resposta local; pesquisa web autorizada quando solicitada"
+                                else -> "Resposta gerada localmente • sem acesso à internet"
                             }
                         }
                         is AssistantResult.Unavailable -> {
@@ -435,7 +437,7 @@ fun KellvynApp() {
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Kellvyn Assistente", color = Neon, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                    Text(if (onlineMode) "PROVEDOR ONLINE OPCIONAL" else "NÚCLEO LOCAL • OFFLINE", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                    Text(if (onlineMode) "PROVEDOR ONLINE OPCIONAL" else if (internetToolsEnabled) "NÚCLEO LOCAL • INTERNET ATIVA" else "NÚCLEO LOCAL • OFFLINE", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
                 }
                 TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
                     Text("⋮", color = Neon, fontSize = 23.sp)
@@ -456,6 +458,18 @@ fun KellvynApp() {
                             } else {
                                 if (modelReady) "Modo local ativo neste aparelho."
                                 else "Modo local selecionado. Instale ou carregue um modelo para conversar."
+                            }
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (internetToolsEnabled) "Desativar acesso à internet das ferramentas" else "Permitir pesquisa na internet") },
+                        onClick = {
+                            showQuickMenu = false
+                            internetToolsEnabled = !internetToolsEnabled
+                            status = if (internetToolsEnabled) {
+                                "Pesquisa web habilitada para este chat. Consultas e páginas são enviadas à internet; o modelo local continua rodando neste aparelho."
+                            } else {
+                                "Acesso à internet das ferramentas desligado. O agente só pode usar recursos locais."
                             }
                         }
                     )
@@ -732,7 +746,7 @@ fun KellvynApp() {
                                     val modelLabel = if (onlineMode) {
                                         modelInput.trim().ifBlank { "IA online" }.take(20)
                                     } else "IA local"
-                                    Text("$interactionMode · $modelLabel ⌄", color = Neon, fontSize = 10.sp, maxLines = 1)
+                                    Text("$interactionMode · $modelLabel" + if (internetToolsEnabled) " · web ⌄" else " ⌄", color = Neon, fontSize = 10.sp, maxLines = 1)
                                 }
                             }
                             DropdownMenu(
