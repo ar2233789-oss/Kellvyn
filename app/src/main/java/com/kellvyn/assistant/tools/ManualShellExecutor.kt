@@ -13,7 +13,10 @@ import kotlin.concurrent.thread
  * fixed command allowlist instead. Each manual command runs as the app's Android UID in the
  * current app-private workspace directory; it is not root and does not have a persistent shell.
  */
-class ManualShellExecutor(private val workspaceRoot: File) {
+class ManualShellExecutor(
+    private val workspaceRoot: File,
+    private val shellPath: String = "/system/bin/sh"
+) {
     fun execute(command: String, workingDirectory: File): String {
         val line = command.trim()
         require(line.isNotBlank()) { "Digite um comando depois de !." }
@@ -27,7 +30,7 @@ class ManualShellExecutor(private val workspaceRoot: File) {
         }
 
         val process = try {
-            ProcessBuilder("/system/bin/sh", "-c", line)
+            ProcessBuilder(shellPath, "-c", line)
                 .directory(working)
                 .redirectErrorStream(true)
                 .start()
