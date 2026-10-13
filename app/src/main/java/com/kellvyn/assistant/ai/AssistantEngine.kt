@@ -24,3 +24,10 @@ sealed interface AssistantResult {
     data class Unavailable(val reason: String) : AssistantResult
     data class Failure(val reason: String) : AssistantResult
 }
+
+/** Returns a user-facing explanation for any outcome without assuming its subtype. */
+fun AssistantResult.reasonOrText(): String = when (this) {
+    is AssistantResult.Success -> text
+    is AssistantResult.Unavailable -> reason
+    is AssistantResult.Failure -> reason
+}
