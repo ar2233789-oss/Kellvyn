@@ -4,7 +4,7 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 
 ## Código implementado até agora
 
-- Interface de chat nativa, tema escuro e detalhes azul neon.
+- Interface de chat nativa, tema preto com brilho verde-esmeralda, alinhado à imagem enviada.
 - Botão de copiar (ícone de folhas/páginas) embaixo das respostas do assistente.
 - Entrada por ditado em português e leitura em voz alta, se os serviços de voz do Android estiverem disponíveis.
 - Histórico local limitado e apagável.
@@ -25,7 +25,7 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 
 A IA local ainda precisa de teste com um modelo real no Poco F6. O modelo pequeno baixado é uma opção de entrada para tarefas básicas, não um modelo avançado de programação. A qualidade, RAM, calor e velocidade ainda não foram medidos no aparelho.
 
-O construtor atual gera, valida, guarda, permite editar e exportar arquivos de código, mas **ainda não compila projetos gerados em APK no próprio telefone**. O próximo bloco central é uma toolchain de compilação Android local e compatível com o ambiente ARM64 do telefone, sem serviço remoto; ela ainda não está implementada ou validada.
+O construtor atual gera, valida, guarda, permite editar e exportar arquivos de código, mas **ainda não compila projetos gerados em APK no próprio telefone**. A interface recém-alterada ainda precisa passar por build e teste; não há captura do aplicativo rodando que confirme o resultado. O próximo bloco central é uma toolchain de compilação Android local e compatível com o ambiente ARM64 do telefone, sem serviço remoto; ela ainda não está implementada ou validada.
 
 O modo online opcional é separado da compilação. Se for configurado, a conversa/contexto vai ao endpoint HTTPS escolhido; a compilação de projetos não usará esse endpoint.
 
