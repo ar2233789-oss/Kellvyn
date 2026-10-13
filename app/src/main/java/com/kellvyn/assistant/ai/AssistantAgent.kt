@@ -529,6 +529,7 @@ class AssistantAgent(
         // Reliable preflight for common requests, even when a small local model
         // fails to emit a structured tool call. All these operations are read-only.
         val lastUser = conversation.lastOrNull { it.role == AssistantTurn.Role.USER }?.content.orEmpty()
+        val githubFileRequest = if (internetAllowed) parseGitHubBlobRequest(lastUser) else null
         val preflight = when {
             looksLikeTerminalHelp(lastUser) -> {
                 onToolStatus("Conectando ao terminal local para diagnosticar o problema…")
@@ -552,6 +553,12 @@ class AssistantAgent(
                         tools.execute("search_workspace", JSONObject().put("query", needle), internetAllowed)
                     }.getOrElse { "Falha na busca local: ${it.message}" }
                 }
+            }
+            githubFileRequest != null -> {
+                onToolStatus("Lendo o arquivo público indicado no GitHub…")
+                "Conteúdo do repositório público: " + runCatching {
+                    tools.execute("github_file", githubFileRequest, internetAllowed)
+                }.getOrElse { "Falha ao ler o arquivo público: ${it.message}" }
             }
             internetAllowed && looksLikeWebResearch(lastUser) -> {
                 val normalizedQuery = extractResearchQuery(lastUser)
@@ -640,6 +647,27 @@ class AssistantAgent(
             }
             else -> last
         }
+    }
+
+    private fun parseGitHubBlobRequest(text: String): JSONObject? {
+        val lower = text.lowercase(Locale.ROOT)
+        val asksToRead = listOf("leia", "ler ", "abra", "abrir", "mostre", "mostrar", "analise", "analisa", "conteúdo", "conteudo", "arquivo")
+            .any { it in lower }
+        if (!asksToRead || "github.com/" !in lower || "/blob/" !in lower) return null
+        val start = lower.indexOf("github.com/") + "github.com/".length
+        val raw = text.substring(start).trim().trimEnd(')', ']', '}', ',', '.', ' ')
+        val parts = raw.split("/")
+        if (parts.size < 5 || !parts[2].equals("blob", ignoreCase = true)) return null
+        val repository = "${parts[0]}/${parts[1]}"
+        val ref = Uri.decode(parts[3].substringBefore('?').substringBefore('#'))
+        val path = parts.drop(4).joinToString("/").substringBefore('?').substringBefore('#')
+            .split("/")
+            .joinToString("/") { Uri.decode(it) }
+        if (ref.isBlank() || path.isBlank()) return null
+        return JSONObject()
+            .put("repository", repository)
+            .put("path", path)
+            .put("ref", ref)
     }
 
     private fun looksLikeLocalCodeSearch(text: String): Boolean {
