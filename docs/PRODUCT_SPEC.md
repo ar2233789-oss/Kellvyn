@@ -10,6 +10,11 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - Nenhuma imagem de conceito comprova que uma função está implementada. Só mostrar sucesso, progresso de compilação, tamanho de APK ou aprendizado de jogo quando a função real tiver sido implementada e executada.
 - Nada de demo disfarçada: controles, status e respostas precisam corresponder a funções reais.
 
+## Seletor de modo e navegação da interface
+- A setinha no compositor deve controlar uma opção funcional, não ser decorativa: alterna entre conversa normal e Build (criação de projeto), e permite selecionar o motor local ou o provedor online opcional.
+- O rótulo do motor deve refletir a configuração real; nunca exibir GPT-5 Nano como ativo se não estiver configurado como o modelo do provedor selecionado.
+- Preservar o compositor de duas linhas e a navegação inferior AI, Navegador, Editor, Terminal, Git e Abas. Navegador abre links no navegador do Android por intent (sem WebView); Terminal/Git operam no espaço local.
+
 ## Restrições obrigatórias
 - Entrega final: APK Android nativo. Nada de site embrulhado em WebView. Interface em Kotlin/Jetpack Compose, sem WebView.
 - Não usar Replit nem serviços de terceiros para compilar os aplicativos que o Kellvyn criar.
