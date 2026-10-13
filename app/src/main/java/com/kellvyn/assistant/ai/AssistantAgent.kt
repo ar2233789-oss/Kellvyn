@@ -437,6 +437,7 @@ class AssistantAgent(
             if (ix >= 0) turns[ix] = turns[ix].copy(content = turns[ix].content + "\n\n" + preflight.take(MAX_PREFLIGHT_CHARS))
         }
 
+        var deniedActionKey: String? = null
         repeat(MAX_TOOL_ROUNDS) {
             val modelResult = engine.reply(turns)
             if (modelResult !is AssistantResult.Success) return modelResult
@@ -457,11 +458,18 @@ class AssistantAgent(
                         return@repeat
                     }
                     if (tools.approvalRequired(name)) {
+                        val actionKey = name + ":" + args.toString()
+                        if (actionKey == deniedActionKey) {
+                            turns.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, modelResult.text))
+                            turns.add(AssistantTurn(AssistantTurn.Role.USER, "Esta ação já foi recusada. Não a solicite novamente; explique a limitação e dê uma alternativa segura."))
+                            return@repeat
+                        }
                         val summary = tools.approvalSummary(name, args)
                         onToolStatus("Aguardando sua autorização para: $summary")
                         if (!requestApproval(summary)) {
+                            deniedActionKey = actionKey
                             turns.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, modelResult.text))
-                            turns.add(AssistantTurn(AssistantTurn.Role.USER, "O usuário recusou esta ação. Não tente executar a mesma ação novamente. Explique e ofereça uma alternativa segura."))
+                            turns.add(AssistantTurn(AssistantTurn.Role.USER, "O usuário recusou esta ação. Não tente executá-la novamente. Explique e ofereça uma alternativa segura."))
                             return@repeat
                         }
                     }
@@ -536,7 +544,7 @@ class AssistantAgent(
 
     private companion object {
         const val MAX_TOOL_ROUNDS = 5
-        const val MAX_TOOL_RESULT_CHARS = 14_000
+        const val MAX_TOOL_RESULT_CHARS = 6_000
         const val MAX_USER_CONTEXT_CHARS = 5_000
         const val MAX_PREFLIGHT_CHARS = 4_000
         const val AGENT_SYSTEM = "Você é Kellvyn IA, um agente conversacional capaz de usar ferramentas reais do aplicativo com permissão. Converse normalmente, raciocine e ajude o usuário. Quando precisar verificar terminal, projetos, arquivos ou internet, escolha uma ferramenta e aguarde o resultado. Nunca invente ações ou resultados."
