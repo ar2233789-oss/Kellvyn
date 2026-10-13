@@ -67,6 +67,12 @@ class AgentToolRouter(
                     }
                     openWebPage(required(args, "url"))
                 }
+                "github_search" -> {
+                    require(internetAllowed) {
+                        "A internet das ferramentas está desligada. Ative-a no seletor do chat."
+                    }
+                    githubSearch(required(args, "query"))
+                }
                 else -> throw IllegalArgumentException("Ferramenta desconhecida: $name")
             }
         }
@@ -203,6 +209,51 @@ class AgentToolRouter(
         require(workspace.getProject(projectId) != null) { "Projeto não encontrado: $projectId" }
         workspace.deleteProject(projectId)
         return "Projeto $projectId e seus arquivos locais foram removidos."
+    }
+
+    private fun githubSearch(query: String): String {
+        val normalized = query.trim()
+        require(normalized.length in 2..300) { "A busca precisa ter entre 2 e 300 caracteres." }
+        val endpoint = "https://api.github.com/search/repositories?q=" +
+            URLEncoder.encode(normalized, StandardCharsets.UTF_8.name()) +
+            "&sort=stars&order=desc&per_page=8"
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+            instanceFollowRedirects = false
+            useCaches = false
+            setRequestProperty("User-Agent", "Kellvyn-IA-Android")
+            setRequestProperty("Accept", "application/vnd.github+json")
+        }
+        try {
+            val code = connection.responseCode
+            if (code !in 200..299) {
+                throw IllegalStateException("A pesquisa do GitHub respondeu HTTP $code; pode haver limite de requisições públicas.")
+            }
+            val body = connection.inputStream.use { input ->
+                String(input.readAtMost(MAX_WEB_BYTES), StandardCharsets.UTF_8)
+            }
+            val items = JSONObject(body).optJSONArray("items") ?: JSONArray()
+            val results = JSONArray()
+            for (index in 0 until minOf(items.length(), MAX_GITHUB_RESULTS)) {
+                val item = items.optJSONObject(index) ?: continue
+                results.put(JSONObject()
+                    .put("repository", item.optString("full_name"))
+                    .put("url", item.optString("html_url"))
+                    .put("description", item.optString("description").take(500))
+                    .put("language", item.optString("language"))
+                    .put("stars", item.optInt("stargazers_count"))
+                    .put("default_branch", item.optString("default_branch")))
+            }
+            return JSONObject()
+                .put("query", normalized)
+                .put("results", results)
+                .put("note", "Metadados de repositórios públicos; confira a licença e revise o código antes de usar.")
+                .toString()
+        } finally {
+            connection.disconnect()
+        }
     }
 
     private fun webSearch(query: String): String {
@@ -348,6 +399,7 @@ class AgentToolRouter(
         const val MAX_WRITE_CHARS = 40_000
         const val MAX_TERMINAL_COMMAND_CHARS = 800
         const val MAX_WEB_RESULTS = 8
+        const val MAX_GITHUB_RESULTS = 8
         const val MAX_WEB_BYTES = 1_000_000
         const val MAX_WEB_PAGE_CHARS = 12_000
         const val CONNECT_TIMEOUT_MS = 12_000
