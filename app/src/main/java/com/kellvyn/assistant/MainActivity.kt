@@ -8,8 +8,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,6 +37,8 @@ import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
 import com.kellvyn.assistant.ai.OpenAiCompatibleAssistantEngine
 import com.kellvyn.assistant.data.ChatHistoryStore
 import com.kellvyn.assistant.data.OnlineProviderSettingsStore
+import com.kellvyn.assistant.data.MemoryFact
+import com.kellvyn.assistant.data.UserMemoryStore
 import com.kellvyn.assistant.workspace.AppBuilderAgent
 import com.kellvyn.assistant.workspace.AppBuildResult
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
 fun KellvynApp() {
     val context = LocalContext.current.applicationContext
     val historyStore = remember(context) { ChatHistoryStore(context) }
+    val memoryStore = remember(context) { UserMemoryStore(context) }
     val onlineSettingsStore = remember(context) { OnlineProviderSettingsStore(context) }
     val localEngine = remember(context) { LocalLiteRtAssistantEngine(context) }
     val onlineEngine = remember(onlineSettingsStore) { OpenAiCompatibleAssistantEngine(onlineSettingsStore) }
@@ -88,6 +89,10 @@ fun KellvynApp() {
     var modelInput by remember { mutableStateOf(initialOnlineSettings.model) }
     var apiKeyInput by remember { mutableStateOf(initialOnlineSettings.apiKey) }
     var settingsError by remember { mutableStateOf("") }
+    var showMemoryDialog by remember { mutableStateOf(false) }
+    var memoryDraft by remember { mutableStateOf("") }
+    var memoryStatus by remember { mutableStateOf("") }
+    val savedMemories = remember(memoryStore) { mutableStateListOf<MemoryFact>().apply { addAll(memoryStore.list()) } }
     var showBuilderDialog by remember { mutableStateOf(false) }
     var showProjectsDialog by remember { mutableStateOf(false) }
     var builderBrief by remember { mutableStateOf("") }
@@ -265,7 +270,18 @@ fun KellvynApp() {
                     },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp)
-                ) { Text("MEUS PROJETOS", fontSize = 11.sp) }
+                ) { Text("PROJETOS", fontSize = 10.sp) }
+                OutlinedButton(
+                    onClick = {
+                        savedMemories.clear()
+                        savedMemories.addAll(memoryStore.list())
+                        memoryDraft = ""
+                        memoryStatus = ""
+                        showMemoryDialog = true
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("MEMÓRIA", fontSize = 10.sp) }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -421,15 +437,28 @@ fun KellvynApp() {
                                 isGenerating = true
                                 status = if (onlineSelected) "Enviando ao endpoint online escolhido…" else "Gerando resposta no aparelho…"
                                 val selectedEngine: AssistantEngine = if (onlineSelected) onlineEngine else localEngine
-                                val turns = messages.takeLast(MAX_CONTEXT_MESSAGES).mapNotNull { message ->
-                                    if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) {
-                                        null
-                                    } else {
-                                        AssistantTurn(
-                                            role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
-                                            content = message.text
+                                val memoryContext = memoryStore.promptContext()
+                                val turns = buildList {
+                                    if (memoryContext.isNotBlank()) {
+                                        add(
+                                            AssistantTurn(
+                                                role = AssistantTurn.Role.SYSTEM,
+                                                content = memoryContext
+                                            )
                                         )
                                     }
+                                    addAll(
+                                        messages.takeLast(MAX_CONTEXT_MESSAGES).mapNotNull { message ->
+                                            if (!message.fromUser && message.text.startsWith("Kellvyn IA está pronto.")) {
+                                                null
+                                            } else {
+                                                AssistantTurn(
+                                                    role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
+                                                    content = message.text
+                                                )
+                                            }
+                                        }
+                                    )
                                 }
                                 scope.launch {
                                     try {
@@ -606,6 +635,81 @@ fun KellvynApp() {
                         builtProject = null
                         showBuilderDialog = true
                     }) { Text("Criar projeto") }
+                }
+            )
+        }
+
+        if (showMemoryDialog) {
+            AlertDialog(
+                onDismissRequest = { showMemoryDialog = false },
+                title = { Text("Memória do Kellvyn") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            "Salve apenas fatos que você quer que o assistente lembre. Nada é extraído automaticamente. As memórias ficam neste aparelho; no modo ONLINE, o conteúdo relevante será enviado junto com a conversa ao provedor escolhido.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        OutlinedTextField(
+                            value = memoryDraft,
+                            onValueChange = { if (it.length <= 1000) memoryDraft = it },
+                            label = { Text("Fato para lembrar") },
+                            placeholder = { Text("Ex.: prefiro respostas em português e diretas.") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2,
+                            maxLines = 4
+                        )
+                        if (memoryStatus.isNotBlank()) {
+                            Text(memoryStatus, color = Neon, fontSize = 12.sp)
+                        }
+                        Text("MEMÓRIAS SALVAS (${savedMemories.size}/80)", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        if (savedMemories.isEmpty()) {
+                            Text("Nenhuma memória salva ainda.", color = Muted, fontSize = 12.sp)
+                        } else {
+                            savedMemories.forEach { fact ->
+                                Surface(color = Panel, shape = RoundedCornerShape(10.dp)) {
+                                    Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                                        Text(fact.text, color = Color.White, fontSize = 13.sp)
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                            TextButton(onClick = {
+                                                memoryStore.remove(fact.id)
+                                                savedMemories.removeAll { it.id == fact.id }
+                                                memoryStatus = "Memória removida."
+                                            }) { Text("Remover", color = Warning, fontSize = 11.sp) }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = memoryDraft.trim().isNotEmpty(),
+                        onClick = {
+                            try {
+                                val fact = memoryStore.add(memoryDraft)
+                                savedMemories.add(fact)
+                                memoryDraft = ""
+                                memoryStatus = "Memória salva neste aparelho."
+                            } catch (e: Exception) {
+                                memoryStatus = e.message ?: "Não foi possível salvar a memória."
+                            }
+                        }
+                    ) { Text("Guardar memória") }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(onClick = {
+                            memoryStore.clear()
+                            savedMemories.clear()
+                            memoryStatus = "Todas as memórias foram apagadas."
+                        }) { Text("Apagar tudo", color = Warning) }
+                        TextButton(onClick = { showMemoryDialog = false }) { Text("Fechar") }
+                    }
                 }
             )
         }
