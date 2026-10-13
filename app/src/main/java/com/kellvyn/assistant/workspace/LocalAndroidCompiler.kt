@@ -111,6 +111,8 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                     add("-proc:none")
                     add("-g")
                     add("-Xemacs")
+                    // The Android SDK stubs are the Java/Android boot API, not just an optional dependency.
+                    add("-bootclasspath"); add(platform.absolutePath)
                     add("-classpath"); add(platform.absolutePath)
                     add("-d"); add(classesDir.absolutePath)
                     addAll(sources.map { it.absolutePath })
@@ -163,7 +165,11 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LocalApkBuildResult.Failure(("Build local falhou: " + (e.message ?: e.javaClass.simpleName)).take(MAX_LOG_CHARS))
+                val details = StringWriter().also { writer ->
+                    e.printStackTrace(PrintWriter(writer))
+                }.toString()
+                val message = e.message ?: e.javaClass.simpleName
+                LocalApkBuildResult.Failure(("Build local falhou: " + message + "\n" + details).take(MAX_LOG_CHARS))
             }
         }
 
