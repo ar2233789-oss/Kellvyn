@@ -5,12 +5,15 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
+import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
@@ -58,6 +61,9 @@ import com.kellvyn.assistant.workspace.AppBuildResult
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
 import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.WorkspaceProject
+import com.kellvyn.assistant.workspace.LocalAndroidCompiler
+import com.kellvyn.assistant.workspace.LocalApkBuildResult
+import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -96,6 +102,7 @@ fun KellvynApp() {
     val workspaceTerminal = remember(workspaceStore) { WorkspaceTerminal(workspaceStore) }
     val assistantAgent = remember(workspaceStore) { AssistantAgent(AgentToolRouter(workspaceStore)) }
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
+    val localAndroidCompiler = remember(context, workspaceStore) { LocalAndroidCompiler(context, workspaceStore) }
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
     var speechOutputReady by remember { mutableStateOf(false) }
@@ -159,6 +166,13 @@ fun KellvynApp() {
     var builderMessage by remember { mutableStateOf("") }
     var builtProject by remember { mutableStateOf<WorkspaceProject?>(null) }
     var pendingExportProject by remember { mutableStateOf<WorkspaceProject?>(null) }
+    var latestBuiltApk by remember { mutableStateOf<File?>(null) }
+    var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
+    var showSdkLicenseDialog by remember { mutableStateOf(false) }
+    val sdkLicenseText = remember(context) {
+        runCatching { context.resources.openRawResource(com.kellvyn.assistant.R.raw.android_sdk_license).bufferedReader().use { it.readText() } }
+            .getOrDefault("Texto da licença não pôde ser carregado. Não aceite sem ler o contrato oficial do Android SDK.")
+    }
     val existingProjects = remember(workspaceStore) {
         mutableStateListOf<WorkspaceProject>().apply { addAll(workspaceStore.listProjects()) }
     }
@@ -229,6 +243,68 @@ fun KellvynApp() {
         }
     }
 
+    suspend fun buildProjectAndReport(project: WorkspaceProject) {
+        when (val result = localAndroidCompiler.build(project.id) { progress -> status = progress }) {
+            is LocalApkBuildResult.Success -> {
+                latestBuiltApk = result.apk
+                messages.add(
+                    ChatMessage(
+                        "APK criado e verificado no próprio celular. Pacote: ${result.applicationId}. " +
+                            "Tempo: ${result.durationMs / 1000.0}s. Arquivo privado: ${result.apk.name}. " +
+                            "Use o menu superior para instalar o APK.",
+                        false
+                    )
+                )
+                status = "APK gerado, assinado e verificado localmente."
+                saveHistory()
+            }
+            is LocalApkBuildResult.Failure -> {
+                messages.add(ChatMessage("A build local retornou um erro real:\n${result.reason}", false))
+                status = "A build local falhou; diagnóstico guardado no chat."
+                saveHistory()
+            }
+            LocalApkBuildResult.LicenseRequired -> {
+                pendingLicenseProjectId = project.id
+                showSdkLicenseDialog = true
+                messages.add(
+                    ChatMessage(
+                        "O Android SDK exige que você leia e aceite os termos oficiais antes de baixar a plataforma necessária à compilação local. Nenhum download foi iniciado.",
+                        false
+                    )
+                )
+                status = "Aguardando sua decisão sobre a licença do Android SDK."
+                saveHistory()
+            }
+        }
+    }
+
+    fun installLatestApk() {
+        val apk = latestBuiltApk?.takeIf { it.isFile }
+        if (apk == null) {
+            status = "Ainda não há APK gerado para instalar."
+            return
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
+                status = "Autorize a instalação de apps para o Kellvyn e toque em Instalar APK novamente."
+                val settingsIntent = Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + context.packageName)
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(settingsIntent)
+                return
+            }
+            val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", apk)
+            val intent = Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            status = "Abrindo o instalador do Android para o APK gerado."
+        } catch (e: Exception) {
+            status = "Não consegui abrir o instalador: " + (e.message ?: e.javaClass.simpleName)
+        }
+    }
+
     fun submitDraft() {
         val text = draft.trim()
         if (text.isEmpty() || isGenerating) return
@@ -292,11 +368,12 @@ fun KellvynApp() {
                             builtProject = project
                             messages.add(
                                 ChatMessage(
-                                    "Projeto \"${project.name}\" criado com ${project.fileCount} arquivos. Conferi a estrutura mínima exigida e guardei os arquivos neste aparelho; isso ainda não comprova que o código compila. Ainda não é um APK: a compilação Android local precisa ser integrada e testada. Use Editor para revisar o código, Git para versionar e ZIP como exportação secundária.",
+                                    "Projeto \"${project.name}\" criado e validado estruturalmente com ${project.fileCount} arquivos. Vou iniciar a compilação local em segundo plano.",
                                     false
                                 )
                             )
-                            status = "Arquivos de projeto criados localmente. Nenhum APK foi compilado."
+                            status = "Projeto salvo. Iniciando o compilador local…"
+                            buildProjectAndReport(project)
                         }
                         is AppBuildResult.Failure -> {
                             messages.add(ChatMessage("Não consegui concluir a geração do projeto: ${result.reason}", false))
