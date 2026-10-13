@@ -28,57 +28,92 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         const val RECOMMENDED_MODEL_URL = "https://huggingface.co/litert-community/SmolLM2-360M-Instruct/resolve/main/SmolLM2_360M_instruct.litertlm?download=true"
         const val RECOMMENDED_MODEL_BYTES = 373_719_040L
         const val MAX_RECOMMENDED_MODEL_BYTES = 500_000_000L
-        const val MAX_IMPORTED_MODEL_BYTES = 750_000_000L
+        const val MAX_IMPORTED_MODEL_BYTES = 1_500_000_000L
         const val MIN_IMPORTED_MODEL_BYTES = 1_000_000L
         const val RECOMMENDED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
+        const val CODER_MODEL_URL = "https://huggingface.co/litert-community/Qwen2.5-Coder-1.5B-Instruct/resolve/main/Qwen2.5-Coder-1.5B-Instruct_int4.litertlm"
+        const val CODER_MODEL_SHA256 = "273ecc7771ba2dd5fe1bb6d4d4726ad0353102f04ad094082ccf59bca9f21213"
+        const val MAX_CODER_MODEL_BYTES = 1_400_000_000L
         const val CONNECT_TIMEOUT_MS = 20_000
         const val DOWNLOAD_READ_TIMEOUT_MS = 90_000
         const val PROGRESS_UPDATE_BYTES = 8L * 1024L * 1024L
     }
 
     private val appContext = context.applicationContext
-    private val modelFile = File(File(appContext.filesDir, "models"), "kellvyn-model.litertlm")
+    private val modelDirectory = File(appContext.filesDir, "models")
+    private val modelFile = File(modelDirectory, "kellvyn-model.litertlm")
+    private val coderModelFile = File(modelDirectory, "qwen2.5-coder-1.5b-int4.litertlm")
+    private val modelPreferences = appContext.getSharedPreferences("kellvyn_local_model", Context.MODE_PRIVATE)
     @Volatile private var engine: Engine? = null
 
-    override val displayName: String = "LiteRT-LM (local)"
+    override val displayName: String
+        get() = if (modelPreferences.getString(ACTIVE_MODEL_KEY, CONVERSATION_MODEL_KEY) == CODER_MODEL_KEY) {
+            "LiteRT-LM Qwen Coder 1.5B (local)"
+        } else {
+            "LiteRT-LM conversação leve (local)"
+        }
 
-    fun hasSavedModel(): Boolean = modelFile.isFile && modelFile.length() > 0L
+    private fun selectedModelFile(): File {
+        val preferred = modelPreferences.getString(ACTIVE_MODEL_KEY, CONVERSATION_MODEL_KEY)
+        return when {
+            preferred == CODER_MODEL_KEY && coderModelFile.isFile -> coderModelFile
+            modelFile.isFile -> modelFile
+            coderModelFile.isFile -> coderModelFile
+            else -> modelFile
+        }
+    }
 
-    fun savedModelSizeBytes(): Long = if (hasSavedModel()) modelFile.length() else 0L
+    fun hasSavedConversationModel(): Boolean = modelFile.isFile && modelFile.length() > 0L
 
-    /** Closes inference and removes the saved model plus any stale temporary/backup files. */
+    fun hasSavedCoderModel(): Boolean = coderModelFile.isFile && coderModelFile.length() > 0L
+
+    fun hasSavedModel(): Boolean {
+        val selected = selectedModelFile()
+        return selected.isFile && selected.length() > 0L
+    }
+
+    fun savedModelSizeBytes(): Long {
+        val selected = selectedModelFile()
+        return if (selected.isFile) selected.length() else 0L
+    }
+
+    /** Closes inference and removes only the currently selected model, plus temporary/backup files. */
     fun removeSavedModel(): Boolean {
         close()
-        val directory = modelFile.parentFile ?: return !modelFile.exists()
-        val filesToRemove = listOf(
-            modelFile,
-            File(directory, "kellvyn-model.previous"),
-            File(directory, "kellvyn-model.part"),
-            File(directory, "kellvyn-model.import"),
-            File(directory, "kellvyn-model.download")
+        val selected = selectedModelFile()
+        val backup = File(modelDirectory, backupNameFor(selected))
+        val temporary = listOf(
+            File(modelDirectory, "kellvyn-model.part"),
+            File(modelDirectory, "kellvyn-model.import"),
+            File(modelDirectory, "kellvyn-model.download"),
+            File(modelDirectory, "qwen-coder.download")
         )
         var allRemoved = true
-        filesToRemove.forEach { file ->
+        (listOf(selected, backup) + temporary).forEach { file ->
             if (file.exists() && !file.delete()) allRemoved = false
         }
+        if (selected == coderModelFile) modelPreferences.edit().putString(ACTIVE_MODEL_KEY, CONVERSATION_MODEL_KEY).apply()
         return allRemoved
     }
 
-    /** Restore an interrupted replacement before the UI checks whether a saved model exists. */
+    /** Restore interrupted replacements of either installed model before the UI checks availability. */
     suspend fun recoverInterruptedModelSwap() {
         withContext(Dispatchers.IO) {
-            val directory = modelFile.parentFile
-                ?: throw IllegalStateException("Pasta privada de modelos indisponível.")
-            if (!directory.exists() && !directory.mkdirs()) {
-                throw IllegalStateException("Não foi possível preparar a pasta privada do modelo.")
+            if (!modelDirectory.exists() && !modelDirectory.mkdirs()) {
+                throw IllegalStateException("Não foi possível preparar a pasta privada dos modelos.")
             }
-            recoverPreviousModelFile(File(directory, "kellvyn-model.previous"))
-            // These files were never committed as the active model.
-            File(directory, "kellvyn-model.part").delete()
-            File(directory, "kellvyn-model.import").delete()
-            File(directory, "kellvyn-model.download").delete()
+            recoverPreviousModelFile(modelFile, File(modelDirectory, "kellvyn-model.previous"))
+            recoverPreviousModelFile(coderModelFile, File(modelDirectory, "qwen-coder.previous"))
+            // Partial files are never considered installed models.
+            listOf(
+                "kellvyn-model.part", "kellvyn-model.import", "kellvyn-model.download", "qwen-coder.download"
+            ).forEach { File(modelDirectory, it).delete() }
         }
     }
+
+    private fun backupNameFor(target: File): String =
+        if (target == coderModelFile) "qwen-coder.previous" else "kellvyn-model.previous"
+
 
     suspend fun importAndLoad(uri: Uri): AssistantResult {
         val directory = modelFile.parentFile
