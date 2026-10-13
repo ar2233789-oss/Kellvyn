@@ -386,8 +386,9 @@ fun KellvynApp() {
         messages.add(ChatMessage(text, true))
         saveHistory()
         draft = ""
-        val wantsBuild = ChatRequestRouter.shouldBuild(text, buildModeSelected = interactionMode == "Build")
-        val wantsExistingBuild = !wantsBuild && ChatRequestRouter.shouldCompileExistingProject(text)
+        val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
+        val wantsBuild = !wantsExistingBuild &&
+            ChatRequestRouter.shouldBuild(text, buildModeSelected = interactionMode == "Build")
         val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text)
         isGenerating = true
         status = if (wantsBuild) {
