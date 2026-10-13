@@ -68,7 +68,7 @@ Estado atual: o construtor cria, valida, guarda, edita e exporta arquivos de có
 
 ## Ferramentas e tarefas futuras
 - Editor de arquivos com salvamento local.
-- Terminal local de workspace com comandos explícitos e Git via JGit, além de ligação ao agente do chat. Não é shell geral do Android. As operações de escrita passam por confirmação.
+- O chat autônomo não depende da tela Terminal: ele consulta/edita o workspace e executa as ferramentas internas diretamente. O Terminal é uma área opcional para quem deseja trabalhar manualmente e tem um atalho explícito `! comando` que pede confirmação e inicia `/system/bin/sh` como UID normal do aplicativo, sem root, com limite de 15 segundos e saída limitada. Esse shell manual nunca é exposto ao agente automático. O terminal de comandos internos/Git do agente continua na lista de operações permitidas e pede autorização para alterações.
 - Git local quando implementado de verdade; não deve ser requisito de build.
 - Sem navegador baseado em WebView. Não reintroduzir WebView.
 - Aprender a jogar exige capacidade concreta de observar estado do jogo, receber pixels/dados, executar comandos de controle autorizados e avaliar o resultado. Um LLM sozinho não enxerga nem controla jogo. Essa função ainda não está implementada.
