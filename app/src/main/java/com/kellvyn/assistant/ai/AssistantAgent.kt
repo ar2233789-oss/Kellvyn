@@ -1134,7 +1134,7 @@ class AssistantAgent(
                         }
                     }
                     onToolStatus(toolStatus(name))
-                    val result = runCatching { tools.execute(name, args, internetAllowed) }
+                    val result = runCatching { tools.execute(name, args, internetAllowed, onToolStatus) }
                         .fold(
                             onSuccess = { it.take(maxToolResultChars) },
                             onFailure = { "A ferramenta falhou: ${it.message ?: it.javaClass.simpleName}" }
@@ -1439,6 +1439,7 @@ class AssistantAgent(
         "github_file" -> "Lendo arquivo de um repositório público…"
         "github_tree" -> "Listando arquivos do repositório público…"
         "github_import" -> "Importando arquivos públicos após autorização…"
+        "build_project_apk" -> "Compilando e verificando o APK diretamente no aparelho…"
         else -> "Executando ferramenta…"
     }
 
