@@ -638,14 +638,15 @@ class AssistantAgent(
         // Reliable preflight for common requests, even when a small local model
         // fails to emit a structured tool call. All these operations are read-only.
         val lastUser = conversation.lastOrNull { it.role == AssistantTurn.Role.USER }?.content.orEmpty()
-        val githubFileRequest = if (internetAllowed) parseGitHubBlobRequest(lastUser) else null
-        val localFileListRequest = if (githubFileRequest == null) {
+        val githubFileRequest = parseGitHubBlobRequest(lastUser)
+        val explicitPageUrl = extractExplicitPageUrl(lastUser)
+        val hasExternalLinkRequest = githubFileRequest != null || explicitPageUrl != null
+        val localFileListRequest = if (!hasExternalLinkRequest) {
             withContext(Dispatchers.IO) { tools.explicitProjectFileListArguments(lastUser) }
         } else null
-        val localFileRequest = if (githubFileRequest == null && localFileListRequest == null) {
+        val localFileRequest = if (!hasExternalLinkRequest && localFileListRequest == null) {
             withContext(Dispatchers.IO) { tools.explicitLocalFileReadArguments(lastUser) }
         } else null
-        val explicitPageUrl = if (internetAllowed) extractExplicitPageUrl(lastUser) else null
         val preflight = when {
             looksLikeTerminalHelp(lastUser) -> {
                 onToolStatus("Conectando ao terminal local para diagnosticar o problema…")
@@ -670,6 +671,9 @@ class AssistantAgent(
                     }.getOrElse { "Falha na busca local: ${it.message}" }
                 }
             }
+            githubFileRequest != null && !internetAllowed -> {
+                "Não acessei o link do GitHub porque a permissão de internet das ferramentas está desligada. Ative-a no seletor do chat para continuar."
+            }
             githubFileRequest != null -> {
                 onToolStatus("Lendo o arquivo público indicado no GitHub…")
                 "Conteúdo do repositório público: " + runCatching {
@@ -687,6 +691,9 @@ class AssistantAgent(
                 "Conteúdo do arquivo local: " + runCatching {
                     tools.execute("read_file", localFileRequest, internetAllowed)
                 }.getOrElse { "Falha ao ler o arquivo local: ${it.message}" }
+            }
+            explicitPageUrl != null && !internetAllowed -> {
+                "Não acessei a página porque a permissão de internet das ferramentas está desligada. Ative-a no seletor do chat para continuar."
             }
             explicitPageUrl != null -> {
                 onToolStatus("Lendo a página HTTPS que você indicou…")
