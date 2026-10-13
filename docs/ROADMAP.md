@@ -2,43 +2,44 @@
 
 ## Fase 1 — Fundação Android
 - [x] Configuração Gradle para aplicativo Android Kotlin/Compose.
-- [x] Manifesto e atividade inicial.
-- [x] Interface escura com chat e status do núcleo.
-- [x] Histórico privado de conversas, limitado e apagável.
-- [x] Botão para copiar cada resposta da IA para a área de transferência.
-- [x] Entrada por ditado em português usando o reconhecedor instalado no Android.
-- [x] Fluxo de CI para compilar e publicar APK de depuração.
-- [ ] Instalar e testar a interface em aparelho Android físico.
+- [x] Tema escuro com acentos neon.
+- [x] Chat com rolagem automática e controle para copiar cada resposta.
+- [x] Entrada por ditado em português e botão para ouvir respostas em voz alta.
+- [x] Histórico privado limitado e apagável.
+- [x] Fluxo de CI para compilar, verificar a assinatura/identidade do APK e publicar artefato.
+- [ ] Instalar e testar em aparelho Android físico.
 
 ## Fase 2 — Motor de IA
-- [x] Contrato comum para motores de IA, com estados explícitos de sucesso/indisponibilidade/falha.
-- [x] Adaptador de inferência local LiteRT-LM e importação do arquivo de modelo.
-- [x] Provedor online compatível com Chat Completions, por HTTPS e com credencial cifrada no Android Keystore.
-- [x] Explicação de que as mensagens só são enviadas ao provedor quando o modo online está selecionado.
-- [ ] Testar uma geração real com um modelo `.litertlm` compatível no aparelho-alvo.
-- [ ] Testar resposta real contra um endpoint online configurado pelo usuário.
-- [ ] Medir RAM, armazenamento, aquecimento e velocidade no Poco F6.
+- [x] Interface comum dos motores de IA, com estados explícitos de sucesso/indisponibilidade/falha.
+- [x] Adaptador local LiteRT-LM e importação de arquivo compatível.
+- [x] Download de modelo público compatível com tamanho e SHA-256 verificados.
+- [x] Exibir tamanho do modelo guardado, apagar modelo e liberar armazenamento.
+- [x] Provedor online compatível com Chat Completions, somente HTTPS, com token cifrado via Android Keystore.
+- [ ] Testar uma resposta real do modelo baixado no dispositivo-alvo.
+- [ ] Testar uma resposta real do endpoint online configurado pelo usuário.
+- [ ] Medir RAM, velocidade, aquecimento e qualidade no Poco F6.
 
 ## Fase 3 — Memória e construtor
-- [x] Memória de longo prazo controlada pelo usuário: salvar, listar, apagar uma memória ou todas.
-- [x] Passar o contexto de memórias salvas ao motor escolhido; avisar que esse contexto vai ao provedor em modo online.
-- [x] Agente que solicita a geração estruturada de um projeto Android ao modelo escolhido.
-- [x] Validação de caminhos/tamanho e armazenamento privado dos arquivos gerados.
-- [x] Editor local de arquivos do projeto gerado.
-- [x] Exportação do projeto para ZIP.
-- [ ] Compilar/testar projetos gerados automaticamente; no momento, o construtor exporta código e não gera o APK de terceiros diretamente no aparelho.
-- [ ] Ferramentas adicionais (Git integrado, navegador e ambiente de build) com ações reais, não simuladas.
+- [x] Memória explícita controlada pelo usuário: adicionar, listar, remover uma memória ou todas.
+- [x] Passar memórias salvas ao modelo ativo; avisar que são transmitidas ao endpoint quando o modo ONLINE está selecionado.
+- [x] Agente que pede a geração estruturada de projeto Android ao modelo.
+- [x] Validar caminhos e tamanho e guardar os arquivos no armazenamento privado.
+- [x] Editor de arquivos para projetos gerados.
+- [x] Exportar projetos para ZIP.
+- [ ] Compilar e testar projetos gerados automaticamente; o construtor atual exporta código e não cria APKs de terceiros diretamente no aparelho.
+- [ ] Adicionar ferramentas reais de terminal seguro, navegador integrado e Git conectado sem exibir controles simulados.
 
 ## Fase 4 — Privacidade e qualidade
 - [x] Não embutir chaves de API no APK.
-- [x] Token online cifrado com Android Keystore.
-- [x] HTTPS obrigatório para o provedor online; redirecionamento automático desativado no pedido autenticado.
-- [x] Backup Android desativado para reduzir exposição dos dados do app.
-- [ ] Testes unitários/instrumentados de memória, histórico, endpoint e importação de modelo.
-- [ ] Verificação de instalação e comportamento em dispositivo físico.
-- [ ] Testes reais de falha, memória insuficiente, modelo incompatível e indisponibilidade de rede.
-- [ ] Assinatura de release e processo de distribuição fora do APK de depuração.
+- [x] Token online cifrado via Android Keystore.
+- [x] Endpoint HTTPS obrigatório e redirecionamentos automáticos desativados no pedido autenticado.
+- [x] Backup Android desativado para o app.
+- [x] Importação de modelo por seletor de documentos sem pedir acesso amplo ao armazenamento.
+- [ ] Testes unitários/instrumentados para histórico, memória, endpoints e arquivos de modelo.
+- [ ] Testes de instalação e comportamento em dispositivo físico.
+- [ ] Testes de falta de memória, modelo incompatível, falha de rede e cancelamento.
+- [ ] Assinatura release e distribuição fora do APK de depuração.
 
-## Critério de conclusão
+## Critérios de conclusão
 
-O APK de depuração está validado somente quando a compilação automatizada termina com sucesso. Isso não prova que o APK foi instalado no telefone ou que o modelo gera respostas nele. A IA local só estará validada após uma resposta real do modelo no dispositivo; a IA online, após uma resposta real do endpoint configurado. O construtor só será considerado completo quando os projetos gerados puderem ser compilados e testados de forma confiável.
+Uma compilação bem-sucedida confirma que o APK foi gerado e passou pelas verificações automatizadas, não que foi instalado no telefone ou que o modelo realmente responde nele. O motor local só será validado depois de gerar uma resposta no dispositivo; o modo online, depois de receber uma resposta do endpoint configurado. O construtor só estará completo quando projetos gerados forem compilados e testados de forma confiável.
