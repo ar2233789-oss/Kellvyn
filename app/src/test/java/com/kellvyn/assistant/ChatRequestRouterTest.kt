@@ -31,6 +31,16 @@ class ChatRequestRouterTest {
     }
 
     @Test
+    fun explicitApkBuildRoutesToExistingProjectInsteadOfCreatingANewOne() {
+        assertTrue(ChatRequestRouter.shouldCompileExistingProject("Compile o projeto"))
+        assertTrue(ChatRequestRouter.shouldCompileExistingProject("Gere o APK desse projeto"))
+        assertTrue(ChatRequestRouter.shouldCompileExistingProject("Gerar APK do meu app"))
+        assertTrue(ChatRequestRouter.shouldCompileExistingProject("Compile o projeto que você criou"))
+        assertFalse(ChatRequestRouter.shouldCompileExistingProject("Como gerar o APK desse projeto?"))
+        assertFalse(ChatRequestRouter.shouldCompileExistingProject("Crie um novo app Android com login"))
+    }
+
+    @Test
     fun installedCoderIsPreferredForCodeWorkButNotOrdinaryQuestions() {
         assertTrue(ChatRequestRouter.shouldPreferCoder("Corrija o arquivo MainActivity.kt"))
         assertTrue(ChatRequestRouter.shouldPreferCoder("Adicione login ao meu app existente"))
