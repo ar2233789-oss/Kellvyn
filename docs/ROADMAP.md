@@ -2,7 +2,7 @@
 
 ## Fase 1 — Aplicativo Android nativo
 - [x] Projeto Kotlin/Jetpack Compose.
-- [x] Tema escuro preto/branco com detalhes azul neon.
+- [x] Tema preto com brilho verde-esmeralda conforme a imagem enviada; layout reorganizado para chat central, barra superior compacta, compositor e navegação inferior (código alterado, compilação ainda pendente).
 - [x] Chat com histórico local limitado, ação para limpar e rolagem automática.
 - [x] Botão de copiar abaixo das respostas.
 - [x] Entrada por ditado e saída por voz usando serviços instalados no Android.
