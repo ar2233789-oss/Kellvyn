@@ -1,0 +1,288 @@
+package com.kellvyn.assistant.workspace
+
+import android.content.Context
+import android.os.Build
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import com.android.apksig.ApkSigner
+import com.android.apksig.ApkVerifier
+import com.android.apksig.KeyConfig
+import com.android.tools.r8.CompilationMode
+import com.android.tools.r8.D8
+import com.android.tools.r8.D8Command
+import com.android.tools.r8.OutputMode
+import org.eclipse.jdt.core.compiler.batch.BatchCompiler
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.BufferedOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.io.PrintWriter
+import java.io.StringWriter
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.KeyPairGenerator
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.security.cert.X509Certificate
+import java.util.Calendar
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
+sealed interface LocalApkBuildResult {
+    data class Success(val apk: File, val applicationId: String, val durationMs: Long) : LocalApkBuildResult
+    data class Failure(val reason: String) : LocalApkBuildResult
+    data object LicenseRequired : LocalApkBuildResult
+}
+
+/**
+ * Dependency-free Java Android build path: ECJ -> D8 -> binary manifest/package -> apksig.
+ * No shell, Gradle daemon, remote builder or generated-script execution is used.
+ */
+class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorkspaceStore) {
+    private val appContext = context.applicationContext
+    private val preferences = appContext.getSharedPreferences("kellvyn_local_builder", Context.MODE_PRIVATE)
+    private val platformDir = File(appContext.filesDir, "kellvyn_toolchain/android-36")
+    private val androidJar = File(platformDir, "android.jar")
+    private val buildRoot = File(appContext.filesDir, "kellvyn_builds")
+
+    fun hasAcceptedSdkLicense(): Boolean = preferences.getBoolean(PREF_SDK_LICENSE_ACCEPTED, false)
+    fun acceptSdkLicense() { preferences.edit().putBoolean(PREF_SDK_LICENSE_ACCEPTED, true).apply() }
+
+    suspend fun build(projectId: String, onProgress: (String) -> Unit = {}): LocalApkBuildResult =
+        withContext(Dispatchers.IO) {
+            val startedAt = System.nanoTime()
+            try {
+                if (Build.VERSION.SDK_INT < 26) {
+                    return@withContext LocalApkBuildResult.Failure("O compilador local precisa do Android 8.0 (API 26) ou superior.")
+                }
+                if (!hasAcceptedSdkLicense()) return@withContext LocalApkBuildResult.LicenseRequired
+                report(onProgress, "Preparando as ferramentas locais…")
+                val platform = ensureAndroidPlatform(onProgress)
+                val projectDir = workspace.projectDirectory(projectId)
+                val javaRoot = File(projectDir, "app/src/main/java")
+                val sources = if (javaRoot.isDirectory) {
+                    javaRoot.walkTopDown().filter { it.isFile && it.extension.equals("java", true) }
+                        .take(MAX_SOURCE_FILES + 1).toList()
+                } else emptyList()
+                if (sources.isEmpty()) {
+                    return@withContext LocalApkBuildResult.Failure(
+                        "Este projeto não contém fontes Java em app/src/main/java. O construtor deve gerar Java Android sem bibliotecas externas para este motor local."
+                    )
+                }
+                if (sources.size > MAX_SOURCE_FILES) {
+                    return@withContext LocalApkBuildResult.Failure("A build local aceita até " + MAX_SOURCE_FILES + " fontes Java por projeto.")
+                }
+                val mainActivity = sources.firstOrNull {
+                    it.name == "MainActivity.java" && Regex("""\bclass\s+MainActivity\b""").containsMatchIn(it.readText())
+                } ?: return@withContext LocalApkBuildResult.Failure("Não encontrei uma classe MainActivity em app/src/main/java.")
+                val mainText = mainActivity.readText()
+                val packageName = Regex("""(?m)^\s*package\s+([A-Za-z_][A-Za-z0-9_.]*)\s*;""")
+                    .find(mainText)?.groupValues?.getOrNull(1)
+                    ?: return@withContext LocalApkBuildResult.Failure("MainActivity.java precisa declarar o pacote Java.")
+                require(isValidPackage(packageName)) { "O pacote Java de MainActivity é inválido." }
+                val gradleText = File(projectDir, "app/build.gradle.kts").takeIf { it.isFile }?.readText().orEmpty()
+                val applicationId = Regex("""applicationId\s*=\s*["']([^"']+)["']""")
+                    .find(gradleText)?.groupValues?.getOrNull(1)?.takeIf(::isValidPackage) ?: packageName
+                val activityName = packageName + ".MainActivity"
+
+                val jobDir = File(buildRoot, projectId).apply {
+                    if (exists()) deleteRecursively()
+                    check(mkdirs()) { "Não foi possível preparar a pasta da build." }
+                }
+                val classesDir = File(jobDir, "classes").apply { mkdirs() }
+                val dexDir = File(jobDir, "dex").apply { mkdirs() }
+                report(onProgress, "Compilando " + sources.size + " arquivo(s) Java no aparelho…")
+                val stdout = StringWriter()
+                val stderr = StringWriter()
+                val ecjArgs = buildList {
+                    add("-source"); add("1.8")
+                    add("-target"); add("1.8")
+                    add("-proc:none")
+                    add("-g")
+                    add("-Xemacs")
+                    add("-classpath"); add(platform.absolutePath)
+                    add("-d"); add(classesDir.absolutePath)
+                    addAll(sources.map { it.absolutePath })
+                }
+                val compiled = BatchCompiler.compile(ecjArgs.toTypedArray(), PrintWriter(stdout), PrintWriter(stderr), null)
+                val diagnostics = (stderr.toString() + "\n" + stdout.toString()).trim()
+                if (!compiled || classesDir.walkTopDown().none { it.isFile && it.extension == "class" }) {
+                    val detail = diagnostics.ifBlank { "O compilador não produziu classes." }
+                    return@withContext LocalApkBuildResult.Failure(("Erro real da compilação Java:\n" + detail).take(MAX_LOG_CHARS))
+                }
+                report(onProgress, "Convertendo classes para DEX…")
+                val classes = classesDir.walkTopDown().filter { it.isFile && it.extension == "class" }
+                    .map { it.toPath() }.toList()
+                D8.run(
+                    D8Command.builder()
+                        .addProgramFiles(classes)
+                        .addLibraryFiles(platform.toPath())
+                        .setMinApiLevel(MIN_SDK)
+                        .setMode(CompilationMode.DEBUG)
+                        .setOutput(dexDir.toPath(), OutputMode.DexIndexed)
+                        .build()
+                )
+                val dexFiles = dexDir.listFiles()
+                    ?.filter { it.isFile && Regex("""classes\d*\.dex""").matches(it.name) }
+                    ?.sortedBy { if (it.name == "classes.dex") 1 else it.name.removePrefix("classes").removeSuffix(".dex").toIntOrNull() ?: 1 }
+                    .orEmpty()
+                if (dexFiles.isEmpty() || dexFiles.none { it.name == "classes.dex" }) {
+                    return@withContext LocalApkBuildResult.Failure("O D8 não gerou classes.dex.")
+                }
+                report(onProgress, "Montando APK e manifesto Android…")
+                val unsigned = File(jobDir, "app-unsigned.apk")
+                ZipOutputStream(BufferedOutputStream(FileOutputStream(unsigned))).use { zip ->
+                    writeEntry(zip, "AndroidManifest.xml", BinaryAndroidManifest.create(applicationId, activityName, APP_LABEL, MIN_SDK, TARGET_SDK))
+                    dexFiles.forEach { dex ->
+                        zip.putNextEntry(ZipEntry(dex.name))
+                        dex.inputStream().buffered().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                }
+                report(onProgress, "Assinando e verificando o APK…")
+                val signed = File(buildRoot, projectId + ".apk")
+                signApk(unsigned, signed)
+                val verification = ApkVerifier.Builder(signed).build().verify()
+                if (!verification.isVerified) {
+                    signed.delete()
+                    val details = verification.errors.take(8).joinToString("; ")
+                    return@withContext LocalApkBuildResult.Failure(("A verificação da assinatura falhou: " + details).take(MAX_LOG_CHARS))
+                }
+                LocalApkBuildResult.Success(signed, applicationId, (System.nanoTime() - startedAt) / 1_000_000)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LocalApkBuildResult.Failure(("Build local falhou: " + (e.message ?: e.javaClass.simpleName)).take(MAX_LOG_CHARS))
+            }
+        }
+
+    private suspend fun ensureAndroidPlatform(onProgress: (String) -> Unit): File {
+        if (androidJar.isFile && androidJar.length() > MIN_ANDROID_JAR_BYTES) return androidJar
+        platformDir.mkdirs()
+        val archive = File(platformDir, "platform-36.zip")
+        val partial = File(platformDir, "platform-36.zip.part")
+        partial.delete()
+        report(onProgress, "Baixando a plataforma oficial do Android para a primeira build…")
+        val connection = (URL(PLATFORM_URL).openConnection() as HttpURLConnection).apply {
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+            requestMethod = "GET"
+            useCaches = false
+            setRequestProperty("User-Agent", "Kellvyn-IA-Local-Builder")
+        }
+        try {
+            connection.connect()
+            val code = connection.responseCode
+            require(code in 200..299) { "O servidor do Android SDK não aceitou o download (HTTP " + code + ")." }
+            val digest = MessageDigest.getInstance("SHA-1")
+            var total = 0L
+            connection.inputStream.use { input ->
+                FileOutputStream(partial).buffered().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        if (count == 0) continue
+                        total += count
+                        require(total <= PLATFORM_ARCHIVE_BYTES) { "O arquivo do SDK excedeu o tamanho esperado." }
+                        digest.update(buffer, 0, count)
+                        output.write(buffer, 0, count)
+                        if (total % (2L * 1024 * 1024) < count) {
+                            val percent = ((total * 100) / PLATFORM_ARCHIVE_BYTES).coerceIn(0, 100)
+                            report(onProgress, "Baixando Android SDK: " + percent + "%")
+                        }
+                    }
+                }
+            }
+            require(total == PLATFORM_ARCHIVE_BYTES) { "Download incompleto: " + total + " de " + PLATFORM_ARCHIVE_BYTES + " bytes." }
+            val actualSha = digest.digest().joinToString("") { "%02x".format(it) }
+            require(actualSha.equals(PLATFORM_ARCHIVE_SHA1, ignoreCase = true)) {
+                "A verificação de integridade do Android SDK falhou. O download não será usado."
+            }
+            check(partial.renameTo(archive)) { "Não foi possível finalizar o arquivo do SDK." }
+        } finally {
+            connection.disconnect()
+            if (partial.exists()) partial.delete()
+        }
+        report(onProgress, "Extraindo android.jar verificado…")
+        ZipFile(archive).use { zip ->
+            val entry = zip.getEntry(PLATFORM_JAR_ENTRY) ?: error("A plataforma baixada não contém android.jar.")
+            require(entry.size > MIN_ANDROID_JAR_BYTES) { "android.jar parece incompleto." }
+            val temporary = File(platformDir, "android.jar.part")
+            zip.getInputStream(entry).use { input -> FileOutputStream(temporary).buffered().use { input.copyTo(it) } }
+            require(temporary.length() == entry.size) { "O tamanho de android.jar não confere." }
+            androidJar.delete()
+            check(temporary.renameTo(androidJar)) { "Não foi possível instalar android.jar no armazenamento privado." }
+        }
+        archive.delete()
+        return androidJar
+    }
+
+    private suspend fun report(callback: (String) -> Unit, message: String) {
+        withContext(Dispatchers.Main) { callback(message) }
+    }
+
+    private fun signApk(unsigned: File, output: File) {
+        val alias = SIGNING_ALIAS
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        if (!store.containsAlias(alias)) {
+            val before = Calendar.getInstance()
+            val after = Calendar.getInstance().apply { add(Calendar.YEAR, 30) }
+            KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore").apply {
+                initialize(
+                    KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN)
+                        .setKeySize(2048)
+                        .setDigests(KeyProperties.DIGEST_SHA256)
+                        .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                        .setCertificateSubject(javax.security.auth.x500.X500Principal("CN=Kellvyn IA Debug"))
+                        .setCertificateSerialNumber(java.math.BigInteger.ONE)
+                        .setCertificateNotBefore(before.time)
+                        .setCertificateNotAfter(after.time)
+                        .build()
+                )
+                generateKeyPair()
+            }
+        }
+        val reloaded = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val privateKey = reloaded.getKey(alias, null) as java.security.PrivateKey
+        val certificate = reloaded.getCertificate(alias) as X509Certificate
+        val config = ApkSigner.SignerConfig.Builder("kellvyn-debug", KeyConfig.Jca(privateKey), listOf(certificate)).build()
+        output.parentFile?.mkdirs()
+        ApkSigner.Builder(listOf(config))
+            .setInputApk(unsigned)
+            .setOutputApk(output)
+            .setMinSdkVersion(MIN_SDK)
+            .setV1SigningEnabled(true)
+            .setV2SigningEnabled(true)
+            .setV3SigningEnabled(true)
+            .build()
+            .sign()
+    }
+
+    private fun writeEntry(zip: ZipOutputStream, name: String, content: ByteArray) {
+        zip.putNextEntry(ZipEntry(name)); zip.write(content); zip.closeEntry()
+    }
+
+    private fun isValidPackage(value: String): Boolean =
+        value.length <= 240 && value.split('.').size >= 2 &&
+            value.split('.').all { it.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")) }
+
+    private companion object {
+        const val PREF_SDK_LICENSE_ACCEPTED = "android_sdk_license_accepted"
+        const val SIGNING_ALIAS = "kellvyn-generated-debug-key"
+        const val APP_LABEL = "Aplicativo criado pelo Kellvyn"
+        const val MIN_SDK = 26
+        const val TARGET_SDK = 35
+        const val MAX_SOURCE_FILES = 80
+        const val MAX_LOG_CHARS = 16_000
+        const val MIN_ANDROID_JAR_BYTES = 20_000_000L
+        const val PLATFORM_URL = "https://dl.google.com/android/repository/platform-36_r02.zip"
+        const val PLATFORM_ARCHIVE_SHA1 = "2c1a80dd4d9f7d0e6dd336ec603d9b5c55a6f576"
+        const val PLATFORM_ARCHIVE_BYTES = 65_878_410L
+        const val PLATFORM_JAR_ENTRY = "android-36/android.jar"
+        const val CONNECT_TIMEOUT_MS = 20_000
+        const val READ_TIMEOUT_MS = 60_000
+    }
+}
