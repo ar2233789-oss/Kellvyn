@@ -8,6 +8,8 @@
 - [x] Entrada por ditado e saída por voz usando serviços instalados no Android.
 - [x] Memória explícita controlada pelo usuário.
 - [x] Terminal local com comandos de arquivos, navegação no workspace, busca textual e Git local via JGit (sem shell arbitrário).
+- [x] Agente do chat consegue consultar o terminal e inspecionar status/ajuda automaticamente para pedidos comuns de suporte.
+- [x] Pesquisa web HTTPS opcional conectada ao agente somente quando o modo online está ativo; páginas externas são tratadas como dados não confiáveis.
 - [ ] Testar instalação e uso no Poco F6 real.
 
 ## Fase 2 — Motor de IA local
@@ -19,7 +21,8 @@
 - [ ] Obter uma resposta real com modelo compatível no Poco F6.
 - [ ] Medir RAM, tempo, aquecimento e qualidade.
 - [ ] Validar alternância entre modo local e modo online opcional.
-- [ ] Implementar planejamento multi-etapas, uso de ferramentas e verificação de resultados.
+- [x] Ciclo limitado de ferramentas no chat para consultar workspace/terminal, pesquisar arquivos e usar web search quando o modo online está ativo; ações de escrita/exclusão exigem aprovação.
+- [ ] Melhorar avaliação de planos multi-etapas, recuperação de erro e confirmação de resultado no próprio aparelho.
 
 ## Fase 3 — Construtor de aplicativos
 - [x] Gerar código de projeto estruturado com o modelo selecionado.
