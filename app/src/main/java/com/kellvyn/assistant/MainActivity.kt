@@ -647,7 +647,7 @@ fun KellvynApp() {
                                         status = if (result is AssistantResult.Success) {
                                             "Modelo ativo removido; o outro modelo local instalado foi reativado."
                                         } else {
-                                            "O modelo ativo foi removido, mas o outro modelo instalado não pôde ser ativado: ${result.reason}"
+                                            "O modelo ativo foi removido, mas o outro modelo instalado não pôde ser ativado: ${result.reasonOrText()}"
                                         }
                                     } else {
                                         modelReady = false
