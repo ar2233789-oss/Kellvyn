@@ -39,7 +39,8 @@
 
 ## Fase 4 — Ferramentas nativas
 - [x] Editor local de código para arquivos gerados.
-- [x] Terminal do workspace com operações locais de arquivos e Git; comandos de shell arbitrários não são executados.
+- [x] Terminal de workspace com operações internas seguras/Git e shell manual separado sob confirmação.
+- [ ] Testar no Android real o shell manual, interrupção por timeout e limite de saída.
 - [ ] Adicionar camada de compilação local ARM64 e conectar o resultado/erros ao terminal.
 - [ ] Git local nativo, sem que serviço remoto seja necessário para build.
 - [ ] Agente de depuração que lê logs locais, propõe correções e repete builds limitados.
