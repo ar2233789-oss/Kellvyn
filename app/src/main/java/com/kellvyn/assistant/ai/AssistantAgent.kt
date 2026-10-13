@@ -881,6 +881,12 @@ class AssistantAgent(
             withContext(Dispatchers.IO) { tools.explicitLocalFileReadArguments(lastUser) }
         } else null
         val preflight = when {
+            !hasExternalLinkRequest && looksLikeLocalApkBuildRequest(lastUser) -> {
+                onToolStatus("Verificando o estado real do compilador local…")
+                "Estado verificado do construtor local: " + runCatching {
+                    tools.execute("workspace_status", JSONObject(), internetAllowed)
+                }.getOrElse { "Falha ao verificar o estado do compilador: ${it.message}" }
+            }
             !hasExternalLinkRequest && looksLikeTerminalHelp(lastUser) -> {
                 onToolStatus("Conectando ao terminal local para diagnosticar o problema…")
                 val status = runCatching { tools.execute("terminal_read", JSONObject().put("command", "status"), internetAllowed) }
@@ -1319,6 +1325,23 @@ class AssistantAgent(
             "procure repositório", "procure repositorio", "busque repositório", "busque repositorio",
             "pesquise repositório", "pesquise repositorio", "pesquise no github", "busque no github",
             "procure no github", "pesquise repositórios", "pesquise repositorios"
+        ).any { it in t }
+    }
+
+    private fun looksLikeLocalApkBuildRequest(text: String): Boolean {
+        val t = text.lowercase(Locale.ROOT)
+        if (listOf(
+                "como ", "como faço", "como faco", "como faço para", "como faco para",
+                "o que é", "o que e", "por que", "me explique", "explique como"
+            ).any { it in t }) return false
+        return listOf(
+            "compile o projeto", "compila o projeto", "compilar o projeto",
+            "compile esse projeto", "compile este projeto", "compile meu projeto",
+            "compilar meu projeto", "compilar esse projeto", "compilar este projeto",
+            "gere o apk", "gera o apk", "gerar o apk", "crie o apk", "criar o apk",
+            "compile o apk", "compilar o apk", "compilar apk", "compile apk",
+            "build apk", "faça o build", "faca o build", "gerar apk do projeto",
+            "gere apk do projeto", "transforme em apk"
         ).any { it in t }
     }
 
