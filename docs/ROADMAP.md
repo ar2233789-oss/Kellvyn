@@ -21,7 +21,7 @@
 - [ ] Obter uma resposta real com modelo compatível no Poco F6.
 - [ ] Medir RAM, tempo, aquecimento e qualidade.
 - [ ] Validar alternância entre modo local e modo online opcional.
-- [x] Ciclo limitado de ferramentas no chat para consultar workspace/terminal, pesquisar arquivos e usar web search quando o modo online está ativo; ações de escrita/exclusão exigem aprovação.
+- [x] Ciclo limitado de ferramentas no chat para consultar workspace/terminal, pesquisar arquivos e usar web search quando a permissão separada de internet estiver ativa; ações de escrita/exclusão exigem aprovação.
 - [ ] Melhorar avaliação de planos multi-etapas, recuperação de erro e confirmação de resultado no próprio aparelho.
 
 ## Fase 3 — Construtor de aplicativos
