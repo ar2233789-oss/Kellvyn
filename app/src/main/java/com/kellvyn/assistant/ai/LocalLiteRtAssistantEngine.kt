@@ -240,7 +240,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 if (!directory.exists() && !directory.mkdirs()) {
                     throw IllegalStateException("Não foi possível criar a pasta privada do modelo.")
                 }
-                recoverPreviousModelFile(backup)
+                recoverPreviousModelFile(modelFile, backup)
                 if (temporary.exists() && !temporary.delete()) {
                     throw IllegalStateException("Não foi possível limpar um download anterior interrompido.")
                 }
@@ -336,7 +336,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 }
                 result
             } else {
-                val restoreError = runCatching { restorePreviousModel(backup) }.exceptionOrNull()
+                val restoreError = runCatching { restorePreviousModel(modelFile, backup) }.exceptionOrNull()
                 if (restoreError == null) result
                 else AssistantResult.Failure(
                     "${result.reason}; também não consegui restaurar o arquivo do modelo anterior: ${restoreError.message}"
@@ -353,6 +353,118 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             AssistantResult.Failure(
                 if (restoreError == null) detail
                 else "$detail A restauração do modelo anterior também falhou: ${restoreError.message}"
+            )
+        }
+    }
+
+    /** Downloads the quantized Qwen coder model into a separate slot so the light model remains available. */
+    suspend fun downloadCoderModel(
+        onProgress: (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> }
+    ): AssistantResult {
+        val temporary = File(modelDirectory, "qwen-coder.download")
+        val backup = File(modelDirectory, "qwen-coder.previous")
+        return try {
+            val downloadedModel = withContext(Dispatchers.IO) {
+                if (!modelDirectory.exists() && !modelDirectory.mkdirs()) {
+                    throw IllegalStateException("Não foi possível preparar a pasta privada dos modelos.")
+                }
+                recoverPreviousModelFile(coderModelFile, backup)
+                if (temporary.exists() && !temporary.delete()) {
+                    throw IllegalStateException("Não foi possível limpar um download Qwen interrompido.")
+                }
+
+                val connection = (URL(CODER_MODEL_URL).openConnection() as HttpsURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = CONNECT_TIMEOUT_MS
+                    readTimeout = DOWNLOAD_READ_TIMEOUT_MS
+                    instanceFollowRedirects = true
+                    useCaches = false
+                    setRequestProperty("User-Agent", "Kellvyn-IA-Android")
+                    setRequestProperty("Accept", "application/octet-stream")
+                }
+                try {
+                    val responseCode = connection.responseCode
+                    require(responseCode in 200..299) {
+                        "A fonte Qwen respondeu HTTP $responseCode."
+                    }
+                    val declaredLength = connection.contentLengthLong
+                    require(declaredLength <= MAX_CODER_MODEL_BYTES) {
+                        "O servidor informou um modelo maior que o limite de 1,4 GB."
+                    }
+                    val totalForProgress = if (declaredLength > 0L) declaredLength else 1_120_000_000L
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    var downloaded = 0L
+                    var lastProgress = 0L
+                    connection.inputStream.buffered().use { input ->
+                        FileOutputStream(temporary).buffered().use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                if (count == 0) continue
+                                downloaded += count
+                                require(downloaded <= MAX_CODER_MODEL_BYTES) {
+                                    "O download Qwen excedeu o limite de 1,4 GB e foi interrompido."
+                                }
+                                digest.update(buffer, 0, count)
+                                output.write(buffer, 0, count)
+                                if (downloaded - lastProgress >= PROGRESS_UPDATE_BYTES) {
+                                    onProgress(downloaded, totalForProgress)
+                                    lastProgress = downloaded
+                                }
+                            }
+                        }
+                    }
+                    require(downloaded >= 1_000_000_000L) {
+                        "O modelo Qwen está incompleto: o arquivo recebido é pequeno demais."
+                    }
+                    val actualHash = digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+                    require(actualHash.equals(CODER_MODEL_SHA256, ignoreCase = true)) {
+                        "A verificação SHA-256 do modelo Qwen falhou. O arquivo baixado foi descartado."
+                    }
+                    onProgress(downloaded, downloaded)
+
+                    if (backup.exists() && !backup.delete()) {
+                        throw IllegalStateException("Não foi possível limpar o backup do modelo Qwen.")
+                    }
+                    val hadPrevious = coderModelFile.exists()
+                    if (hadPrevious && !coderModelFile.renameTo(backup)) {
+                        throw IllegalStateException("Não foi possível preservar o modelo Qwen já instalado.")
+                    }
+                    if (!temporary.renameTo(coderModelFile)) {
+                        if (hadPrevious && backup.exists() && !backup.renameTo(coderModelFile)) {
+                            throw IllegalStateException("Não foi possível finalizar o Qwen nem restaurar a versão anterior.")
+                        }
+                        throw IllegalStateException("Não foi possível finalizar o arquivo do modelo Qwen.")
+                    }
+                    coderModelFile
+                } finally {
+                    connection.disconnect()
+                }
+            }
+
+            val result = loadModel(downloadedModel)
+            if (result is AssistantResult.Success) {
+                withContext(Dispatchers.IO) {
+                    if (backup.exists()) backup.delete()
+                }
+                result
+            } else {
+                val restoreError = runCatching { restorePreviousModel(coderModelFile, backup) }.exceptionOrNull()
+                if (restoreError == null) result
+                else AssistantResult.Failure(
+                    "${result.reason}; falhou também a restauração do Qwen anterior: ${restoreError.message}"
+                )
+            }
+        } catch (e: Exception) {
+            val restoreError = runCatching {
+                withContext(Dispatchers.IO) { temporary.delete() }
+                if (backup.exists()) restorePreviousModel(coderModelFile, backup)
+            }.exceptionOrNull()
+            val detail = e.message ?: "Falha ao baixar o modelo programador Qwen."
+            AssistantResult.Failure(
+                if (restoreError == null) detail
+                else "$detail A restauração do Qwen anterior também falhou: ${restoreError.message}"
             )
         }
     }
