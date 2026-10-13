@@ -490,18 +490,6 @@ fun KellvynApp() {
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text(if (internetToolsEnabled) "Desativar acesso à internet das ferramentas" else "Permitir pesquisa na internet") },
-                        onClick = {
-                            showQuickMenu = false
-                            internetToolsEnabled = !internetToolsEnabled
-                            status = if (internetToolsEnabled) {
-                                "Pesquisa web habilitada para este chat. Consultas e páginas são enviadas à internet; o modelo local continua rodando neste aparelho."
-                            } else {
-                                "Acesso à internet das ferramentas desligado. O agente só pode usar recursos locais."
-                            }
-                        }
-                    )
-                    DropdownMenuItem(
                         text = { Text("Carregar modelo local (.litertlm)") },
                         onClick = { showQuickMenu = false; modelPicker.launch(arrayOf("*/*")) }
                     )
