@@ -59,7 +59,6 @@ dependencies {
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.7.1.202607240634-r")
     implementation("org.eclipse.jdt:ecj:3.38.0")
-    implementation("io.github.itsaky:nb-javac-android:17.0.0.3")
     implementation("com.android.tools:r8:9.3.19")
     implementation("com.android.tools.build:apksig:9.3.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
