@@ -93,12 +93,13 @@ class AgentToolRouter(
     }
 
     fun approvalRequired(name: String): Boolean = name in setOf(
-        "terminal_command", "write_file", "delete_file", "delete_project"
+        "terminal_command", "write_file", "patch_file", "delete_file", "delete_project"
     )
 
     fun approvalSummary(name: String, args: JSONObject): String = when (name) {
         "terminal_command" -> "Executar no terminal local: ${args.optString("command")}"
-        "write_file" -> "Gravar/alterar o arquivo ${args.optString("path")} no projeto ${args.optString("project_id")}"
+        "write_file" -> "Gravar/substituir o arquivo ${args.optString("path")} no projeto ${args.optString("project_id")}"
+        "patch_file" -> "Aplicar alteração pontual em ${args.optString("path")} no projeto ${args.optString("project_id")}: de '${args.optString("old_text").take(100)}' para '${args.optString("new_text").take(100)}'"
         "delete_file" -> "Apagar o arquivo ${args.optString("path")} do projeto ${args.optString("project_id")}"
         "delete_project" -> "Apagar o projeto ${args.optString("project_id")} e seus arquivos locais"
         else -> "Autorizar ferramenta $name"
@@ -118,6 +119,12 @@ class AgentToolRouter(
                     required(args, "project_id"),
                     required(args, "path"),
                     required(args, "content")
+                )
+                "patch_file" -> patchFile(
+                    required(args, "project_id"),
+                    required(args, "path"),
+                    required(args, "old_text"),
+                    args.optString("new_text")
                 )
                 "delete_file" -> deleteFile(required(args, "project_id"), required(args, "path"))
                 "delete_project" -> deleteProject(required(args, "project_id"))
@@ -274,6 +281,29 @@ class AgentToolRouter(
         }
         val updated = workspace.addOrReplaceFiles(projectId, listOf(ProjectFileInput(path, content)))
         return "Arquivo gravado localmente: $projectId/$path. Total de arquivos do projeto: ${updated.fileCount}."
+    }
+
+    private fun patchFile(projectId: String, path: String, oldText: String, newText: String): String {
+        require(oldText.isNotEmpty()) { "O trecho antigo não pode estar vazio." }
+        require(oldText.length <= MAX_PATCH_CHARS && newText.length <= MAX_PATCH_CHARS) {
+            "Cada trecho de patch está limitado a $MAX_PATCH_CHARS caracteres."
+        }
+        val current = workspace.readFile(projectId, path)
+        require(current.length <= MAX_PATCH_FILE_CHARS) {
+            "O arquivo é grande demais para patch textual automático; leia trechos menores ou edite pelo Editor."
+        }
+        val firstIndex = current.indexOf(oldText)
+        require(firstIndex >= 0) { "O trecho antigo não foi encontrado no arquivo; nenhum conteúdo foi alterado." }
+        require(current.indexOf(oldText, firstIndex + oldText.length) < 0) {
+            "O trecho antigo aparece mais de uma vez. Envie um contexto mais específico para evitar alterar o lugar errado."
+        }
+        val updatedContent = buildString(current.length - oldText.length + newText.length) {
+            append(current, 0, firstIndex)
+            append(newText)
+            append(current, firstIndex + oldText.length, current.length)
+        }
+        workspace.addOrReplaceFiles(projectId, listOf(ProjectFileInput(path, updatedContent)))
+        return "Patch aplicado e gravado localmente em $projectId/$path. Trecho substituído uma única vez; tamanho final: ${updatedContent.length} caracteres."
     }
 
     private fun deleteFile(projectId: String, path: String): String {
