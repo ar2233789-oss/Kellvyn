@@ -806,10 +806,10 @@ class AssistantAgent(
                 "Não acessei o repositório do GitHub porque a permissão de internet das ferramentas está desligada. Ative-a no seletor do chat para listar os arquivos."
             }
             githubRepositoryRequest != null -> {
-                onToolStatus("Listando arquivos do repositório público do GitHub…")
-                "Árvore de arquivos do repositório: " + runCatching {
-                    tools.execute("github_tree", githubRepositoryRequest, internetAllowed)
-                }.getOrElse { "Falha ao listar o repositório: ${it.message}" }
+                onToolStatus("Explorando a estrutura do repositório público do GitHub…")
+                runCatching {
+                    inspectGithubRepository(githubRepositoryRequest, lastUser, internetAllowed)
+                }.getOrElse { "Falha ao inspecionar o repositório: ${it.message}" }
             }
             localFileListRequest != null -> {
                 onToolStatus("Listando arquivos do projeto diretamente no workspace…")
@@ -943,6 +943,54 @@ class AssistantAgent(
             }
             else -> last
         }
+    }
+
+    private suspend fun inspectGithubRepository(
+        request: JSONObject,
+        userRequest: String,
+        internetAllowed: Boolean
+    ): String {
+        val repository = request.optString("repository")
+        val treeText = tools.execute("github_tree", request, internetAllowed)
+        val tree = runCatching { JSONObject(treeText) }.getOrNull()
+            ?: return "Árvore do GitHub: $treeText"
+        val files = tree.optJSONArray("files") ?: JSONArray()
+        val paths = (0 until files.length()).mapNotNull { index ->
+            files.optJSONObject(index)?.optString("path")?.takeIf { it.isNotBlank() }
+        }
+        val summary = buildString {
+            appendLine("Repositório público: $repository")
+            appendLine("Branch: ${tree.optString("ref")}")
+            appendLine("Total de arquivos de código/texto encontrados: ${tree.optInt("source_file_count")}")
+            appendLine("Caminhos listados:")
+            paths.take(45).forEach { appendLine("- $it") }
+            if (tree.optBoolean("truncated") || paths.size > 45) appendLine("… lista parcial")
+        }
+        val lower = userRequest.lowercase(Locale.ROOT)
+        val wantsOverview = listOf(
+            "analise", "analisar", "analisa", "explore", "explorar", "entenda o projeto",
+            "explique este projeto", "explique esse projeto", "visão geral", "visao geral",
+            "arquitetura do repo", "arquitetura do repositório", "arquitetura do repositorio"
+        ).any { it in lower }
+        if (!wantsOverview) return summary
+
+        val readme = paths.firstOrNull {
+            it.equals("README.md", true) || it.equals("README", true) ||
+                it.equals("README.rst", true) || it.equals("README.txt", true)
+        } ?: return "$summary\nNão encontrei um README na lista de caminhos; a estrutura acima é a evidência disponível."
+        onToolStatus("Lendo o README público para entender o repositório…")
+        val readmeText = tools.execute(
+            "github_file",
+            JSONObject()
+                .put("repository", repository)
+                .put("path", readme)
+                .put("ref", tree.optString("ref").ifBlank { "default" }),
+            internetAllowed
+        )
+        val readmeJson = runCatching { JSONObject(readmeText) }.getOrNull()
+        val readmeContent = readmeJson?.optString("content").orEmpty()
+        return summary + "\nREADME ($readme):\n" +
+            if (readmeContent.isBlank()) readmeText.take(2_500) else readmeContent.take(4_000)
     }
 
     private fun extractExplicitPageUrl(text: String): String? {
