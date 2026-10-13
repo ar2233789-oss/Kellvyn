@@ -42,6 +42,7 @@ import com.kellvyn.assistant.data.UserMemoryStore
 import com.kellvyn.assistant.workspace.AppBuilderAgent
 import com.kellvyn.assistant.workspace.AppBuildResult
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
+import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.WorkspaceProject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -54,6 +55,7 @@ private val Muted = Color(0xFF9AA8BA)
 private val Warning = Color(0xFFFFC857)
 private const val MAX_CONTEXT_MESSAGES = 24
 private const val MAX_INPUT_CHARS = 12_000
+private const val MAX_EDITOR_CHARS = 80_000
 
 data class ChatMessage(val text: String, val fromUser: Boolean)
 
@@ -95,6 +97,13 @@ fun KellvynApp() {
     val savedMemories = remember(memoryStore) { mutableStateListOf<MemoryFact>().apply { addAll(memoryStore.list()) } }
     var showBuilderDialog by remember { mutableStateOf(false) }
     var showProjectsDialog by remember { mutableStateOf(false) }
+    var showEditorDialog by remember { mutableStateOf(false) }
+    var activeEditProject by remember { mutableStateOf<WorkspaceProject?>(null) }
+    var editablePaths by remember { mutableStateOf(emptyList<String>()) }
+    var activeFilePath by remember { mutableStateOf("") }
+    var editorContent by remember { mutableStateOf("") }
+    var editorStatus by remember { mutableStateOf("") }
+    var isSavingFile by remember { mutableStateOf(false) }
     var builderBrief by remember { mutableStateOf("") }
     var isBuildingProject by remember { mutableStateOf(false) }
     var builderMessage by remember { mutableStateOf("") }
@@ -614,10 +623,31 @@ fun KellvynApp() {
                                         if (project.description.isNotBlank()) {
                                             Text(project.description, color = Muted, fontSize = 11.sp, maxLines = 3)
                                         }
-                                        TextButton(onClick = {
-                                            pendingExportProject = project
-                                            zipExportPicker.launch("${project.id}.zip")
-                                        }) { Text("Exportar ZIP") }
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            TextButton(onClick = {
+                                                try {
+                                                    val paths = workspaceStore.listFiles(project.id)
+                                                    activeEditProject = project
+                                                    editablePaths = paths
+                                                    activeFilePath = paths.firstOrNull().orEmpty()
+                                                    editorContent = if (activeFilePath.isNotBlank()) {
+                                                        workspaceStore.readFile(project.id, activeFilePath).take(MAX_EDITOR_CHARS)
+                                                    } else ""
+                                                    editorStatus = if (activeFilePath.isBlank()) "Projeto sem arquivos editáveis." else ""
+                                                    showProjectsDialog = false
+                                                    showEditorDialog = true
+                                                } catch (e: Exception) {
+                                                    status = "Não foi possível abrir o editor: " + (e.message ?: e.javaClass.simpleName)
+                                                }
+                                            }) { Text("Editor") }
+                                            TextButton(onClick = {
+                                                pendingExportProject = project
+                                                zipExportPicker.launch("${project.id}.zip")
+                                            }) { Text("Exportar ZIP") }
+                                        }
                                     }
                                 }
                             }
