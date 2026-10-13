@@ -22,10 +22,12 @@ internal object GeneratedAndroidProjectValidator {
         if (!Regex("""include\s*\(\s*["']:app["']\s*\)""").containsMatchIn(settings)) {
             problems += "settings.gradle.kts precisa incluir o módulo :app"
         }
-        if ("8.7.3" !in rootBuild || "org.jetbrains.kotlin.android" !in rootBuild ||
-            "org.jetbrains.kotlin.plugin.compose" !in rootBuild || "2.0.21" !in rootBuild
+        if (AndroidBuildVersions.ANDROID_GRADLE_PLUGIN !in rootBuild ||
+            "org.jetbrains.kotlin.android" !in rootBuild ||
+            "org.jetbrains.kotlin.plugin.compose" !in rootBuild ||
+            AndroidBuildVersions.KOTLIN !in rootBuild
         ) {
-            problems += "build.gradle.kts precisa declarar AGP 8.7.3 e os plugins Kotlin/Compose 2.0.21 compatíveis"
+            problems += "build.gradle.kts precisa declarar AGP ${AndroidBuildVersions.ANDROID_GRADLE_PLUGIN} e os plugins Kotlin/Compose ${AndroidBuildVersions.KOTLIN} compatíveis"
         }
 
         val namespace = Regex("""namespace\s*=\s*["']([^"']+)["']""")
@@ -38,14 +40,14 @@ internal object GeneratedAndroidProjectValidator {
         if (applicationId != "com.example.app") {
             problems += "applicationId precisa ser com.example.app"
         }
-        if (!Regex("""compileSdk\s*=\s*35\b""").containsMatchIn(appBuild) ||
-            !Regex("""targetSdk\s*=\s*35\b""").containsMatchIn(appBuild) ||
-            !Regex("""minSdk\s*=\s*26\b""").containsMatchIn(appBuild)
+        if (!Regex("""compileSdk\s*=\s*${AndroidBuildVersions.COMPILE_SDK}\b""").containsMatchIn(appBuild) ||
+            !Regex("""targetSdk\s*=\s*${AndroidBuildVersions.TARGET_SDK}\b""").containsMatchIn(appBuild) ||
+            !Regex("""minSdk\s*=\s*${AndroidBuildVersions.MIN_SDK}\b""").containsMatchIn(appBuild)
         ) {
-            problems += "app/build.gradle.kts precisa usar compileSdk/targetSdk 35 e minSdk 26"
+            problems += "app/build.gradle.kts precisa usar compileSdk/targetSdk ${AndroidBuildVersions.COMPILE_SDK} e minSdk ${AndroidBuildVersions.MIN_SDK}"
         }
-        if ("compose-bom:2024.12.01" !in appBuild ||
-            "activity-compose:1.10.0" !in appBuild ||
+        if ("compose-bom:${AndroidBuildVersions.COMPOSE_BOM}" !in appBuild ||
+            "activity-compose:${AndroidBuildVersions.ACTIVITY_COMPOSE}" !in appBuild ||
             "org.jetbrains.kotlin.plugin.compose" !in appBuild
         ) {
             problems += "faltam dependências/plugins básicos de Jetpack Compose"
