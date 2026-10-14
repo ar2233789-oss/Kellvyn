@@ -198,7 +198,7 @@ class LocalCompilerAgentIntegrationTest {
             val node = Regex("<node\\b[^>]*/?>").findAll(xml)
                 .firstOrNull { it.value.contains("content-desc=\"" + description + "\"") }
                 ?: return null
-            val match = Regex("bounds=\\\"\\\\[(\\\\d+),(\\\\d+)\\\\]\\\\[(\\\\d+),(\\\\d+)\\\\]\\\"").find(node.value)
+            val match = Regex("""\[(\d+),(\d+)\]\[(\d+),(\d+)\]""").find(node.value)
                 ?: return null
             val x = (match.groupValues[1].toInt() + match.groupValues[3].toInt()) / 2
             val y = (match.groupValues[2].toInt() + match.groupValues[4].toInt()) / 2
@@ -243,7 +243,7 @@ class LocalCompilerAgentIntegrationTest {
                     requiredSourceMarkers.forEachIndexed { index, item ->
                         if (!item.second.containsMatchIn(source)) failures.add(title + " — fonte sem requisito: " + item.first)
                     }
-                    originalLicense = compiler.hasAcceptedSdkLicense()
+                    if (originalLicense == null) originalLicense = compiler.hasAcceptedSdkLicense()
                     compiler.acceptSdkLicense()
                     var outcome = compiler.build(project.id)
                     if (outcome is LocalApkBuildResult.Failure) {
