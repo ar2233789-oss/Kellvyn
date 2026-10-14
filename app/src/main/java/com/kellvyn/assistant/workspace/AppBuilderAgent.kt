@@ -411,12 +411,14 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 rules += "CONTROLES: todos os botões têm setOnClickListener e alteram estado visível. Inclua iniciar/pausar/reiniciar, feedback de vida/pontuação e controle de movimento/ação apropriado ao jogo. Não deixe botões decorativos sem comportamento."
                 if (listOf("chuva", "rain", "tempestade", "clima").any { it in value }) {
                     rules += "MECÂNICA DE CHUVA: desenhe gotas como partículas com posição e velocidade, atualize-as por quadro e redesenhe o Canvas; o controle de chuva liga/desliga a simulação e o seletor de intensidade muda a quantidade/velocidade. Mostre no HUD o estado real da chuva."
+                    rules += "CONTROLES ACESSÍVEIS E TESTÁVEIS: use contentDescription exatos rain_toggle no botão de chuva, rain_intensity no controle de intensidade, rain_status no TextView de estado (texto Chuva: ligada/desligada), rain_intensity_status no texto de intensidade, game_pause no botão de pausa, game_restart no reinício e game_status no estado da partida. Atualize os textos após cada toque; não mostre só um toast."
                 }
                 rules += "Sem arquivos gráficos binários: produza uma identidade visual original com Canvas, gradientes e formas nativas. Não afirme que criou ou importou imagens de referência."
             }
             val isMusic = listOf("música", "musica", "player musical", "reprodutor de música", "reprodutor musical", "music player", "áudio local", "audio local").any { it in value }
             if (isMusic) {
                 rules += "PERFIL PLAYER MUSICAL: use ACTION_OPEN_DOCUMENT com CATEGORY_OPENABLE para selecionar áudio do aparelho sem pedir acesso geral ao armazenamento; mantenha a URI escolhida e trate cancelamento/arquivo inválido."
+                rules += "CONTROLES ACESSÍVEIS E TESTÁVEIS: use contentDescription exatos choose_audio no seletor de arquivo, play_pause no botão de reprodução, playback_position no SeekBar e track_status no estado atual. Sem faixa selecionada, Play/Pause deve informar o estado e não quebrar; o seletor precisa abrir o picker do Android."
                 rules += "Implemente reprodução local real com android.media.MediaPlayer, Play/Pause, parada/limpeza no ciclo de vida, SeekBar de posição e nome/duração da faixa. Botões anterior/próxima precisam alterar a faixa selecionada ou ficar desativados quando não houver fila; não finja que está tocando quando não há áudio."
                 rules += "Estilo visual pesado e original: fundo quase preto, acentos verde ácido e azul elétrico, tipografia de alto contraste, barras de nível e controles grandes. Não use bibliotecas externas nem faixas protegidas embutidas."
             }
