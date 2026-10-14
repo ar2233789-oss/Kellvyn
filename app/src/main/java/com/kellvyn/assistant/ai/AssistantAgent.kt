@@ -915,7 +915,8 @@ class AssistantAgent(
         conversation: List<AssistantTurn>,
         internetAllowed: Boolean,
         onToolStatus: (String) -> Unit = {},
-        requestApproval: suspend (String) -> Boolean
+        requestApproval: suspend (String) -> Boolean,
+        terminalAllowed: Boolean = false
     ): AssistantResult {
         val turns = conversation.toMutableList()
         val systemIndex = turns.indexOfFirst { it.role == AssistantTurn.Role.SYSTEM }
