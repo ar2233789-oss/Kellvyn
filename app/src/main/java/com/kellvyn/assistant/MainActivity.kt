@@ -1240,9 +1240,8 @@ fun KellvynApp() {
                             maxLines = 1
                         )
 
-                        IconButton(
-                            enabled = !isGenerating,
-                            onClick = {
+                        Box(
+                            modifier = Modifier.size(34.dp).clickable(enabled = !isGenerating) {
                                 if (!SpeechRecognizer.isRecognitionAvailable(context)) {
                                     status = "O reconhecimento de voz não está disponível neste aparelho."
                                 } else {
@@ -1258,8 +1257,8 @@ fun KellvynApp() {
                                     }
                                 }
                             },
-                            modifier = Modifier.size(34.dp)
-                        ) { Text("🎙", fontSize = 15.sp) }
+                            contentAlignment = Alignment.Center
+                        ) { Text("🎙", fontSize = 15.sp, color = accentColor) }
 
                         Spacer(Modifier.weight(1f))
 
