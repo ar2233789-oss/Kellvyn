@@ -31,7 +31,6 @@ import com.kellvyn.assistant.MainActivity
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
-import com.kellvyn.assistant.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -71,7 +70,6 @@ class FloatingAssistantService : Service() {
         }
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
-        engine.loadSavedModel()
         showBubble()
     }
 
@@ -281,7 +279,7 @@ class FloatingAssistantService : Service() {
     private fun rounded(color: Int, stroke: Int, radius: Float, strokeWidth: Int) =
         GradientDrawable().apply {
             setColor(color)
-            cornerRadius = dp(radius.toInt())
+            cornerRadius = dp(radius.toInt()).toFloat()
             if (strokeWidth > 0) setStroke(strokeWidth, stroke)
         }
 
@@ -302,7 +300,7 @@ class FloatingAssistantService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Kellvyn flutuante ativo")
             .setContentText("A bolinha de ajuda rápida está ativa. Toque nela para usar.")
             .setOngoing(true)

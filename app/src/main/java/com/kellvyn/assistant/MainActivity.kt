@@ -900,7 +900,7 @@ fun KellvynApp() {
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().background(Night).padding(horizontal = 10.dp, vertical = 4.dp)
+            modifier = Modifier.fillMaxSize().background(Night).windowInsetsPadding(WindowInsets.safeDrawing).imePadding().padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().height(44.dp),
@@ -1153,13 +1153,6 @@ fun KellvynApp() {
                     },
                     contentAlignment = Alignment.Center
                 ) { Text("</> Edit.", color = if (selectedNav == "Editor") Neon else Muted, fontSize = 9.sp) }
-                Box(
-                    Modifier.weight(1f).fillMaxHeight().clickable {
-                        selectedNav = "Terminal"
-                        showConsoleDialog = true
-                    },
-                    contentAlignment = Alignment.Center
-                ) { Text(">_ Term.", color = if (selectedNav == "Terminal") Neon else Muted, fontSize = 9.sp) }
                 Box(
                     Modifier.weight(1f).fillMaxHeight().clickable {
                         selectedNav = "Git"
@@ -1437,6 +1430,10 @@ fun KellvynApp() {
                                 Text("APPS, BOTS E PROJETOS", color = Neon, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 Text("Catálogo permanente de tudo que o construtor gerou", color = Muted, fontSize = 11.sp)
                             }
+                            TextButton(
+                                onClick = { showAppsDialog = false; showConsoleDialog = true },
+                                contentPadding = PaddingValues(horizontal = 5.dp)
+                            ) { Text(">_ Terminal", color = Neon, fontSize = 10.sp) }
                             TextButton(onClick = { showAppsDialog = false }) { Text("Fechar", color = Color.White) }
                         }
                         if (existingProjects.isEmpty()) {
