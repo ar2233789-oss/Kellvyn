@@ -109,10 +109,53 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             }
             recoverPreviousModelFile(modelFile, File(modelDirectory, "kellvyn-model.previous"))
             recoverPreviousModelFile(coderModelFile, File(modelDirectory, "qwen-coder.previous"))
+            installBundledConversationModelIfAvailable()
             // Partial files are never considered installed models.
             listOf(
                 "kellvyn-model.part", "kellvyn-model.import", "kellvyn-model.download", "qwen-coder.download"
             ).forEach { File(modelDirectory, it).delete() }
+        }
+    }
+
+    /**
+     * Seeds the private model slot from the APK asset on first launch. The packaged
+     * weights are checksum-verified; after this copy all inference runs on-device.
+     * An existing user model is never overwritten.
+     */
+    private fun installBundledConversationModelIfAvailable() {
+        if (modelFile.isFile && modelFile.length() > 0L) return
+        val bundledInput = try {
+            appContext.assets.open("models/kellvyn-model.litertlm")
+        } catch (_: Exception) {
+            // Development builds without the packaging workflow remain installable, but have no bundled model.
+            return
+        }
+        val temporary = File(modelDirectory, "kellvyn-model.bundled")
+        try {
+            bundledInput.use { input ->
+                FileOutputStream(temporary).use { output ->
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        if (count == 0) continue
+                        digest.update(buffer, 0, count)
+                        output.write(buffer, 0, count)
+                    }
+                    output.fd.sync()
+                    val actualHash = digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+                    if (temporary.length() != RECOMMENDED_MODEL_BYTES || !actualHash.equals(RECOMMENDED_MODEL_SHA256, ignoreCase = true)) {
+                        throw IllegalStateException("O modelo integrado no APK não passou na verificação de integridade.")
+                    }
+                }
+            }
+            if (!temporary.renameTo(modelFile)) {
+                throw IllegalStateException("Não foi possível instalar o modelo integrado no armazenamento privado.")
+            }
+        } catch (e: Exception) {
+            temporary.delete()
+            throw IllegalStateException("Não consegui preparar o núcleo local integrado: " + (e.message ?: e.javaClass.simpleName), e)
         }
     }
 
