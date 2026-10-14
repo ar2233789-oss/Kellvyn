@@ -20,16 +20,25 @@ sealed interface AppBuildResult {
  */
 class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
-    suspend fun createProject(engine: AssistantEngine, brief: String): AppBuildResult {
-        val idea = brief.trim()
-        if (idea.length < 12) {
-            return AppBuildResult.Failure("Descreva o aplicativo com pelo menos 12 caracteres.")
-        }
-        if (idea.length > MAX_BRIEF_CHARS) {
-            return AppBuildResult.Failure("A descrição é muito longa. Limite: $MAX_BRIEF_CHARS caracteres.")
-        }
-
-        val prompt = buildString {
+    fun isBotProjectRequest(brief: String): Boolean {
+        val value = brief.lowercase(Locale.ROOT)
+        val hasBotWord = value.split(Regex("[^a-z0-9]+")).any { it == "bot" || it == "bots" }
+        return hasBotWord || listOf(
+            "bot do discord", "bot de discord", "discord bot", "bot para discord",
+            "bot do whatsapp", "bot de whatsapp", "bot para whatsapp", "whatsapp bot",
+            "bot do         val prompt = buildString {
+            if (botProject) {
+                appendLine("TAREFA: criar código-fonte funcional e exportável de um bot para a plataforma do pedido, não um APK Android.")
+                appendLine("O projeto ficará guardado como arquivos editáveis e poderá ser exportado em ZIP; nunca diga que foi hospedado, conectado ou executado.")
+                appendLine("""Retorne apenas JSON válido: {"name":"Nome curto","description":"Resumo","files":[{"path":"README.md","content":"conteúdo completo"}]}""")
+                appendLine("Use Node.js 20+ e JavaScript. Gere package.json, src/index.js, .env.example e README.md, além de no máximo outros arquivos realmente necessários.")
+                appendLine("Para Discord, use conta de BOT oficial e discord.js. Implemente pelo menos o comando slash /ping, tratamento básico de erro e instruções de registro/convite com permissões mínimas. Leia DISCORD_TOKEN apenas de variável de ambiente; nunca automatize conta pessoal/self-bot.")
+                appendLine("Para WhatsApp, use a WhatsApp Business Cloud API oficial da Meta, com webhook GET de verificação, POST para mensagens recebidas e resposta por /messages. Use META_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN, META_APP_SECRET e META_GRAPH_VERSION apenas por ambiente.")
+                appendLine("Para Telegram, use a Bot API oficial e TELEGRAM_BOT_TOKEN. Para outra plataforma, use a API oficial apropriada e documente os pré-requisitos.")
+                appendLine("Não invente credenciais e não inclua tokens reais. Forneça .env.example com valores vazios/PLACEHOLDER, valide entradas e não registre tokens nos logs.")
+                appendLine("O README tem que documentar requisitos reais, dependências, configuração, execução e limitações. O bot precisa de Node.js e credenciais; WhatsApp Cloud precisa de conta empresarial/número registrado e webhook HTTPS público. O Kellvyn não roda Node.js nem mantém esses bots ligados sozinho.")
+                appendLine("Limite total de 12 arquivos e 18.000 caracteres. Escape corretamente o JSON. Nunca retorne arquivos vazios, binários, caminhos absolutos, .git ou .gradle.")
+            } else {
             appendLine("TAREFA: criar um projeto de aplicativo Android nativo utilizável a partir do pedido abaixo.")
             appendLine("Produza somente um objeto JSON válido, sem markdown, sem bloco de código e sem texto antes/depois.")
             appendLine("Esquema obrigatório:")
@@ -45,6 +54,15 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             appendLine("- Crie uma aplicação funcional com controles, validação de entradas e ações reais, não apenas pseudocódigo ou placeholders.")
             appendLine("- Não invente tokens, chaves, APIs privadas, caminhos absolutos nem dependências inexistentes.")
             appendLine("- Não crie WebView. Não use compilação remota, GitHub Actions ou serviços externos de build.")
+            appendLine("- Não inclua binários, gradlew, .git, .gradle ou qualquer caminho absoluto.")
+            appendLine("- Cada item de files deve conter path e content como strings. Escape corretamente quebras de linha, aspas e barras para formar JSON válido.")
+            appendLine("- Prefira no máximo 8 arquivos e aprox. 12.000 caracteres; nunca ultrapasse 12 arquivos e 18.000 caracteres.")
+            appendLine("- Em um pedido grande, implemente uma primeira versão útil e documente as funções no README.")
+            appendLine()
+            appendLine("PEDIDO DO USUÁRIO:")
+            appendLine(idea)
+            }
+        }
             appendLine("- Não inclua binários, gradlew, .git, .gradle ou qualquer caminho absoluto.")
             appendLine("- Cada item de files deve conter path e content como strings. Escape corretamente quebras de linha, aspas e barras para formar JSON válido.")
             appendLine("- Prefira no máximo 8 arquivos e aprox. 12.000 caracteres; nunca ultrapasse 12 arquivos e 18.000 caracteres.")
@@ -224,7 +242,8 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
                 val json = JSONObject(raw.substring(start, end + 1))
                 val name = json.optString("name").trim().ifBlank { "Projeto Kellvyn" }
-                val description = json.optString("description").trim().ifBlank { idea.take(500) }
+                val modelDescription = json.optString("description").trim().ifBlank { idea.take(500) }
+                val description = if (botProject) "Código-fonte de bot exportável; configure credenciais oficiais e runtime conforme README. " + modelDescription else modelDescription
                 val array = json.optJSONArray("files")
                     ?: return@withContext AppBuildResult.Failure("O plano não contém uma lista de arquivos.")
 
@@ -273,15 +292,19 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     )
                 }
                 val normalizedPaths = normalizedPathList.toSet()
-                val required = listOf(
-                    "settings.gradle.kts",
-                    "build.gradle.kts",
-                    "gradle.properties",
-                    "app/build.gradle.kts",
-                    "app/src/main/AndroidManifest.xml",
-                    "app/src/main/java/com/example/app/MainActivity.java",
-                    "README.md"
-                )
+                val required = if (botProject) {
+                    listOf("package.json", "src/index.js", ".env.example", "README.md")
+                } else {
+                    listOf(
+                        "settings.gradle.kts",
+                        "build.gradle.kts",
+                        "gradle.properties",
+                        "app/build.gradle.kts",
+                        "app/src/main/AndroidManifest.xml",
+                        "app/src/main/java/com/example/app/MainActivity.java",
+                        "README.md"
+                    )
+                }
                 val missing = required.filterNot { it in normalizedPaths }
                 if (missing.isNotEmpty()) {
                     return@withContext AppBuildResult.Failure(
@@ -294,11 +317,13 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     )
                 }
 
-                val structuralProblem = GeneratedAndroidProjectValidator.validate(files.associate { it.path.replace('\\', '/') to it.content })
-                if (structuralProblem != null) {
-                    return@withContext AppBuildResult.Failure(
-                        "O projeto gerado falhou na validação estrutural: $structuralProblem"
-                    )
+                if (!botProject) {
+                    val structuralProblem = GeneratedAndroidProjectValidator.validate(files.associate { it.path.replace('\\', '/') to it.content })
+                    if (structuralProblem != null) {
+                        return@withContext AppBuildResult.Failure(
+                            "O projeto gerado falhou na validação estrutural: $structuralProblem"
+                        )
+                    }
                 }
 
                 val project = workspace.createProject(name, description, files)
