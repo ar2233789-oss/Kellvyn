@@ -1,33 +1,25 @@
 # Motor local de IA
 
-O Kellvyn usa a API Kotlin do LiteRT-LM para executar um modelo compatível dentro do Android. Quando o modo LOCAL está selecionado, as mensagens de inferência ficam no aparelho; o modelo é armazenado na pasta privada do app e executado no backend CPU.
+O Kellvyn usa LiteRT-LM para executar o modelo conversacional dentro do Android, no backend CPU. O modelo ativo desta revisão é único e local; o chat não precisa de uma conta, chave ou provedor externo de IA.
 
-## Ativação rápida
+## Como o núcleo inicia
 
-A tela LOCAL oferece o botão **Baixar modelo offline básico (~374 MB)**. Ele baixa e verifica automaticamente o modelo público [SmolLM2-360M-Instruct para LiteRT-LM](https://huggingface.co/litert-community/SmolLM2-360M-Instruct), publicado sob licença Apache-2.0. O arquivo possui cerca de 374 MB e a página do modelo não indica a exigência de login/aceitação de uma licença restrita. O primeiro download precisa de internet; depois de carregado, as mensagens no modo LOCAL são processadas no aparelho.
+- O APK de distribuição inclui o arquivo `models/kellvyn-model.litertlm` (~374 MB).
+- Na primeira abertura, o app copia o modelo para a pasta privada `files/models` e confere tamanho e SHA-256 antes de inicializar o motor.
+- O carregamento acontece em segundo plano. O compositor mostra “Preparando IA” e só indica “IA local” pronta quando o motor confirma que carregou.
+- Se o modelo estiver ausente, corrompido ou incompatível, o app mostra o erro; não deve simular respostas nem afirmar que a IA está pronta.
+- Depois de instalado o APK e copiado o modelo, a inferência conversacional pode funcionar sem rede. A pesquisa web/GitHub é separada e só ocorre quando o usuário pede explicitamente esse acesso no chat.
 
-Esse é um modelo pequeno de entrada: serve para verificar o funcionamento do motor e tarefas simples, mas não deve ser tratado como equivalente a um modelo grande para programação. A integridade do arquivo baixado é verificada por tamanho e SHA-256 antes de ser instalado.
+## Limites atuais
 
-## Modelo programador opcional
+O modelo incluído é leve, voltado a tarefas básicas. Não deve ser tratado como um modelo avançado de programação, nem há garantia de que gere apps complexos sem erros. A qualidade real, o tempo de resposta, o consumo de RAM e o aquecimento ainda precisam ser medidos no Poco F6.
 
-O menu também oferece **Qwen Coder local (~1,12 GB)**: [Qwen2.5-Coder-1.5B-Instruct em LiteRT-LM](https://huggingface.co/litert-community/Qwen2.5-Coder-1.5B-Instruct). O artefato quantizado está publicado sob Apache-2.0, exige LiteRT-LM ≥ 0.16 e tem SHA-256 fixado no app para validar o download. Esse arquivo é separado do modelo leve: depois de instalados os dois, o menu permite alternar entre eles sem baixar de novo. O primeiro download do Qwen consome cerca de 1,12 GB de armazenamento adicional além do modelo leve.
+Esta revisão **não** contém seletor de modelos, downloader de modelos adicionais, importação de arquivos `.litertlm` ou alternância automática para Qwen Coder. A configuração anterior documentava esses recursos, mas o código ativo agora usa apenas o modelo empacotado. Não os apresentar como disponíveis até que voltem a ser implementados e testados.
 
-O Qwen é uma opção com foco em código, mas **não foi testado no Poco F6 deste projeto**; não é possível garantir velocidade, temperatura ou RAM no aparelho. Se a memória ficar insuficiente ou o carregamento falhar, use novamente o modelo leve no mesmo menu. A troca preserva o outro arquivo instalado.
+## Privacidade e comportamento
 
-## Carregar outro modelo
-
-1. Baixe um arquivo .litertlm compatível com a versão LiteRT-LM usada no aplicativo.
-2. Toque em **Selecionar modelo local (.litertlm)** e escolha o arquivo no seletor do Android.
-3. Aguarde a cópia e inicialização. O status deve confirmar o carregamento antes de enviar mensagens.
-4. A tela mostra o tamanho do modelo salvo e permite removê-lo para liberar espaço.
-
-Uma opção maior é o [Gemma 3 1B IT quantizado](https://huggingface.co/litert-community/Gemma3-1B-IT), aproximadamente 584 MB. Esse repositório pode exigir login e aceitação de condições/licença da Gemma antes do download. A compatibilidade e o desempenho de qualquer modelo maior ainda precisam ser testados no Poco F6 real.
-
-## Privacidade e limitações
-
-- As conversas e memórias explícitas ficam no armazenamento privado local. O backup Android está desativado para os dados do app.
-- No modo LOCAL, a inferência não envia prompts a um servidor.
-- No modo ONLINE, o texto da conversa e as memórias relevantes são enviados ao endpoint HTTPS configurado pelo usuário; isso pode envolver custos e termos do provedor.
-- A entrada por voz depende de um serviço de reconhecimento instalado no Android. A saída “Ouvir” depende de uma voz em português disponível no serviço TTS do aparelho.
-- Arquivos .litertlm de modelos diferentes não são intercambiáveis só por causa da extensão; o arquivo precisa ser realmente compatível.
-- Uma compilação de sucesso não substitui testes de instalação, memória, aquecimento, desempenho e geração real no dispositivo físico.
+- Conversas e memórias explícitas ficam no armazenamento privado local do aplicativo.
+- O texto do chat não é encaminhado a um endpoint de IA externo.
+- Se o usuário pedir pesquisa na web/GitHub ou uma ação sobre um link, o agente pode consultar o site solicitado. Esse acesso externo não troca o motor conversacional local por um provedor online.
+- A interface não deve mostrar seletor de provedor externo, pedido de configuração de endpoint ou botões de áudio sem ação funcional.
+- Uma compilação Android bem-sucedida não substitui testes de inicialização, conversa, instalação e desempenho no aparelho físico.
