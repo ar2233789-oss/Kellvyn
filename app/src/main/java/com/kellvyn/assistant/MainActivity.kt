@@ -12,6 +12,7 @@ import android.os.Build
 import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -188,6 +189,8 @@ fun KellvynApp() {
     val uiPreferences = remember(context) { context.getSharedPreferences("kellvyn_ui", Context.MODE_PRIVATE) }
     var accentHex by remember(uiPreferences) { mutableStateOf(uiPreferences.getString("accent_hex", "#38E6BC") ?: "#38E6BC") }
     val accentColor = remember(accentHex) { Color(android.graphics.Color.parseColor(accentHex)) }
+    var ttsReady by remember { mutableStateOf(false) }
+    var ttsEngine by remember { mutableStateOf<TextToSpeech?>(null) }
     var showAppsDialog by remember { mutableStateOf(false) }
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
     var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
@@ -920,6 +923,26 @@ fun KellvynApp() {
         onDispose { localEngine.close() }
     }
 
+    DisposableEffect(context) {
+        lateinit var created: TextToSpeech
+        created = TextToSpeech(context) { result ->
+            if (result == TextToSpeech.SUCCESS) {
+                val languageResult = created.setLanguage(Locale("pt", "BR"))
+                ttsReady = languageResult != TextToSpeech.LANG_MISSING_DATA &&
+                    languageResult != TextToSpeech.LANG_NOT_SUPPORTED
+            } else {
+                ttsReady = false
+            }
+        }
+        ttsEngine = created
+        onDispose {
+            created.stop()
+            created.shutdown()
+            ttsEngine = null
+            ttsReady = false
+        }
+    }
+
     MaterialTheme(
         colorScheme = darkColorScheme(
             background = Night,
@@ -1084,6 +1107,18 @@ fun KellvynApp() {
                                         Spacer(Modifier.width(4.dp))
                                         Text("Copiar", color = accentColor, fontSize = 10.sp)
                                     }
+                                    TextButton(
+                                        onClick = {
+                                            val engine = ttsEngine
+                                            if (engine != null && ttsReady) {
+                                                engine.speak(message.text.take(3500), TextToSpeech.QUEUE_FLUSH, null, "kellvyn-answer")
+                                                status = "Lendo resposta em voz alta."
+                                            } else {
+                                                status = "A leitura em voz alta não está disponível neste aparelho."
+                                            }
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                    ) { Text("Ouvir", color = accentColor, fontSize = 10.sp) }
                                     TextButton(
                                         onClick = {
                                             pendingFileExportName = "resposta-kellvyn.txt"
