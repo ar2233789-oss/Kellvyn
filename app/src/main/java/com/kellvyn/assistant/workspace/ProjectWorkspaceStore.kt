@@ -39,7 +39,7 @@ class ProjectWorkspaceStore(context: Context) {
     fun getProject(projectId: String): WorkspaceProject? = readProject(projectId)
 
     /**
-     * Exposes only the app-private root folder for the confined local terminal.
+     * Exposes only the app-private root folder for confined local tools.
      * This path must never be passed to a shell or remote service.
      */
     fun workspaceDirectory(): File {
