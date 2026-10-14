@@ -21,8 +21,9 @@ Este documento separa código presente de funções que ainda precisam de build 
 ## Validação pendente — não marcar como concluída sem executar
 
 - [ ] Compilar o próprio Kellvyn a partir de um checkout limpo em ambiente Android local.
-- [ ] Obter e verificar o modelo LiteRT-LM correto para a build. Nesta revisão, `app/src/main/assets/models/kellvyn-model.litertlm` não está presente no repositório; sem resolver isso, não afirmar que o APK anfitrião está pronto.
-- [ ] Instalar e testar o APK anfitrião no Poco F6 real.
+- [x] Adicionar inicialização do modelo local com fallback para download público fixado por revisão, progresso real, tamanho esperado e verificação SHA-256, sem inferência remota.
+- [ ] Testar o primeiro download de aproximadamente 374 MB, cancelamento/falha de rede e reinicialização no Poco F6.
+- [ ] Instalar e testar o APK anfitrião no Poco F6 real, incluindo a transferência inicial do modelo se ele não vier embutido.
 - [ ] Confirmar que o modelo gera respostas reais e medir RAM, tempo, aquecimento e estabilidade.
 - [ ] Confirmar que ditado e leitura em voz alta funcionam em português no aparelho-alvo.
 - [ ] Pedir no chat a criação de um app Java mínimo, deixar o Kellvyn compilá-lo localmente, verificar assinatura/package ID e instalar o APK.
