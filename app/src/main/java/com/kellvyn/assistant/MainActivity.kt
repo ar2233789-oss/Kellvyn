@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import android.net.Uri
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.os.Build
 import android.provider.Settings
@@ -20,6 +22,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -87,7 +96,16 @@ import java.util.UUID
 
 private val Night = Color(0xFF020806)
 private val Panel = Color(0xFF071713)
-private val Neon = Color(0xFF38E6BC)
+private object KellvynAccent {
+    val choice = mutableStateOf("green")
+    fun color(name: String): Color = when (name) {
+        "blue" -> Color(0xFF48A9FF)
+        "purple" -> Color(0xFFBB86FC)
+        "orange" -> Color(0xFFFFA64D)
+        else -> Color(0xFF38E6BC)
+    }
+}
+private val Neon: Color get() = KellvynAccent.color(KellvynAccent.choice.value)
 private val Muted = Color(0xFF91B8AD)
 private val Warning = Color(0xFFFFC857)
 private const val MAX_CONTEXT_MESSAGES = 8
@@ -97,6 +115,16 @@ private const val MAX_AUTOMATIC_BUILD_REPAIRS = 3
 private const val MAX_EDITOR_CHARS = 80_000
 
 /** Only compiler diagnostics tied to Java/D8 source are eligible for the automatic code-repair pass. */
+private fun hasInternetConnection(context: Context): Boolean {
+    return try {
+        val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    } catch (_: Exception) { false }
+}
+
 private fun isRepairableSourceBuildFailure(reason: String): Boolean {
     val value = reason.lowercase(Locale.ROOT)
     return value.contains("erro real da compilação java") ||
@@ -170,6 +198,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun KellvynApp() {
     val context = LocalContext.current.applicationContext
+    val uiPreferences = remember(context) { context.getSharedPreferences("kellvyn_ui_settings", Context.MODE_PRIVATE) }
+    var accentChoice by remember(context) { mutableStateOf(uiPreferences.getString("accent_choice", "green") ?: "green") }
+    var rainUiEnabled by remember(context) { mutableStateOf(uiPreferences.getBoolean("rain_background_enabled", false)) }
+    LaunchedEffect(accentChoice) { KellvynAccent.choice.value = accentChoice }
     val historyStore = remember(context) { ChatHistoryStore(context) }
     val conversationStore = remember(context) { ChatConversationStore(context) }
     val memoryStore = remember(context) { UserMemoryStore(context) }
@@ -189,6 +221,7 @@ fun KellvynApp() {
     var showConsoleDialog by remember { mutableStateOf(false) }
     var showGitDialog by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
+    var showUiSettingsDialog by remember { mutableStateOf(false) }
     var showNavigatorDialog by remember { mutableStateOf(false) }
     var showConversationsDialog by remember { mutableStateOf(false) }
     var showAppsDialog by remember { mutableStateOf(false) }
@@ -605,7 +638,8 @@ fun KellvynApp() {
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsExistingBuild &&
             ChatRequestRouter.shouldBuild(text)
-        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseOnlineTools(text)
+        val internetAllowedThisTurn = hasInternetConnection(context)
+        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseOnlineTools(text) || internetAllowedThisTurn
         isGenerating = true
         streamingReply = ""
         status = if (wantsBuild) {
@@ -715,7 +749,7 @@ fun KellvynApp() {
                         assistantAgent.respond(
                             engine = selectedEngine,
                             conversation = turns,
-                            internetAllowed = ChatRequestRouter.shouldUseOnlineTools(text),
+                            internetAllowed = internetAllowedThisTurn,
                             onToolStatus = { toolStatus -> status = toolStatus },
                             requestApproval = { summary -> requestAgentApproval(summary) }
                         )
@@ -1183,7 +1217,7 @@ fun KellvynApp() {
                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Text(
-                            if (modelReady) "● IA local" else if (isLoadingModel) "◌ Preparando IA" else "IA local indisponível",
+                            if (modelReady) (if (hasInternetConnection(context)) "● IA local + internet" else "● IA local · offline") else if (isLoadingModel) "◌ Preparando IA" else "IA local indisponível",
                             color = if (modelReady) Neon else Muted,
                             fontSize = 10.sp,
                             maxLines = 1
