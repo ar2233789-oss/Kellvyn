@@ -276,6 +276,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             "ultrapassou o limite seguro",
             "json",
             "manifesto de bot inválido",
+            "manifesto de bot telegram inválido",
             "ação não suportada",
             "comandos slash",
             "estrutura"
