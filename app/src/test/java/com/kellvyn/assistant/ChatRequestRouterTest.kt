@@ -83,10 +83,11 @@ class ChatRequestRouterTest {
     }
 
     @Test
-    fun detailedBriefUsesBuildOnlyWhenBuildModeIsSelected() {
+    fun detailedAppBriefUsesTheHiddenBuilderAutomatically() {
         val brief = "Quero um gerenciador de tarefas com tela de login, cadastro de usuários, categorias e busca."
-        assertFalse(ChatRequestRouter.shouldBuild(brief, buildModeSelected = false))
+        assertTrue(ChatRequestRouter.shouldBuild(brief, buildModeSelected = false))
         assertTrue(ChatRequestRouter.shouldBuild(brief, buildModeSelected = true))
         assertFalse(ChatRequestRouter.shouldBuild("Como funciona um app com login e cadastro?", buildModeSelected = true))
+        assertFalse(ChatRequestRouter.shouldBuild("Adicione login ao meu app existente", buildModeSelected = false))
     }
 }
