@@ -3,10 +3,19 @@ package com.kellvyn.assistant.runtime
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
 import org.json.JSONObject
 
-data class DiscordSlashCommand(val name: String, val description: String, val response: String)
+data class DiscordSlashCommand(
+    val name: String,
+    val description: String,
+    val response: String,
+    val action: String
+)
 
 data class DiscordBotDefinition(val displayName: String, val commands: List<DiscordSlashCommand>) {
     companion object {
+        private val supportedActions = setOf(
+            "response", "ping", "current_time", "roll_dice", "coin_flip", "user_name", "server_id", "echo"
+        )
+
         fun load(workspace: ProjectWorkspaceStore, projectId: String, fallbackName: String): DiscordBotDefinition {
             val paths = workspace.listFiles(projectId).toSet()
             require("kellvyn.bot.json" in paths) {
@@ -24,10 +33,16 @@ data class DiscordBotDefinition(val displayName: String, val commands: List<Disc
                 val name = item.optString("name").trim().lowercase()
                 val description = item.optString("description").trim()
                 val response = item.optString("response").trim()
+                val action = item.optString("action", "response").trim().lowercase().ifBlank { "response" }
                 require(name.matches(Regex("[a-z0-9_-]{1,32}"))) { "Nome de comando inválido: $name" }
                 require(description.isNotBlank() && description.length <= 100) { "Descrição inválida para /$name." }
-                require(response.isNotBlank() && response.length <= 1800) { "Resposta vazia ou longa demais para /$name." }
-                DiscordSlashCommand(name, description, response)
+                require(action in supportedActions) { "Ação não suportada pelo runtime nativo: $action." }
+                if (action == "response") {
+                    require(response.isNotBlank() && response.length <= 1800) {
+                        "Resposta vazia ou longa demais para /$name."
+                    }
+                }
+                DiscordSlashCommand(name, description, response, action)
             }
             require(commands.map { it.name }.distinct().size == commands.size) {
                 "A configuração do bot contém nomes de comandos repetidos."
