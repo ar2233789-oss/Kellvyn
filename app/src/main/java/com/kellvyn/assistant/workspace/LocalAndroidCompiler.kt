@@ -63,9 +63,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 if (Build.VERSION.SDK_INT < 26) {
                     return@withContext LocalApkBuildResult.Failure("O compilador local precisa do Android 8.0 (API 26) ou superior.")
                 }
-                if (!hasAcceptedSdkLicense()) return@withContext LocalApkBuildResult.LicenseRequired
-                report(onProgress, "Preparando as ferramentas locais…")
-                val platform = ensureAndroidPlatform(onProgress)
+                report(onProgress, "Inspecionando o projeto antes de preparar a toolchain…")
                 val projectDir = workspace.projectDirectory(projectId)
                 val javaRoot = File(projectDir, "app/src/main/java")
                 val sources = if (javaRoot.isDirectory) {
@@ -97,6 +95,12 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 val requestedPermissions = Regex(
                     """(?is)<uses-permission\b[^>]*android:name\s*=\s*["']([^"']+)["'][^>]*>"""
                 ).findAll(declaredManifest).map { it.groupValues[1].trim() }.distinct().toList()
+
+                // Validate source structure before requesting license or downloading the Android SDK.
+                // Invalid projects should fail quickly without consuming data or storage.
+                if (!hasAcceptedSdkLicense()) return@withContext LocalApkBuildResult.LicenseRequired
+                report(onProgress, "Preparando as ferramentas locais…")
+                val platform = ensureAndroidPlatform(onProgress)
 
                 val jobDir = File(buildRoot, projectId).apply {
                     if (exists()) deleteRecursively()
