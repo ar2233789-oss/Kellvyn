@@ -31,10 +31,8 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         ).any { it in value }
     }
 
-    fun isDiscordBotRequest(brief: String): Boolean {
-        val value = brief.lowercase(Locale.ROOT)
-        return "discord" in value
-    }
+    fun isDiscordBotRequest(brief: String): Boolean =
+        BotPlatformDetector.isDiscord(brief)
 
     suspend fun createProject(engine: AssistantEngine, brief: String): AppBuildResult {
         val idea = brief.trim()
