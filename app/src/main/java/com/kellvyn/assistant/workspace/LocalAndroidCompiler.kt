@@ -199,8 +199,9 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
         if (androidJar.exists()) androidJar.delete()
         platformDir.mkdirs()
         val archive = File(platformDir, "platform-35.zip")
-        val partial = File(platformDir, "platform-36.zip.part")
-        // Discard any stale archive after an interrupted or invalid attempt.
+        val partial = File(platformDir, "platform-35.zip.part")
+        // Clean the previous name too, in case an older app version left a partial download.
+        File(platformDir, "platform-36.zip.part").delete()
         archive.delete()
         partial.delete()
         report(onProgress, "Baixando a plataforma oficial do Android para a primeira build…")
