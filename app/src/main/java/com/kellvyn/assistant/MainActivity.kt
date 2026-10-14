@@ -71,6 +71,7 @@ import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.WorkspaceProject
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
 import com.kellvyn.assistant.workspace.LocalApkBuildResult
+import com.kellvyn.assistant.workspace.ApkDownloadStore
 import com.kellvyn.assistant.runtime.DiscordBotCredentialsStore
 import com.kellvyn.assistant.runtime.DiscordBotRuntimeService
 import com.kellvyn.assistant.runtime.GeneratedProjectClassifier
@@ -105,7 +106,7 @@ private fun isRepairableSourceBuildFailure(reason: String): Boolean {
         value.contains("cannot fit requested classes in a single dex file")
 }
 
-data class ChatMessage(val text: String, val fromUser: Boolean)
+data class ChatMessage(val text: String, val fromUser: Boolean, val apkPath: String? = null)
 
 private fun projectIconGlyph(project: WorkspaceProject): String {
     val description = (project.name + " " + project.description).lowercase(Locale.ROOT)
@@ -222,6 +223,7 @@ fun KellvynApp() {
     var pendingFileExportContent by remember { mutableStateOf<String?>(null) }
     var pendingFileExportName by remember { mutableStateOf("") }
     var latestBuiltApk by remember(localAndroidCompiler) { mutableStateOf(localAndroidCompiler.mostRecentApk()) }
+    var pendingApkExportFile by remember { mutableStateOf<String?>(null) }
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
     var showSdkLicenseDialog by remember { mutableStateOf(false) }
     var pendingLicenseRepairBrief by remember { mutableStateOf<String?>(null) }
@@ -489,11 +491,11 @@ fun KellvynApp() {
                 latestBuiltApk = result.apk
                 messages.add(
                     ChatMessage(
-                        (if (autoRepaired) "O agente corrigiu o código após o primeiro erro. " else "") +
-                            "APK criado, assinado e verificado no próprio celular. Pacote: " + result.applicationId + ". " +
-                            "Tempo: " + (result.durationMs / 1000.0) + "s. Arquivo: " + result.apk.name + ". " +
-                            "Use o menu superior para instalar o APK.",
-                        false
+                        (if (autoRepaired) "O construtor corrigiu o código após erros de compilação. " else "") +
+                            "APK criado, assinado e verificado localmente. O arquivo está pronto para baixar diretamente nesta conversa. Pacote: " +
+                            result.applicationId + ". Tempo: " + (result.durationMs / 1000.0) + "s. Arquivo: " + result.apk.name + ".",
+                        false,
+                        result.apk.absolutePath
                     )
                 )
                 status = "APK gerado, assinado e verificado localmente."
@@ -544,6 +546,30 @@ fun KellvynApp() {
             } catch (e: Exception) {
                 status = "Não consegui compartilhar a resposta: " + (e.message ?: e.javaClass.simpleName)
             }
+        }
+    }
+
+    fun downloadApkFile(file: File?) {
+        val apk = file?.takeIf { it.isFile && it.length() > 0L }
+        if (apk == null) {
+            status = "O APK compilado não está mais disponível para baixar."
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            scope.launch {
+                try {
+                    status = "Salvando o APK em Downloads/Kellvyn…"
+                    withContext(Dispatchers.IO) {
+                        ApkDownloadStore(context).saveToDownloads(apk)
+                    }
+                    status = "Download concluído: Downloads/Kellvyn/" + apk.name
+                } catch (e: Exception) {
+                    status = "Falha ao salvar o APK: " + (e.message ?: e.javaClass.simpleName)
+                }
+            }
+        } else {
+            pendingApkExportFile = apk.absolutePath
+            apkExportPicker.launch(apk.name)
         }
     }
 
@@ -841,6 +867,29 @@ fun KellvynApp() {
             is AssistantResult.Failure -> {
                 modelReady = false
                 status = result.reason
+            }
+        }
+    }
+
+    val apkExportPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")
+    ) { destination ->
+        val sourcePath = pendingApkExportFile
+        pendingApkExportFile = null
+        if (destination != null && sourcePath != null) {
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        val source = File(sourcePath)
+                        require(source.isFile && source.length() > 0L) { "O APK não está mais disponível." }
+                        context.contentResolver.openOutputStream(destination, "w")?.use { output ->
+                            source.inputStream().buffered().use { input -> input.copyTo(output) }
+                        } ?: throw IllegalStateException("O Android não abriu o destino do APK.")
+                    }
+                    status = "APK salvo no destino escolhido."
+                } catch (e: Exception) {
+                    status = "Falha ao baixar o APK: " + (e.message ?: e.javaClass.simpleName)
+                }
             }
         }
     }
