@@ -9,6 +9,9 @@ on:
 
 permissions:
   contents: read
+concurrency:
+  group: local-compiler-smoke-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   compiler-smoke:
