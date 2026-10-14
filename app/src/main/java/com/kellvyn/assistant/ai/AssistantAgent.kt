@@ -1000,11 +1000,13 @@ class AssistantAgent(
                         }.getOrElse { "Falha ao listar os arquivos do projeto: ${it.message}" }
                     } else ""
                 } else ""
-                "Auditoria inicial para finalizar o trabalho. Estado do workspace: $workspaceState
-Projetos locais: $projectListing
-$focusedFiles
-" +
-                    "Se não houver projeto/fonte disponível, não invente alterações. Se houver vários projetos, peça para escolher antes de editar; não escolha um projeto aleatório."
+                buildString {
+                    appendLine("Auditoria inicial para finalizar o trabalho.")
+                    appendLine("Estado do workspace: $workspaceState")
+                    appendLine("Projetos locais: $projectListing")
+                    if (focusedFiles.isNotBlank()) appendLine(focusedFiles)
+                    append("Se não houver projeto/fonte disponível, não invente alterações. Se houver vários projetos, peça para escolher antes de editar; não escolha um projeto aleatório.")
+                }
             }
             !hasExternalLinkRequest && looksLikeLocalApkBuildRequest(lastUser) -> {
                 val buildArguments = tools.explicitProjectBuildArguments(lastUser)
