@@ -12,6 +12,9 @@ import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.os.Build
 import android.provider.Settings
+import android.provider.OpenableColumns
+import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -64,6 +67,7 @@ import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.reasonOrText
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
+import com.kellvyn.assistant.ai.AssistantAttachmentExtractor
 import com.kellvyn.assistant.data.ChatHistoryStore
 import com.kellvyn.assistant.data.ChatConversationStore
 import com.kellvyn.assistant.data.SavedConversation
@@ -265,6 +269,8 @@ fun KellvynApp() {
     var pendingFileExportName by remember { mutableStateOf("") }
     var latestBuiltApk by remember(localAndroidCompiler) { mutableStateOf(localAndroidCompiler.mostRecentApk()) }
     var pendingApkExportFile by remember { mutableStateOf<String?>(null) }
+    var attachmentBusy by remember { mutableStateOf(false) }
+    var textToSpeechReady by remember { mutableStateOf(false) }
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
     var showSdkLicenseDialog by remember { mutableStateOf(false) }
     var pendingLicenseRepairBrief by remember { mutableStateOf<String?>(null) }
@@ -365,7 +371,7 @@ fun KellvynApp() {
             val saved = selectedConversation?.messages ?: if (conversations.isEmpty()) historyStore.load() else emptyList()
             if (saved.isEmpty()) {
                 add(ChatMessage(
-                    "Kellvyn IA está pronto. O chat principal conversa com o núcleo local; editor e terminal são ferramentas independentes.",
+                    "🤖 Oi! Sou o Kellvyn. Pode conversar comigo ou pedir um app; vou mostrar o que realmente consegui fazer.",
                     false
                 ))
             } else {
@@ -909,6 +915,63 @@ fun KellvynApp() {
                     status = "Falha ao baixar o APK: " + (e.message ?: e.javaClass.simpleName)
                 }
             }
+        }
+    }
+
+    val attachmentPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                attachmentBusy = true
+                try {
+                    val attachmentName = withContext(Dispatchers.IO) {
+                        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+                            ?: "anexo"
+                    }
+                    val extracted = AssistantAttachmentExtractor(context).extract(
+                        uri = uri,
+                        displayName = attachmentName,
+                        declaredMime = context.contentResolver.getType(uri)
+                    )
+                    val header = "\\n\\n[ANEXO: ${extracted.displayName} | método: ${extracted.method}]\\n"
+                    val notice = if (extracted.notice.isBlank()) "" else "Aviso: ${extracted.notice}\\n"
+                    val block = header + notice + extracted.extractedText.take(7_500)
+                    draft = (draft + block).take(MAX_INPUT_CHARS)
+                    status = if (extracted.extractedText.isBlank()) {
+                        "Anexo selecionado, mas não foi extraído texto. Escreva o que deseja analisar."
+                    } else {
+                        "Anexo lido localmente (${extracted.method}). Faça uma pergunta no chat para analisá-lo."
+                    }
+                } catch (e: Exception) {
+                    status = "Não consegui ler o anexo: " + (e.message ?: e.javaClass.simpleName)
+                } finally {
+                    attachmentBusy = false
+                }
+            }
+        }
+    }
+
+    val speechInputLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.trim()
+        if (result.resultCode == Activity.RESULT_OK && !spoken.isNullOrBlank()) {
+            draft = (draft + " " + spoken).trim().take(MAX_INPUT_CHARS)
+            status = "Voz transcrita para a mensagem."
+        }
+    }
+
+    val textToSpeech = remember(context) {
+        TextToSpeech(context) { result ->
+            textToSpeechReady = result == TextToSpeech.SUCCESS
+        }
+    }
+    DisposableEffect(textToSpeech) {
+        onDispose {
+            runCatching { textToSpeech.stop() }
+            runCatching { textToSpeech.shutdown() }
         }
     }
 
