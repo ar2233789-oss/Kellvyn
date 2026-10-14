@@ -508,6 +508,33 @@ fun KellvynApp() {
         }
     }
 
+    fun shareAssistantDocument(messageText: String) {
+        scope.launch {
+            try {
+                val document = withContext(Dispatchers.IO) {
+                    val directory = File(context.cacheDir, "shared").apply {
+                        if (!exists() && !mkdirs()) throw IllegalStateException("Não consegui preparar a pasta temporária.")
+                    }
+                    File(directory, "resposta-kellvyn.txt").apply {
+                        writeText(messageText, Charsets.UTF_8)
+                    }
+                }
+                val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", document)
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "Resposta do Kellvyn IA")
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    clipData = android.content.ClipData.newUri(context.contentResolver, "Resposta do Kellvyn IA", uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(Intent.createChooser(sendIntent, "Enviar documento do Kellvyn").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                status = "Abri o compartilhamento Android para enviar a resposta como arquivo .txt."
+            } catch (e: Exception) {
+                status = "Não consegui compartilhar a resposta: " + (e.message ?: e.javaClass.simpleName)
+            }
+        }
+    }
+
     fun installApkFile(file: File?) {
         val apk = file?.takeIf { it.isFile && it.length() > 0L }
         if (apk == null) {
@@ -989,6 +1016,18 @@ fun KellvynApp() {
                                         Spacer(Modifier.width(4.dp))
                                         Text("Copiar", color = Neon, fontSize = 10.sp)
                                     }
+                                    TextButton(
+                                        onClick = {
+                                            pendingFileExportName = "resposta-kellvyn.txt"
+                                            pendingFileExportContent = message.text
+                                            fileExportPicker.launch(pendingFileExportName)
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                    ) { Text("Baixar", color = Muted, fontSize = 10.sp) }
+                                    TextButton(
+                                        onClick = { shareAssistantDocument(message.text) },
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                    ) { Text("Enviar", color = Neon, fontSize = 10.sp) }
                                 }
                             }
                         }
