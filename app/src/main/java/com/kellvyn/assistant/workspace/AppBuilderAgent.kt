@@ -89,48 +89,84 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         }
 
         return try {
-            when (val response = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, prompt)))) {
-                is AssistantResult.Unavailable -> AppBuildResult.Failure(response.reason)
-                is AssistantResult.Failure -> AppBuildResult.Failure(response.reason)
-                is AssistantResult.Success -> {
-                    val firstAttempt = parseAndSave(response.text, idea)
-                    if (firstAttempt !is AppBuildResult.Failure || !isRecoverableGenerationFailure(firstAttempt.reason)) {
-                        firstAttempt
-                    } else {
-                        val repairPrompt = buildString {
-                            appendLine("A geração anterior não passou pela validação automática do construtor.")
-                            appendLine("Erro detectado: ${firstAttempt.reason}")
-                            appendLine(if (isBotProjectRequest(idea)) "Gere uma versão corrigida completa do projeto de bot para o pedido original abaixo." else "Gere uma versão corrigida completa do projeto Android para o pedido original abaixo.")
-                            appendLine("Retorne SOMENTE JSON válido no esquema definido, sem markdown. Inclua todos os arquivos obrigatórios.")
-                            appendLine("Não descreva o que faria; entregue o conteúdo de cada arquivo.")
-                            appendLine()
-                            appendLine("REGRAS TÉCNICAS E ESQUEMA:")
-                            appendLine(prompt.substringBefore("PEDIDO DO USUÁRIO:"))
-                            appendLine("PEDIDO ORIGINAL DO USUÁRIO:")
-                            appendLine(idea)
-                        }
-                        when (val retry = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, repairPrompt)))) {
-                            is AssistantResult.Unavailable -> AppBuildResult.Failure(
-                                "A primeira geração falhou na validação (${firstAttempt.reason}) e o modelo ficou indisponível na tentativa de correção: ${retry.reason}"
-                            )
-                            is AssistantResult.Failure -> AppBuildResult.Failure(
-                                "A primeira geração falhou na validação (${firstAttempt.reason}); a tentativa automática de correção também falhou: ${retry.reason}"
-                            )
-                            is AssistantResult.Success -> {
-                                val corrected = parseAndSave(retry.text, idea)
-                                if (corrected is AppBuildResult.Failure) {
-                                    AppBuildResult.Failure(
-                                        "O construtor tentou corrigir automaticamente, mas o projeto ainda não passou pela validação. Primeiro erro: ${firstAttempt.reason}. Segunda tentativa: ${corrected.reason}"
-                                    )
-                                } else corrected
-                            }
-                        }
-                    }
-                }
-            }
+            generateValidatedProject(engine, idea, prompt)
         } catch (e: Exception) {
             AppBuildResult.Failure("O construtor falhou: " + (e.message ?: e.javaClass.simpleName))
         }
+    }
+
+    /**
+     * Generates, validates and repairs project output in the main builder loop.
+     * Each retry includes the actual validation error and a clipped previous response.
+     */
+    private suspend fun generateValidatedProject(
+        engine: AssistantEngine,
+        idea: String,
+        originalPrompt: String
+    ): AppBuildResult {
+        var response: AssistantResult = engine.reply(
+            listOf(AssistantTurn(AssistantTurn.Role.USER, originalPrompt))
+        )
+        val errors = mutableListOf<String>()
+        var previousText = ""
+        for (attempt in 1..MAX_GENERATION_ATTEMPTS) {
+            when (response) {
+                is AssistantResult.Unavailable -> {
+                    return AppBuildResult.Failure(
+                        "O modelo local ficou indisponível na tentativa $attempt: " + response.reason +
+                            if (errors.isNotEmpty()) "\\n\\nErros anteriores:\\n" + errors.joinToString("\\n\\n") else ""
+                    )
+                }
+                is AssistantResult.Failure -> {
+                    errors += "Tentativa $attempt: " + response.reason.take(MAX_REPAIR_ERROR_CHARS)
+                    if (attempt == MAX_GENERATION_ATTEMPTS) {
+                        return AppBuildResult.Failure(
+                            "O construtor não obteve uma resposta válida após $attempt tentativas.\\n\\n" +
+                                errors.joinToString("\\n\\n")
+                        )
+                    }
+                    previousText = response.reason
+                }
+                is AssistantResult.Success -> {
+                    previousText = response.text
+                    val parsed = parseAndSave(response.text, idea)
+                    if (parsed !is AppBuildResult.Failure) return parsed
+                    errors += "Tentativa $attempt — validação: " + parsed.reason.take(MAX_REPAIR_ERROR_CHARS)
+                    if (attempt == MAX_GENERATION_ATTEMPTS || !isRecoverableGenerationFailure(parsed.reason)) {
+                        return AppBuildResult.Failure(
+                            "O construtor tentou $attempt geração(ões), mas não conseguiu validar o projeto.\\n\\n" +
+                                errors.joinToString("\\n\\n")
+                        )
+                    }
+                }
+            }
+
+            val latestError = errors.lastOrNull().orEmpty()
+            val repairPrompt = buildString {
+                appendLine("A resposta anterior falhou na validação do construtor. Esta é uma tentativa automática de correção.")
+                appendLine("TENTATIVA: $attempt de $MAX_GENERATION_ATTEMPTS")
+                appendLine("ERRO REAL DETECTADO:")
+                appendLine(latestError)
+                appendLine()
+                appendLine("Corrija o projeto original e entregue todos os arquivos completos num único objeto JSON válido, sem markdown nem explicação externa.")
+                appendLine("Não repita o defeito descrito no erro. Preserve as funcionalidades pedidas e cumpra as restrições técnicas.")
+                appendLine()
+                appendLine("REGRAS TÉCNICAS E ESQUEMA:")
+                appendLine(originalPrompt.substringBefore("PEDIDO DO USUÁRIO:"))
+                appendLine("PEDIDO ORIGINAL:")
+                appendLine(idea)
+                if (previousText.isNotBlank()) {
+                    appendLine()
+                    appendLine("RESPOSTA ANTERIOR PARA CORRIGIR (pode estar truncada/contendo erros):")
+                    appendLine(previousText.take(MAX_PREVIOUS_RESPONSE_CHARS))
+                }
+            }
+            response = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, repairPrompt)))
+        }
+        return AppBuildResult.Failure(
+            "O construtor terminou sem um projeto validado após $MAX_GENERATION_ATTEMPTS tentativas.\\n\\n" +
+                errors.joinToString("\\n\\n")
+        )
     }
 
     /**
@@ -430,6 +466,8 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         }
 
         const val MAX_BRIEF_CHARS = 3_000
+        const val MAX_GENERATION_ATTEMPTS = 3
+        const val MAX_PREVIOUS_RESPONSE_CHARS = 14_000
         const val MAX_FILES = 24
         const val MAX_PROJECT_CHARS = 45_000
         const val MAX_REPAIR_FILES = 16
