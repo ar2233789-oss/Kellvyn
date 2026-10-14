@@ -1292,7 +1292,7 @@ fun KellvynApp() {
                 dismissButton = {
                     TextButton(onClick = {
                         showProjectsDialog = false
-                    }) { Text("Criar projeto") }
+                    }) { Text("Voltar ao chat") }
                 }
             )
         }
@@ -1369,6 +1369,37 @@ fun KellvynApp() {
             )
         }
 
+        if (showConversationsDialog) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { showConversationsDialog = false },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = true)
+            ) {
+                Surface(Modifier.fillMaxSize().padding(8.dp), color = Night, shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("CONVERSAS", color = Neon, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { showConversationsDialog = false }) { Text("Fechar", color = Color.White) }
+                        }
+                        Button(onClick = { createNewConversation() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Neon, contentColor = Night)) { Text("＋ Nova conversa") }
+                        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (conversations.isEmpty()) Text("Nenhuma conversa salva ainda.", color = Muted, fontSize = 12.sp)
+                            else conversations.sortedByDescending { it.updatedAt }.forEach { conversation ->
+                                Surface(Modifier.fillMaxWidth(), color = if (conversation.id == activeConversationId) Color(0xFF0A2D24) else Panel, shape = RoundedCornerShape(10.dp)) {
+                                    Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(conversation.title, color = Color.White, fontSize = 12.sp, maxLines = 2)
+                                            Text(conversation.messages.count { it.fromUser }.toString() + " mensagens suas", color = Muted, fontSize = 10.sp)
+                                        }
+                                        TextButton(onClick = { openConversation(conversation.id) }) { Text(if (conversation.id == activeConversationId) "Atual" else "Abrir", color = Neon) }
+                                    }
+                                }
+                            }
+                        }
+                        TextButton(onClick = { showConversationsDialog = false; savedMemories.clear(); savedMemories.addAll(memoryStore.list()); memoryDraft = ""; memoryStatus = ""; showMemoryDialog = true }, modifier = Modifier.fillMaxWidth()) { Text("Memória", color = Muted) }
+                    }
+                }
+            }
+        }
         if (showAppsDialog) {
             androidx.compose.ui.window.Dialog(
                 onDismissRequest = { showAppsDialog = false },
