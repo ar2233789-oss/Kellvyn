@@ -26,7 +26,21 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         return hasBotWord || listOf(
             "bot do discord", "bot de discord", "discord bot", "bot para discord",
             "bot do whatsapp", "bot de whatsapp", "bot para whatsapp", "whatsapp bot",
-            "bot do         val prompt = buildString {
+            "bot do telegram", "bot de telegram", "bot para telegram", "telegram bot",
+            "bot de wpp", "bot para wpp", "wpp bot"
+        ).any { it in value }
+    }
+
+    suspend fun createProject(engine: AssistantEngine, brief: String): AppBuildResult {
+        val idea = brief.trim()
+        val botProject = isBotProjectRequest(idea)
+        if (idea.length < 12) {
+            return AppBuildResult.Failure("Descreva o projeto com pelo menos 12 caracteres.")
+        }
+        if (idea.length > MAX_BRIEF_CHARS) {
+            return AppBuildResult.Failure("A descrição é muito longa. Limite: $MAX_BRIEF_CHARS caracteres.")
+        }
+        val prompt = buildString {
             if (botProject) {
                 appendLine("TAREFA: criar código-fonte funcional e exportável de um bot para a plataforma do pedido, não um APK Android.")
                 appendLine("O projeto ficará guardado como arquivos editáveis e poderá ser exportado em ZIP; nunca diga que foi hospedado, conectado ou executado.")
@@ -36,7 +50,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 appendLine("Para WhatsApp, use a WhatsApp Business Cloud API oficial da Meta, com webhook GET de verificação, POST para mensagens recebidas e resposta por /messages. Use META_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN, META_APP_SECRET e META_GRAPH_VERSION apenas por ambiente.")
                 appendLine("Para Telegram, use a Bot API oficial e TELEGRAM_BOT_TOKEN. Para outra plataforma, use a API oficial apropriada e documente os pré-requisitos.")
                 appendLine("Não invente credenciais e não inclua tokens reais. Forneça .env.example com valores vazios/PLACEHOLDER, valide entradas e não registre tokens nos logs.")
-                appendLine("O README tem que documentar requisitos reais, dependências, configuração, execução e limitações. O bot precisa de Node.js e credenciais; WhatsApp Cloud precisa de conta empresarial/número registrado e webhook HTTPS público. O Kellvyn não roda Node.js nem mantém esses bots ligados sozinho.")
+                appendLine("O README precisa documentar requisitos reais, dependências, configuração e limitações. Bots precisam de Node.js e credenciais; WhatsApp Cloud também precisa de conta empresarial, número registrado e webhook HTTPS público.")
                 appendLine("Limite total de 12 arquivos e 18.000 caracteres. Escape corretamente o JSON. Nunca retorne arquivos vazios, binários, caminhos absolutos, .git ou .gradle.")
             } else {
             appendLine("TAREFA: criar um projeto de aplicativo Android nativo utilizável a partir do pedido abaixo.")
@@ -58,15 +72,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             appendLine("- Cada item de files deve conter path e content como strings. Escape corretamente quebras de linha, aspas e barras para formar JSON válido.")
             appendLine("- Prefira no máximo 8 arquivos e aprox. 12.000 caracteres; nunca ultrapasse 12 arquivos e 18.000 caracteres.")
             appendLine("- Em um pedido grande, implemente uma primeira versão útil e documente as funções no README.")
-            appendLine()
-            appendLine("PEDIDO DO USUÁRIO:")
-            appendLine(idea)
             }
-        }
-            appendLine("- Não inclua binários, gradlew, .git, .gradle ou qualquer caminho absoluto.")
-            appendLine("- Cada item de files deve conter path e content como strings. Escape corretamente quebras de linha, aspas e barras para formar JSON válido.")
-            appendLine("- Prefira no máximo 8 arquivos e aprox. 12.000 caracteres; nunca ultrapasse 12 arquivos e 18.000 caracteres.")
-            appendLine("- Em um pedido grande, implemente uma primeira versão útil e documente as funções no README.")
             appendLine()
             appendLine("PEDIDO DO USUÁRIO:")
             appendLine(idea)
@@ -231,6 +237,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
     private suspend fun parseAndSave(raw: String, idea: String): AppBuildResult =
         withContext(Dispatchers.IO) {
+            val botProject = isBotProjectRequest(idea)
             try {
                 val start = raw.indexOf('{')
                 val end = raw.lastIndexOf('}')
