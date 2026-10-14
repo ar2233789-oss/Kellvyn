@@ -1030,6 +1030,29 @@ fun KellvynApp() {
         }
     }
 
+    val imageExportPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("image/png")
+    ) { destination ->
+        val sourcePath = pendingImageExportFile
+        pendingImageExportFile = null
+        if (destination != null && sourcePath != null) {
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        val source = File(sourcePath)
+                        require(source.isFile && source.length() > 0L) { "A imagem não está mais disponível." }
+                        context.contentResolver.openOutputStream(destination, "w")?.use { output ->
+                            source.inputStream().buffered().use { input -> input.copyTo(output) }
+                        } ?: throw IllegalStateException("O Android não abriu o destino da imagem.")
+                    }
+                    status = "Imagem PNG salva no destino escolhido."
+                } catch (e: Exception) {
+                    status = "Falha ao baixar a imagem: " + (e.message ?: e.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
     val attachmentPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -1136,6 +1159,28 @@ fun KellvynApp() {
         }
     }
 
+
+    fun downloadImageFile(file: File?) {
+        val image = file?.takeIf { it.isFile && it.length() > 0L }
+        if (image == null) {
+            status = "A imagem gerada não está mais disponível."
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            scope.launch {
+                try {
+                    status = "Salvando PNG em Imagens/Kellvyn…"
+                    withContext(Dispatchers.IO) { ImageDownloadStore(context).saveToPictures(image) }
+                    status = "Download concluído: Imagens/Kellvyn/" + image.name
+                } catch (e: Exception) {
+                    status = "Falha ao salvar a imagem: " + (e.message ?: e.javaClass.simpleName)
+                }
+            }
+        } else {
+            pendingImageExportFile = image.absolutePath
+            imageExportPicker.launch(image.name)
+        }
+    }
 
     LaunchedEffect(localEngine) {
         isLoadingModel = true
@@ -1266,12 +1311,31 @@ fun KellvynApp() {
                                         lineHeight = 20.sp
                                     )
                                 }
+                                val generatedImageBitmap = remember(message.imagePath) {
+                                    message.imagePath?.let { path ->
+                                        runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull()
+                                    }
+                                }
+                                if (generatedImageBitmap != null) {
+                                    Image(
+                                        bitmap = generatedImageBitmap,
+                                        contentDescription = "Imagem PNG gerada localmente pelo Kellvyn",
+                                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp).heightIn(max = 320.dp).clip(RoundedCornerShape(12.dp)),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
                                 val clipboard = LocalClipboardManager.current
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(start = 3.dp, end = 3.dp),
                                     horizontalArrangement = Arrangement.End,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    if (!message.imagePath.isNullOrBlank()) {
+                                        TextButton(
+                                            onClick = { downloadImageFile(File(message.imagePath)) },
+                                            contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)
+                                        ) { Text("Baixar PNG", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.SemiBold) }
+                                    }
                                     if (!message.apkPath.isNullOrBlank()) {
                                         TextButton(
                                             onClick = { downloadApkFile(File(message.apkPath)) },
