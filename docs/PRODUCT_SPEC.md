@@ -14,14 +14,14 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - O construtor é uma ferramenta interna do agente e não pode aparecer como tela, botão ou modo manual de Build. O usuário descreve o que quer no chat; a IA decide quando criar um projeto, editar arquivos ou iniciar a compilação local.
 - Pedidos claros para criar aplicativos ou projetos são encaminhados automaticamente ao construtor. Perguntas, análises e modificações de projetos existentes permanecem no agente de conversa, sem criar outro projeto indevidamente.
 - O compositor mostra somente o estado real da IA integrada e o botão de envio; não oferece seleção de modelo nem configuração externa.
-- A tela principal é o chat único, com cabeçalho compacto e compositor fixo. Não exibir barra inferior com abas de ferramentas. Conversas, códigos guardados, Apps/APKs e memória ficam no menu superior. O editor serve para guardar e consultar código, sem ser um agente independente. Termux só pode ser usado se o usuário pedir explicitamente pelo chat principal; nunca em segundo plano. Tarefas de internet usam a conexão que o Android já tem ativa sem solicitar configuração manual.
+- A tela principal é o chat único, com cabeçalho compacto e compositor fixo. A área de abas/ícones já existente deve ser transformada no menu de aplicativos/ferramentas, reunindo as funções solicitadas, incluindo leitura de arquivos, voz e demais ferramentas; não recriar uma navegação genérica nem eliminar funções pedidas. Conversas, códigos guardados, Apps/APKs e memória ficam acessíveis nesse menu. O editor serve para guardar e consultar código, sem ser um agente independente. Terminal/ícone de terminal só pode aparecer ou ser usado se alguém pedir explicitamente no chat principal. Tarefas de internet usam a conexão que o Android já tem ativa sem solicitar configuração manual.
 
 ## Restrições obrigatórias
 - Entrega final: APK Android nativo. Nada de site embrulhado em WebView. Interface em Kotlin/Jetpack Compose, sem WebView.
 - Não usar Replit nem serviços de terceiros para compilar os aplicativos que o Kellvyn criar.
 - A compilação de projetos gerados deve ocorrer no próprio aparelho, sem token, chave, conta externa ou serviço remoto de build. A IA inicia e acompanha esse fluxo pelo chat; a área Apps serve para consultar código e exportar cópias, não para operar o construtor manualmente.
 - O repositório GitHub pode continuar sendo usado por nós para versionar o código-fonte do Kellvyn; o app não pode depender do GitHub para compilar projetos.
-- O ZIP é um formato secundário de exportação/cópia de segurança, nunca o resultado principal da conversa. Quando existir compilação local, o resultado de “criar aplicativo” deve ser um cartão para salvar/baixar o APK.
+- Não gerar nem entregar ZIP. O resultado solicitado para criação de aplicativo é o APK compilado, apresentado diretamente no chat principal. Não afirmar que o APK existe até a compilação e a verificação terem sido concluídas.
 - O modo de IA local deve funcionar sem rede depois que o modelo tiver sido instalado. A primeira transferência do modelo pode exigir internet.
 - O chat conversacional usa o motor local empacotado no aplicativo; não há provedor externo de IA nem configuração de endpoint. Pesquisa web/GitHub é uma capacidade separada e só é acionada quando a mensagem atual solicita explicitamente esse acesso.
 - Nunca embutir segredos ou tokens no APK/código.
@@ -39,8 +39,8 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - Chat principal com status do núcleo que mostra estados honestos: planejando, gerando, compilando, testando, concluído ou erro.
 - Órbita/mascote flutuante discreto é uma meta visual, não algo já concluído.
 - Abaixo de cada resposta da IA: ícone pequeno de folha/páginas com “Copiar”, copiando a resposta inteira.
-- Entrada por ditado em português e leitura de resposta podem usar serviços de voz do Android; indicar claramente quando eles não estiverem disponíveis.
-- O APK criado deve aparecer como resultado principal. Não inundar a conversa com ZIPs.
+- Entrada por ditado em português e leitura de resposta são funções solicitadas e devem estar acessíveis pelo menu de aplicativos/ferramentas; indicar claramente quando não estiverem disponíveis.
+- O APK compilado deve ser entregue diretamente no chat principal. Não gerar nem entregar ZIP.
 
 ## Cérebro de IA
 - LiteRT-LM é um runtime, não um modelo criado do zero nem o cérebro inteiro.
@@ -49,7 +49,7 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - O chat não envia prompts a um provedor externo de IA. As ferramentas de pesquisa web/GitHub são outra capacidade e só são acionadas quando a mensagem atual solicita explicitamente uma pesquisa ou ação sobre um link.
 - O projeto deve manter Kotlin/Compose Compiler alinhados com a versão da API LiteRT-LM escolhida e usar versões de coroutines compatíveis com o runtime. A compatibilidade do modelo e o desempenho precisam ser verificados na build e no aparelho-alvo.
 - A conversa usa o modelo local integrado. Pesquisa web/GitHub só é acionada quando o usuário pede explicitamente; usa a conexão ativa do Android sem exigir configuração manual.
-- O núcleo desejado deve planejar, dividir tarefas, usar ferramentas reais, observar resultados, diagnosticar erros, corrigir e tentar novamente com limites/controles.
+- O núcleo desejado deve planejar, dividir tarefas, usar ferramentas reais, observar resultados, diagnosticar erros, corrigir e tentar novamente com limites/controles. Preservar o efeito visual de chuva do modelo solicitado pelo usuário conforme a referência original; não substituir por uma animação inventada nem declarar pronto sem verificar a implementação.
 - Princípio arquitetural obrigatório: o agente principal trabalha pelo chat, planeja tarefas, altera arquivos e inicia a compilação quando necessário. Não depende de uma tela de terminal. Termux só pode ser usado se o próprio usuário pedir explicitamente pelo chat principal; nunca em segundo plano ou por iniciativa própria.
 - Implementado no código: ciclo limitado de ferramentas no chat para workspace, leitura/busca de arquivos locais, pesquisa web, consulta de páginas HTTPS e leitura de arquivos públicos do GitHub. O acesso à internet é acionado quando o pedido atual o solicita; não há provedor de IA online. Importações e ações Git protegidas pedem confirmação. O diagnóstico do Terminal é auxiliar, não dependência.
 - Criação/edição normal de arquivos ocorre automaticamente após pedido claro no chat, usando APIs diretas do workspace. O Editor sincroniza a versão salva após alterações feitas pelo agente quando não há rascunho não salvo; quando há conflito, preserva o rascunho e avisa. Exclusões, importação de repositórios e operações Git que alteram estado pedem confirmação. O agente usa uma camada JGit separada; não usa a tela Terminal nem o shell manual. O shell manual é separado e exige confirmação.
@@ -69,9 +69,9 @@ O fluxo final desejado ao receber “crie o aplicativo X”:
 Pipeline local implementado no código: ECJ compila Java, D8 gera DEX, o empacotador cria o manifesto Android binário mínimo e apksig assina/verifica o APK. O fluxo Build do chat o inicia em segundo plano sem depender da tela Terminal; a ferramenta também está disponível para o agente compilar um projeto salvo. Há uma tentativa limitada de correção automática após erro real. Perfil inicial: Activity Java nativa com APIs Android do framework, sem Kotlin/Compose, recursos externos ou bibliotecas de terceiros. A primeira instalação da plataforma solicita aceite explícito da licença Android SDK e valida o checksum. A saída é um APK no armazenamento privado e o app abre o instalador nativo. Nenhuma build em nuvem é usada.
 
 ## Ferramentas e tarefas futuras
-- Editor de arquivos com salvamento local.
-- O chat consulta/edita arquivos diretamente pelo workspace e usa JGit internamente quando solicitado, sem depender da tela Terminal. O editor serve para guardar e consultar códigos; não é um agente separado. Não há tela ou ícone de terminal na navegação principal.
-- Git local via JGit está disponível em uma área própria, separada do Terminal; não é requisito para compilar projetos.
+- Leitura e gerenciamento de arquivos pelo menu de aplicativos/ferramentas, com salvamento local.
+- O chat consulta/edita arquivos diretamente pelo workspace e usa ferramentas internas quando solicitado, sem depender de uma tela de terminal. O editor serve para guardar e consultar códigos; não é um agente separado. Terminal/ícone de terminal só pode surgir após pedido explícito no chat principal.
+- Não criar uma aba ou área de terminal/Git como parte da navegação principal.
 - Sem navegador baseado em WebView. Não reintroduzir WebView.
 - Aprender a jogar exige capacidade concreta de observar estado do jogo, receber pixels/dados, executar comandos de controle autorizados e avaliar o resultado. Um LLM sozinho não enxerga nem controla jogo. Essa função ainda não está implementada.
 - Automação de jogos, overlay flutuante e depuração automática continuam pendentes até haver código funcional e teste real.
@@ -84,7 +84,7 @@ Pipeline local implementado no código: ECJ compila Java, D8 gera DEX, o empacot
 - O app não deve enviar código-fonte para um serviço remoto para compilação.
 
 ## Estado técnico conhecido (13 de outubro de 2026)
-Implementado no código: Kotlin/Compose, chat com histórico local limitado, botão Copiar, um modelo LiteRT-LM empacotado no APK, memória explícita, ferramentas web/GitHub por pedido explícito, construtor interno acionado pelo chat, workspace local, editor, exportação ZIP secundária, compilador Android local e painéis separados de Terminal e Git. O usuário não escolhe um provedor de IA nem opera um modo Build manualmente. Voz e segundo modelo não estão expostos nesta revisão.
+Implementado no código: Kotlin/Compose, chat com histórico local limitado, botão Copiar, um modelo LiteRT-LM empacotado no APK, memória explícita, ferramentas web/GitHub por pedido explícito, construtor interno acionado pelo chat, workspace local, editor e compilador Android local. O usuário não escolhe provedor de IA nem opera um modo Build manualmente. Voz ainda precisa ser verificada e integrada ao menu de aplicativos/ferramentas. Não gerar ZIP; terminal só mediante pedido explícito no chat principal.
 
 Ainda não concluído/validado: compilação local de projetos gerados; resposta real no Poco F6; instalação e desempenho no aparelho; depuração/build/teste automático local; aprendizagem de jogos; overlay/mascote; terminal real seguro; entrega de APKs dos projetos criados. A build anterior do próprio Kellvyn não comprova essas capacidades.
 
