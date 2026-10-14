@@ -985,7 +985,7 @@ fun KellvynApp() {
     LaunchedEffect(localEngine) {
         isLoadingModel = true
         try {
-            localEngine.recoverInterruptedModelSwap()
+            localEngine.recoverInterruptedModelSwap { progress -> status = progress }
             if (localEngine.hasSavedModel()) {
                 status = "Modelo local encontrado; inicializando…"
                 updateModelResult(localEngine.loadSavedModel())
