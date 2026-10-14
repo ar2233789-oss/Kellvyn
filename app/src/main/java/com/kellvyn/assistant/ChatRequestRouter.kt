@@ -27,6 +27,27 @@ object ChatRequestRouter {
         ).any { value.startsWith(it) }
     }
 
+    /**
+     * Web/GitHub tools are offered only when this message explicitly asks for online research
+     * or supplies a link and requests an action on it. Ordinary chat stays on the local model.
+     */
+    fun shouldUseOnlineTools(text: String): Boolean {
+        val value = text.trim().lowercase(Locale.ROOT)
+        val explicitRequest = listOf(
+            "pesquise na internet", "pesquisar na internet", "pesquisa na internet",
+            "busque na internet", "buscar na internet", "procure na internet", "procurar na internet",
+            "pesquise na web", "busque na web", "procure na web",
+            "pesquise no github", "busque no github", "procure no github", "consulte o github",
+            "abra o link", "leia o link", "resuma o link", "analise o link", "analise esse link",
+            "verifique o link", "acesse o site", "abra o site", "consulte o site",
+            "previsão do tempo", "previsao do tempo", "notícias atuais", "noticias atuais",
+            "últimas notícias", "ultimas noticias", "clima de hoje", "cotação atual", "cotacao atual"
+        ).any { it in value }
+        val hasLink = Regex("""https?://\S+""").containsMatchIn(value)
+        val actionOnLink = hasLink && listOf("leia", "resuma", "analise", "verifique", "compare", "acesse", "abra").any { it in value }
+        return explicitRequest || actionOnLink
+    }
+
     fun shouldCompileExistingProject(text: String): Boolean {
         val t = text.trim().lowercase(Locale.ROOT)
         if (listOf(
