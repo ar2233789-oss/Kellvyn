@@ -1,48 +1,38 @@
-# Arquitetura do mini Android Studio local — Kellvyn IA
+# Arquitetura de compilação local — Kellvyn IA
 
-## Decisão
+## Regra do produto
 
-A criação de APKs deve seguir a arquitetura de uma IDE Android que roda no próprio telefone, e não uma chamada HTTP que envia o projeto para um serviço de compilação.
+O usuário pede tudo pelo chat principal. O agente pode criar e corrigir o projeto e iniciar a compilação local sem uma tela ou modo manual de Build. O resultado esperado é um APK Android nativo validado e apresentado no próprio chat.
 
-A referência de engenharia consultada é o projeto aberto AIDE-OS, cuja documentação descreve dois caminhos locais: um pipeline rápido que combina AAPT2, compilador Java/Kotlin, D8 e apksig; e um motor Gradle executado localmente para projetos que dependem da configuração Gradle completa. AIDE-OS é GPL-3.0. Este documento registra somente a arquitetura estudada; não significa que seu código tenha sido copiado ou integrado ao Kellvyn.
+A compilação de projetos gerados deve ocorrer no aparelho. Não usar Replit, GitHub Actions, tokens, servidores ou serviços de build na nuvem. Não oferecer arquivos compactados como substituto do APK.
 
-## Fluxo proposto
+## Pipeline local já presente no código
 
-1. O usuário descreve o aplicativo no chat; o agente decide internamente se deve chamar o construtor. Não existe modo manual de Build.
-2. O agente produz um projeto Android nativo, salva os arquivos no workspace privado e mostra a lista de arquivos.
-3. O usuário pode revisar e editar o código, ver as abas abertas e usar o Git local.
-4. O motor local verifica os pré-requisitos, baixa componentes de ferramentas publicados e fixados por versão/checksum quando necessário, e armazena-os no espaço privado do aplicativo.
-5. A compilação ocorre no aparelho. Logs e diagnósticos reais são enviados para a interface.
-6. Em caso de falha, o agente recebe os logs e pode propor correções controladas. Ele não deve sobrescrever arquivos sem validação.
-7. O APK resultante é validado e assinado localmente e apresentado como resultado principal. ZIP continua sendo uma exportação secundária.
+1. O agente recebe o pedido no chat principal e prepara os arquivos dentro do workspace privado.
+2. O validador verifica caminhos, tamanhos e consistência do projeto.
+3. O compilador local baixa a plataforma Android necessária depois de consentimento explícito e verifica o checksum.
+4. O perfil inicial usa ECJ para compilar Java contra APIs do Android, D8 para produzir DEX, geração do manifesto binário e apksig para assinar e verificar o APK.
+5. A ferramenta devolve ao agente os resultados e erros reais. O chat não deve apresentar porcentagem, assinatura ou sucesso sem confirmação da ferramenta.
+6. Um APK validado pode ser salvo ou instalado pelo fluxo nativo Android.
+7. Se a compilação falhar, o agente pode analisar o diagnóstico real e aplicar correções controladas pelo workspace antes de uma nova tentativa limitada.
 
-## Versões-alvo dos projetos gerados
+## Limitações atuais do compilador de projetos
 
-O perfil de projeto Android com Gradle/Compose é mantido como alvo de exportação futura. O pipeline rápido atualmente integrado ao Kellvyn é mais restrito: ECJ compila fontes Java 8 com APIs do framework Android, D8 converte as classes em DEX, `BinaryAndroidManifest` escreve o manifesto nativo mínimo e `apksig` assina/verifica o APK. O perfil inicial usa as bibliotecas Android 15/API 35, alinhadas ao aparelho-alvo, e não aceita Kotlin/Compose, `res/`, `assets/` ou bibliotecas externas; ele não executa scripts Gradle do projeto.
+O primeiro perfil só aceita aplicativos Java nativos que usem APIs do framework Android. Ainda não compila Kotlin/Compose, scripts Gradle completos, recursos `res/`, `assets/` ou bibliotecas externas. Não declarar que cria qualquer aplicativo Android arbitrário antes de ampliar e testar esse suporte.
 
-## Requisitos do motor local
+O compilador interno de projetos criados é diferente do processo necessário para compilar o próprio Kellvyn (o aplicativo anfitrião), escrito em Kotlin/Compose. Um não prova que o outro foi compilado.
 
-- Compatibilidade com Android ARM64 e as limitações do ambiente de execução Android.
-- Nenhum job de compilação remoto, GitHub Actions, token, Replit ou outro serviço de build.
-- Componentes de toolchain com versões e hashes verificados, instalação interrompível e recuperação de downloads incompletos.
-- Respeito às licenças do Android SDK e dos componentes de terceiros.
-- Limites de tempo, armazenamento, tamanho de projeto e memória; cancelamento seguro.
-- Saída explícita em cada estado: não instalado, instalando, pronto, compilando, falhou ou APK validado.
-- Não mostrar porcentagem de compilação se o motor real não tiver fornecido progresso.
+## Estado verificável nesta revisão
 
-## Estado atual verificável
+O código-fonte contém o chat único, o agente, o workspace, o editor, o motor LiteRT-LM, ferramentas locais e o pipeline Java→DEX→APK. Os fluxos de build na nuvem foram removidos do repositório e a exportação de projetos em arquivo compactado foi retirada.
 
-Já existem o construtor interno, workspace privado, editor, Terminal opcional e agente de chat. Pedidos de criação no chat acionam a toolchain rápida de Java→DEX→APK sem alternância manual; os diagnósticos voltam ao chat para uma correção limitada. O perfil Gradle completo continua sendo uma arquitetura futura separada. O build e os testes unitários do aplicativo anfitrião passaram, mas o fluxo deve ser validado no Poco F6 físico.
+**Ainda não existe um APK novo desta revisão validado para entrega.** O arquivo de modelo `app/src/main/assets/models/kellvyn-model.litertlm` não está presente no checkout atual; o APK anfitrião não pode ser declarado pronto até o modelo correto ser obtido e verificado pelo caminho de distribuição previsto e até a build ser realmente executada.
 
-## Sequência prioritária
+## Validação pendente
 
-1. Obter um caminho de compilação local ARM64 que possamos redistribuir legalmente e empacotar.
-2. Integrar esse motor ao workspace sem mudar a geometria da referência visual.
-3. Implementar instalação/verificação de toolchain e contrato de logs.
-4. Validar no Poco F6 um projeto Java mínimo, inspecionar os logs reais e medir RAM/tempo. Depois expandir para recursos Android, dependências e o perfil Kotlin/Compose.
-5. Validar assinatura, package ID e instalação do APK de saída no Android.
-6. Conectar o agente de correção ao ciclo build → logs → alteração proposta → novo build.
+- Compilar o aplicativo anfitrião em ambiente Android local com as dependências e o modelo correto.
+- Testar inicialização, resposta do modelo e leitura em voz alta/ditado em português no Poco F6 real.
+- Pedir pelo chat que o app crie um projeto Java mínimo, compilar no próprio telefone, verificar package ID e assinatura e abrir o instalador nativo.
+- Testar falhas de download, pouco espaço, falta de memória, cancelamento e funcionamento sem rede depois que o modelo estiver disponível.
 
-## Critério de conclusão
-
-O recurso só será considerado pronto depois que um projeto criado pela IA for realmente compilado no próprio telefone, que o APK passe pela verificação de assinatura e que a interface apresente o APK correto. O repositório da IA em si e um arquivo ZIP não satisfazem esse critério.
+A conclusão só pode ser declarada após evidência de uma build real e testes no aparelho-alvo. O código-fonte e telas de demonstração não substituem o APK compilado.
