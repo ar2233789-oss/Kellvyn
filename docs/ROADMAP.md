@@ -7,7 +7,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Aplicativo Android nativo em Kotlin/Jetpack Compose, com uma tela principal de conversa.
 - [x] Criar, corrigir e compilar projetos é solicitado pelo chat principal; não existe seletor manual de “conversar/criar”.
 - [x] Sem modo leve/pesado, sem seletor de modelo e sem provedor externo de IA.
-- [x] Cabeçalho com histórico de conversas, menu superior para códigos guardados, Apps/APKs e memória, e configurações.
+- [x] Cabeçalho com histórico de conversas, menu superior para leitura de arquivos de texto/código, códigos guardados, Apps/APKs, memória e configurações.
 - [x] Histórico limitado e apagável; memórias explícitas podem ser guardadas, vistas e apagadas.
 - [x] Ditado em português no compositor e ação “Ouvir” nas respostas, usando recursos disponíveis no próprio Android e informando quando indisponíveis.
 - [x] Agente acessa o workspace por APIs diretas, lê e pesquisa arquivos, altera arquivos após pedidos claros e encaminha diagnósticos para o chat.
