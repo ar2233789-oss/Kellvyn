@@ -86,7 +86,7 @@ class LocalCompilerAgentIntegrationTest {
                 internetAllowed = false
             )
             val buildResult = JSONObject(toolJson)
-            assertEquals("success", "success".takeIf { buildResult.optString("status") == "success" } ?: toolJson)
+            assertEquals("AgentToolRouter build failed: $toolJson", "success", buildResult.optString("status"))
             assertEquals("com.example.app", buildResult.optString("application_id"))
             assertTrue("A ferramenta não confirmou verificação da assinatura: $toolJson", buildResult.optBoolean("verified_signature"))
             assertTrue("O APK não foi publicado no armazenamento privado: $apk", apk.isFile && apk.length() > 0L)
