@@ -95,6 +95,25 @@ private fun isRepairableSourceBuildFailure(reason: String): Boolean {
 
 data class ChatMessage(val text: String, val fromUser: Boolean)
 
+private fun projectIconGlyph(project: WorkspaceProject): String {
+    val description = (project.name + " " + project.description).lowercase(Locale.ROOT)
+    return when {
+        listOf("jogo", "game", "arcade", "rpg").any { it in description } -> "🎮"
+        listOf("música", "musica", "áudio", "audio", "player").any { it in description } -> "🎵"
+        listOf("foto", "câmera", "camera", "imagem", "galeria").any { it in description } -> "📷"
+        listOf("nota", "texto", "escrita", "diário", "diario").any { it in description } -> "📝"
+        listOf("tarefa", "todo", "lista", "produtividade").any { it in description } -> "✅"
+        listOf("agenda", "calendário", "calendario", "evento").any { it in description } -> "📅"
+        listOf("chat", "mensagem", "conversa", "assistente", "ia ").any { it in description } -> "💬"
+        listOf("loja", "compra", "produto", "venda").any { it in description } -> "🛍️"
+        listOf("mapa", "rota", "localização", "localizacao").any { it in description } -> "🗺️"
+        listOf("dinheiro", "finança", "financa", "banco", "gasto", "orçamento", "orcamento").any { it in description } -> "💰"
+        listOf("calculadora", "cálculo", "calculo", "matemática", "matematica").any { it in description } -> "🧮"
+        listOf("saúde", "saude", "treino", "fitness", "exercício", "exercicio").any { it in description } -> "💠"
+        else -> "▣"
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -758,23 +777,6 @@ fun KellvynApp() {
             Divider(color = Color(0xFF143D33), thickness = 1.dp)
             Spacer(Modifier.height(5.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("◉", color = Neon, fontSize = 13.sp)
-                Spacer(Modifier.width(7.dp))
-                Text(
-                    if (isGenerating && status.contains("projeto", ignoreCase = true)) "Trabalhando no aplicativo"
-                    else if (isGenerating) "Respondendo"
-                    else if (isLoadingModel) "Inicializando"
-                    else "Assistente local",
-                    color = Neon,
-                    fontSize = 11.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("›", color = Muted, fontSize = 18.sp)
-            }
-            Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 1.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1316,7 +1318,7 @@ fun KellvynApp() {
                                         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Surface(Modifier.size(50.dp), color = Color(0xFF0A2D24), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Neon.copy(alpha = 0.5f))) {
                                                 Box(contentAlignment = Alignment.Center) {
-                                                    Text(project.name.take(1).uppercase(Locale.ROOT), color = Neon, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                                    Text(projectIconGlyph(project), color = Neon, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
