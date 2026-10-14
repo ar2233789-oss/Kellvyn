@@ -138,6 +138,11 @@ class DiscordBotRuntimeService : Service() {
         val text = statuses.values.toList().let {
             if (it.isEmpty()) "Nenhum bot conectado. Preparando o runtime." else it.joinToString(" • ").take(180)
         }
+        sendBroadcast(
+            Intent(ACTION_RUNTIME_STATE_CHANGED)
+                .setPackage(packageName)
+                .putStringArrayListExtra(EXTRA_ACTIVE_PROJECT_IDS, ArrayList(runtimeStore.activeProjectIds()))
+        )
         mainHandler.post {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (runtimeStore.activeProjectIds().isEmpty() && clients.isEmpty()) {
@@ -187,6 +192,8 @@ class DiscordBotRuntimeService : Service() {
         const val ACTION_START_DISCORD = "com.kellvyn.assistant.runtime.START_DISCORD"
         const val ACTION_STOP_PROJECT = "com.kellvyn.assistant.runtime.STOP_PROJECT"
         const val ACTION_STOP_ALL = "com.kellvyn.assistant.runtime.STOP_ALL"
+        const val ACTION_RUNTIME_STATE_CHANGED = "com.kellvyn.assistant.runtime.STATE_CHANGED"
+        const val EXTRA_ACTIVE_PROJECT_IDS = "active_project_ids"
         const val EXTRA_PROJECT_ID = "project_id"
         private const val CHANNEL_ID = "kellvyn_active_bots"
         private const val NOTIFICATION_ID = 68120
