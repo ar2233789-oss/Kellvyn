@@ -8,21 +8,30 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.coroutineContext
+import java.net.HttpURLConnection
+import java.net.URL
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.Locale
 
 /**
- * On-device inference engine. The APK packages a compatible .litertlm model
- * and seeds it into private app storage. Ordinary conversation is processed locally.
+ * On-device inference engine. It prefers a checksum-verified .litertlm asset in the APK
+ * and otherwise downloads the pinned public model into private storage once. Inference is local.
  */
 class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoCloseable {
     private companion object {
         const val MAX_SYSTEM_CONTEXT_CHARS = 12_000
+        const val MODEL_CONNECT_TIMEOUT_MS = 20_000
+        const val MODEL_READ_TIMEOUT_MS = 60_000
+        const val MODEL_PROGRESS_INTERVAL_BYTES = 8L * 1024L * 1024L
+        const val MODEL_DOWNLOAD_URL = "https://huggingface.co/litert-community/SmolLM2-360M-Instruct/resolve/507c99cfe6541ba2bcd84818786f7b025935e5e1/SmolLM2_360M_instruct.litertlm?download=true"
         const val BUNDLE_VERIFIED_KEY = "bundled_model_verified"
         const val BUNDLED_MODEL_BYTES = 373_719_040L
         const val BUNDLED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
@@ -54,24 +63,27 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
     /** Clears the private model cache; the bundled model is copied again at next initialization. */
     fun removeSavedModel(): Boolean {
         close()
-        val files = listOf(modelFile, File(modelDirectory, "kellvyn-model.previous"), File(modelDirectory, "kellvyn-model.bundled"))
+        val files = listOf(modelFile, File(modelDirectory, "kellvyn-model.previous"), File(modelDirectory, "kellvyn-model.bundled"), File(modelDirectory, "kellvyn-model.download.part"))
         var allRemoved = true
         files.forEach { file -> if (file.exists() && !file.delete()) allRemoved = false }
         return allRemoved
     }
 
-    /** Prepares the single bundled model in private storage before initializing inference. */
-    suspend fun recoverInterruptedModelSwap() {
+    /**
+     * Prepare the one local model. Prefer a model bundled in the APK; when it is absent,
+     * download the pinned, checksum-verified public model into private storage once.
+     * Inference stays on-device after the download completes.
+     */
+    suspend fun recoverInterruptedModelSwap(onProgress: (String) -> Unit = {}) {
         withContext(Dispatchers.IO) {
             if (!modelDirectory.exists() && !modelDirectory.mkdirs()) {
                 throw IllegalStateException("Não foi possível preparar a pasta privada do núcleo local.")
             }
-            installBundledConversationModelIfAvailable()
+            installConversationModelIfAvailable(onProgress)
         }
     }
 
-    /** Installs the one checksum-verified model bundled in the APK; no picker or downloader exists. */
-    private fun installBundledConversationModelIfAvailable() {
+    private suspend fun installConversationModelIfAvailable(onProgress: (String) -> Unit) {
         if (bundlePrefs.getBoolean(BUNDLE_VERIFIED_KEY, false) &&
             modelFile.isFile && modelFile.length() == BUNDLED_MODEL_BYTES
         ) return
@@ -81,43 +93,126 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             return
         }
 
+        val temporary = File(modelDirectory, "kellvyn-model.download.part")
         val bundledInput = try {
             appContext.assets.open("models/kellvyn-model.litertlm")
         } catch (_: Exception) {
-            // Development builds without the APK packaging step cannot initialize offline inference.
-            return
+            null
         }
-        val temporary = File(modelDirectory, "kellvyn-model.bundled")
+
         try {
-            bundledInput.use { input ->
-                FileOutputStream(temporary).use { output ->
-                    val digest = MessageDigest.getInstance("SHA-256")
-                    val buffer = ByteArray(64 * 1024)
+            if (bundledInput != null) {
+                reportModelProgress(onProgress, "Preparando o modelo local incluído no APK…")
+                copyAndVerifyModel(bundledInput, temporary, onProgress, null)
+            } else {
+                reportModelProgress(
+                    onProgress,
+                    "O modelo não veio dentro do APK. Baixando o núcleo local (aprox. 374 MB); depois ele funciona sem internet…"
+                )
+                downloadPinnedModel(temporary, onProgress)
+            }
+
+            if (modelFile.exists() && !modelFile.delete()) {
+                throw IllegalStateException("Não foi possível substituir o modelo antigo pelo núcleo local verificado.")
+            }
+            if (!temporary.renameTo(modelFile)) {
+                throw IllegalStateException("Não foi possível instalar o modelo no armazenamento privado.")
+            }
+            bundlePrefs.edit().putBoolean(BUNDLE_VERIFIED_KEY, true).apply()
+            reportModelProgress(onProgress, "Modelo local verificado e guardado no aparelho.")
+        } catch (e: CancellationException) {
+            temporary.delete()
+            bundledInput?.let { runCatching { it.close() } }
+            throw e
+        } catch (e: Exception) {
+            temporary.delete()
+            bundledInput?.let { runCatching { it.close() } }
+            val detail = e.message ?: e.javaClass.simpleName
+            throw IllegalStateException(
+                "Não consegui preparar o modelo de IA local. Se ele não estiver incluído no APK, é necessária uma conexão para baixá-lo uma vez. Detalhe: " + detail,
+                e
+            )
+        }
+    }
+
+    private suspend fun downloadPinnedModel(destination: File, onProgress: (String) -> Unit) {
+        val connection = (URL(MODEL_DOWNLOAD_URL).openConnection() as HttpURLConnection).apply {
+            connectTimeout = MODEL_CONNECT_TIMEOUT_MS
+            readTimeout = MODEL_READ_TIMEOUT_MS
+            requestMethod = "GET"
+            instanceFollowRedirects = true
+            useCaches = false
+            setRequestProperty("User-Agent", "Kellvyn-IA-OnDevice-Model")
+        }
+        try {
+            connection.connect()
+            val responseCode = connection.responseCode
+            require(responseCode in 200..299) {
+                "O servidor do modelo recusou o download (HTTP $responseCode)."
+            }
+            val responseBytes = connection.getHeaderFieldLong("Content-Length", -1L)
+            require(responseBytes < 0L || responseBytes == BUNDLED_MODEL_BYTES) {
+                "O tamanho informado pelo servidor não corresponde à versão verificada do modelo."
+            }
+            connection.inputStream.use { input ->
+                copyAndVerifyModel(input, destination, onProgress, "Baixando núcleo local")
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private suspend fun copyAndVerifyModel(
+        input: java.io.InputStream,
+        destination: File,
+        onProgress: (String) -> Unit,
+        progressPrefix: String?
+    ) {
+        val digest = MessageDigest.getInstance("SHA-256")
+        try {
+            FileOutputStream(destination).use { output ->
+                input.use { source ->
+                    val buffer = ByteArray(128 * 1024)
+                    var total = 0L
+                    var lastReport = 0L
                     while (true) {
-                        val count = input.read(buffer)
+                        coroutineContext.ensureActive()
+                        val count = source.read(buffer)
                         if (count < 0) break
                         if (count == 0) continue
+                        total += count
+                        require(total <= BUNDLED_MODEL_BYTES) {
+                            "O arquivo do modelo ultrapassou o tamanho esperado; o download foi interrompido."
+                        }
                         digest.update(buffer, 0, count)
                         output.write(buffer, 0, count)
+                        if (progressPrefix != null && total - lastReport >= MODEL_PROGRESS_INTERVAL_BYTES) {
+                            val percent = ((total * 100L) / BUNDLED_MODEL_BYTES).coerceIn(0L, 100L)
+                            reportModelProgress(onProgress, "$progressPrefix: ${percent}% (${total / 1_000_000L} de ${BUNDLED_MODEL_BYTES / 1_000_000L} MB)")
+                            lastReport = total
+                        }
                     }
                     output.fd.sync()
-                    val actualHash = digest.digest().joinToString("") { byte -> "%02x".format(byte) }
-                    if (temporary.length() != BUNDLED_MODEL_BYTES || !actualHash.equals(BUNDLED_MODEL_SHA256, ignoreCase = true)) {
-                        throw IllegalStateException("O modelo integrado no APK não passou na verificação de integridade.")
+                    require(total == BUNDLED_MODEL_BYTES) {
+                        "O modelo ficou incompleto: $total de $BUNDLED_MODEL_BYTES bytes."
                     }
                 }
             }
-            if (modelFile.exists() && !modelFile.delete()) {
-                throw IllegalStateException("Não foi possível substituir o modelo antigo pelo núcleo integrado.")
+            val actualHash = digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+            require(actualHash.equals(BUNDLED_MODEL_SHA256, ignoreCase = true)) {
+                "A verificação SHA-256 do modelo falhou. O arquivo não será usado."
             }
-            if (!temporary.renameTo(modelFile)) {
-                throw IllegalStateException("Não foi possível instalar o modelo integrado no armazenamento privado.")
-            }
-            bundlePrefs.edit().putBoolean(BUNDLE_VERIFIED_KEY, true).apply()
+        } catch (e: CancellationException) {
+            destination.delete()
+            throw e
         } catch (e: Exception) {
-            temporary.delete()
-            throw IllegalStateException("Não consegui preparar o núcleo local integrado: " + (e.message ?: e.javaClass.simpleName), e)
+            destination.delete()
+            throw e
         }
+    }
+
+    private suspend fun reportModelProgress(callback: (String) -> Unit, message: String) {
+        withContext(Dispatchers.Main.immediate) { callback(message) }
     }
 
     private fun hasBundledChecksum(file: File): Boolean {

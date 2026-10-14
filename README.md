@@ -9,7 +9,7 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 - O compositor é compacto e contém somente campo de mensagem, estado real da IA e botão de envio; não mostra controles decorativos ou sem função.
 - Histórico local limitado e apagável.
 - Memória explícita controlada pelo usuário: guardar, visualizar e apagar fatos.
-- Adaptador LiteRT-LM preparado para um único modelo local, copiado para armazenamento privado e verificado por SHA-256; não há seleção de modelos ou alternância de modos. O arquivo esperado `app/src/main/assets/models/kellvyn-model.litertlm` não está no checkout atual, então a distribuição não pode ser declarada pronta até que esse modelo seja obtido e verificado localmente.
+- Adaptador LiteRT-LM de modelo único: se o modelo não estiver embutido no APK, o app baixa uma vez a cópia pública verificada (aprox. 374 MB) e a guarda no armazenamento privado. Depois a inferência ocorre localmente, sem enviar prompts para um provedor externo; não há seleção de modelos nem alternância de modos.
 - O chat usa somente o motor local; não há provedor externo de IA ou tela de configuração de endpoint. As ferramentas de internet só são usadas quando a mensagem pede explicitamente uma pesquisa ou ação sobre um link.
 - O agente principal trabalha diretamente pelo chat: consulta e altera arquivos do workspace, planeja tarefas, cria projetos, compila e apresenta diagnósticos. Pesquisa web/GitHub só é acionada quando a mensagem pede explicitamente esse acesso; usa a conexão já ativa do Android sem etapas manuais de configuração.
 - Não existe aba ou ícone independente de terminal. Termux só pode entrar no fluxo após um pedido explícito do usuário no chat principal; nunca inicia automaticamente.
