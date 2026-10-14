@@ -10,19 +10,20 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - Nenhuma imagem de conceito comprova que uma função está implementada. Só mostrar sucesso, progresso de compilação, tamanho de APK ou aprendizado de jogo quando a função real tiver sido implementada e executada.
 - Nada de demo disfarçada: controles, status e respostas precisam corresponder a funções reais.
 
-## Seletor de modo e navegação da interface
-- A setinha no compositor deve controlar uma opção funcional, não ser decorativa: alterna entre conversa normal e Build (criação de projeto), e permite selecionar o motor local ou o provedor online opcional.
-- O rótulo do motor deve refletir a configuração real; nunca exibir GPT-5 Nano como ativo se não estiver configurado como o modelo do provedor selecionado.
-- Preservar o compositor de duas linhas e a navegação inferior AI, Navegador, Editor, Terminal, Git e Abas. Navegador abre links no navegador do Android por intent (sem WebView); Terminal/Git operam no espaço local.
+## Chat principal e navegação da interface
+- O construtor é uma ferramenta interna do agente e não pode aparecer como tela, botão ou modo manual de Build. O usuário descreve o que quer no chat; a IA decide quando criar um projeto, editar arquivos ou iniciar a compilação local.
+- Pedidos claros para criar aplicativos ou projetos são encaminhados automaticamente ao construtor. Perguntas, análises e modificações de projetos existentes permanecem no agente de conversa, sem criar outro projeto indevidamente.
+- O compositor mostra somente o estado real do núcleo local e o botão de envio; não oferece seleção de provedor externo de IA.
+- Preservar o compositor compacto e a navegação inferior AI, Navegador, Editor, Terminal, Git e Apps. Navegador abre links no navegador do Android por intent (sem WebView); Terminal e Git são ferramentas distintas e funcionam no espaço local.
 
 ## Restrições obrigatórias
 - Entrega final: APK Android nativo. Nada de site embrulhado em WebView. Interface em Kotlin/Jetpack Compose, sem WebView.
 - Não usar Replit nem serviços de terceiros para compilar os aplicativos que o Kellvyn criar.
-- A compilação de projetos gerados deve ocorrer no próprio aparelho, sem token, chave, conta externa ou serviço remoto de build.
+- A compilação de projetos gerados deve ocorrer no próprio aparelho, sem token, chave, conta externa ou serviço remoto de build. A IA inicia e acompanha esse fluxo pelo chat; a área Apps serve para consultar código e exportar cópias, não para operar o construtor manualmente.
 - O repositório GitHub pode continuar sendo usado por nós para versionar o código-fonte do Kellvyn; o app não pode depender do GitHub para compilar projetos.
 - O ZIP é um formato secundário de exportação/cópia de segurança, nunca o resultado principal da conversa. Quando existir compilação local, o resultado de “criar aplicativo” deve ser um cartão para salvar/baixar o APK.
 - O modo de IA local deve funcionar sem rede depois que o modelo tiver sido instalado. A primeira transferência do modelo pode exigir internet.
-- Modo online para respostas do assistente pode ser separado e opt-in; não pode ser usado para compilar APKs nem receber projetos para esse fim.
+- O chat conversacional usa o motor local empacotado no aplicativo; não há provedor externo de IA nem configuração de endpoint. Pesquisa web/GitHub é uma capacidade separada e só é acionada quando a mensagem atual solicita explicitamente esse acesso.
 - Nunca embutir segredos ou tokens no APK/código.
 
 ## Aparelho-alvo e ambiente
@@ -43,11 +44,11 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 
 ## Cérebro de IA
 - LiteRT-LM é um runtime, não um modelo criado do zero nem o cérebro inteiro.
-- O código contém um adaptador LiteRT-LM com dois perfis de modelo salvos separadamente: SmolLM2-360M-Instruct leve (~374 MB) e Qwen2.5-Coder-1.5B quantizado (~1,12 GB, Apache-2.0), alternáveis sem novo download. A importação de outros arquivos .litertlm é limitada a 1,5 GB. Compatibilidade, qualidade e desempenho ainda requerem teste real no telefone.
-- O modelo leve é indicado para conversa/tarefas básicas; o Qwen foi publicado para programação, mas não foi testado no Poco F6 deste projeto e não deve ser apresentado como desempenho garantido.
-- Modo local e modo online opcional precisam estar claramente separados. No modo local, prompts não são enviados ao endpoint de IA. No modo online, a conversa/contexto vai ao endpoint configurado pelo usuário.
-- O projeto deve manter Kotlin/Compose Compiler alinhados com a versão da API LiteRT-LM escolhida, e usar versões de coroutines compatíveis com as dependências declaradas pelo runtime. Quando Qwen Coder já estiver instalado, tarefas de código podem usá-lo temporariamente e tentar restaurar o modelo de conversa; nenhum download grande é automático. A build Android completa ainda deve confirmar essa matriz.
-- A permissão de internet das ferramentas é independente do motor de IA e começa desligada. Ao ativá-la, o agente pode pesquisar na web e ler páginas HTTPS públicas; a consulta e as páginas solicitadas são acessadas externamente, mesmo quando o modelo continua local.
+- O adaptador atual usa um único modelo SmolLM2-360M-Instruct (~374 MB), empacotado no APK, copiado ao armazenamento privado e verificado por SHA-256 antes do uso. A troca automática para Qwen Coder, importação de modelos ou seleção de outro motor não está implementada nesta revisão. Compatibilidade, qualidade e desempenho ainda requerem teste real no telefone.
+- O modelo incluído é de porte leve, adequado principalmente a conversa e tarefas básicas; a qualidade de programação não deve ser presumida e precisa ser avaliada com testes reais.
+- O chat não envia prompts a um provedor externo de IA. As ferramentas de pesquisa web/GitHub são outra capacidade e só são acionadas quando a mensagem atual solicita explicitamente uma pesquisa ou ação sobre um link.
+- O projeto deve manter Kotlin/Compose Compiler alinhados com a versão da API LiteRT-LM escolhida e usar versões de coroutines compatíveis com o runtime. A compatibilidade do modelo e o desempenho precisam ser verificados na build e no aparelho-alvo.
+- O agente não pede nem configura provedor de IA online. A pesquisa web/GitHub só é roteada quando o usuário pede explicitamente esse acesso na mensagem atual; nesse caso, o site consultado acessa a internet, mas o motor conversacional continua local.
 - O núcleo desejado deve planejar, dividir tarefas, usar ferramentas reais, observar resultados, diagnosticar erros, corrigir e tentar novamente com limites/controles.
 - Princípio arquitetural obrigatório: o agente principal trabalha diretamente pelo chat e não exige que o usuário abra, configure ou use a tela Terminal. Ele deve planejar e executar tarefas pelo acesso próprio e controlado ao workspace, arquivos, projetos, pesquisa e ferramentas de build. O Terminal é uma interface manual opcional; dentro dele, um agente auxiliar pode explicar comandos, diagnosticar erros e orientar o usuário sem tirar dele o controle.
 - Implementado no código: ciclo limitado de uso de ferramentas no chat para workspace, leitura/busca de arquivos locais, consulta de página HTTPS pública, pesquisa web, descoberta/listagem de caminhos e leitura de arquivos de repositórios públicos do GitHub quando a permissão de internet das ferramentas está ligada, independentemente do motor local/online. A importação de arquivos públicos para o workspace tem limites e pede confirmação. O diagnóstico do terminal pelo chat é auxiliar, não dependência.
