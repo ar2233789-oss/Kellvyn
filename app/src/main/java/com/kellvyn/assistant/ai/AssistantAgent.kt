@@ -995,7 +995,7 @@ class AssistantAgent(
                     val projectId = project?.optString("id").orEmpty()
                     if (projectId.isNotBlank()) {
                         runCatching {
-                            "Arquivos do único projeto (" + project.optString("name") + "): " +
+                            "Arquivos do único projeto (" + project?.optString("name").orEmpty() + "): " +
                                 tools.execute("list_files", JSONObject().put("project_id", projectId), internetAllowed)
                         }.getOrElse { "Falha ao listar os arquivos do projeto: ${it.message}" }
                     } else ""
