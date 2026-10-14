@@ -311,7 +311,7 @@ class LocalCompilerAgentIntegrationTest {
         }
 
         try {
-            section("Ambiente", "Modelo local LiteRT incluído no APK; inferência no emulador Android; sem provedor de IA remoto. Este relatório registra as respostas e saídas reais recebidas.")
+            section("Ambiente", "Modelo LiteRT integrado ou baixado uma vez e verificado; inferência no emulador Android; sem provedor de IA remoto. Este relatório registra as respostas e saídas reais recebidas.")
             engine.recoverInterruptedModelSwap()
             val loaded = engine.loadSavedModel()
             section("Carregamento do modelo", loaded.reasonOrText())
