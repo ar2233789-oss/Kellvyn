@@ -8,6 +8,15 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kellvyn.assistant.ai.AgentToolRouter
+import com.kellvyn.assistant.ai.AssistantAttachmentExtractor
+import com.kellvyn.assistant.ai.LocalArtworkGenerator
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import android.graphics.BitmapFactory
+import android.net.Uri
 import com.kellvyn.assistant.ai.AssistantAgent
 import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantResult
@@ -478,6 +487,58 @@ class LocalCompilerAgentIntegrationTest {
         } finally {
             uri?.let { runCatching { context.contentResolver.delete(it, null, null) } }
             source.delete()
+        }
+    }
+
+    @Test
+    fun localProceduralArtworkProducesARealComplexPngFile() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val png = LocalArtworkGenerator(context).generate(
+            "Gere uma imagem complexa de uma cidade gótica de fantasia à noite, com chuva, luz verde e azul, partículas e montagem tríptica."
+        )
+        try {
+            assertTrue("O gerador não produziu um PNG real.", png.isFile && png.length() > 10_000L)
+            val signature = png.inputStream().use { input -> ByteArray(8).also { input.read(it) } }
+            assertTrue("O arquivo não tem a assinatura PNG esperada.", signature.contentEquals(
+                byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+            ))
+            val bitmap = BitmapFactory.decodeFile(png.absolutePath)
+            assertNotNull("O Android não conseguiu decodificar a imagem gerada.", bitmap)
+            assertEquals(1024, bitmap!!.width)
+            assertEquals(1024, bitmap.height)
+            bitmap.recycle()
+        } finally {
+            png.delete()
+        }
+    }
+
+    @Test
+    fun selectedPdfCanBeReadLocallyWithoutUploadingIt() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val pdf = File(context.cacheDir, "kellvyn-attachment-test.pdf")
+        PDFBoxResourceLoader.init(context)
+        PDDocument().use { document ->
+            val page = PDPage()
+            document.addPage(page)
+            PDPageContentStream(document, page).use { stream ->
+                stream.beginText()
+                stream.setFont(PDType1Font.HELVETICA, 12f)
+                stream.newLineAtOffset(50f, 750f)
+                stream.showText("KELLVYN_PDF_LOCAL_ATTACHMENT_SMOKE")
+                stream.endText()
+            }
+            document.save(pdf)
+        }
+        try {
+            val extracted = AssistantAttachmentExtractor(context).extract(
+                Uri.fromFile(pdf),
+                pdf.name,
+                "application/pdf"
+            )
+            assertTrue("O extrator não retornou o texto do PDF selecionado.", extracted.extractedText.contains("KELLVYN_PDF_LOCAL_ATTACHMENT_SMOKE"))
+            assertTrue("O extrator não identificou o método PDF.", extracted.method.contains("PDF"))
+        } finally {
+            pdf.delete()
         }
     }
 
