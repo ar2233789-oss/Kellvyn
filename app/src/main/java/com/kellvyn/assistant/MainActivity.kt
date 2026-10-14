@@ -134,8 +134,6 @@ fun KellvynApp() {
     var isGenerating by remember { mutableStateOf(false) }
     var isLoadingModel by remember { mutableStateOf(false) }
     var isRemovingModel by remember { mutableStateOf(false) }
-    var isDownloadingModel by remember { mutableStateOf(false) }
-    var modelDownloadPercent by remember { mutableStateOf(0) }
     var internetToolsEnabled by remember { mutableStateOf(false) }
     var showConsoleDialog by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
@@ -151,7 +149,6 @@ fun KellvynApp() {
     var memoryDraft by remember { mutableStateOf("") }
     var memoryStatus by remember { mutableStateOf("") }
     val savedMemories = remember(memoryStore) { mutableStateListOf<MemoryFact>().apply { addAll(memoryStore.list()) } }
-    var showBuilderDialog by remember { mutableStateOf(false) }
     var showProjectsDialog by remember { mutableStateOf(false) }
     var projectToDelete by remember { mutableStateOf<WorkspaceProject?>(null) }
     var showEditorDialog by remember { mutableStateOf(false) }
@@ -161,10 +158,6 @@ fun KellvynApp() {
     var editorContent by remember { mutableStateOf("") }
     var editorStatus by remember { mutableStateOf("") }
     var isSavingFile by remember { mutableStateOf(false) }
-    var builderBrief by remember { mutableStateOf("") }
-    var isBuildingProject by remember { mutableStateOf(false) }
-    var builderMessage by remember { mutableStateOf("") }
-    var builtProject by remember { mutableStateOf<WorkspaceProject?>(null) }
     var pendingExportProject by remember { mutableStateOf<WorkspaceProject?>(null) }
     var latestBuiltApk by remember(localAndroidCompiler) { mutableStateOf(localAndroidCompiler.mostRecentApk()) }
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
@@ -224,7 +217,6 @@ fun KellvynApp() {
             AgentToolRouter(workspaceStore, localAndroidCompiler) { projectId ->
                 pendingLicenseProjectId = projectId
                 pendingLicenseRepairBrief = null
-                pendingLicenseRepairOnline = false
                 showSdkLicenseDialog = true
                 status = "O agente quer compilar um projeto. Leia a licença oficial do Android SDK antes do primeiro download."
             }
@@ -327,7 +319,6 @@ fun KellvynApp() {
     ) {
         var result = localAndroidCompiler.build(project.id) { progress ->
             status = progress
-            if (showBuilderDialog && isBuildingProject) builderMessage = progress
         }
         var autoRepaired = false
         if (result is LocalApkBuildResult.Failure &&
@@ -348,7 +339,6 @@ fun KellvynApp() {
                 autoRepaired = true
                 result = localAndroidCompiler.build(project.id) { progress ->
                     status = progress
-                    if (showBuilderDialog && isBuildingProject) builderMessage = progress
                 }
                 if (result is LocalApkBuildResult.Failure) {
                     result = LocalApkBuildResult.Failure(
@@ -377,19 +367,16 @@ fun KellvynApp() {
                     )
                 )
                 status = "APK gerado, assinado e verificado localmente."
-                if (showBuilderDialog) builderMessage = "APK gerado: " + result.apk.name
                 saveHistory()
             }
             is LocalApkBuildResult.Failure -> {
                 messages.add(ChatMessage("Diagnóstico real da build local:\n" + result.reason, false))
                 status = "A compilação terminou com erro; os diagnósticos estão no chat."
-                if (showBuilderDialog) builderMessage = result.reason.take(1_000)
                 saveHistory()
             }
             LocalApkBuildResult.LicenseRequired -> {
                 pendingLicenseProjectId = project.id
                 pendingLicenseRepairBrief = repairBrief
-                pendingLicenseRepairOnline = repairEngine === onlineEngine
                 showSdkLicenseDialog = true
                 messages.add(
                     ChatMessage(
@@ -433,7 +420,6 @@ fun KellvynApp() {
     fun submitDraft() {
         val text = draft.trim()
         if (text.isEmpty() || isGenerating) return
-        val onlineSelected = false
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
         if (!modelReady && !existingBuildOnly) {
             messages.add(ChatMessage(text, true))
@@ -456,20 +442,17 @@ fun KellvynApp() {
             "Planejando e gerando arquivos do projeto com o motor selecionado…"
         } else if (wantsExistingBuild) {
             "Selecionando o projeto e iniciando a compilação local…"
-        } else if (onlineSelected) {
-            "Enviando ao endpoint online escolhido…"
         } else {
             "Gerando resposta no aparelho…"
         }
 
-        val selectedEngine: AssistantEngine = if (onlineSelected) onlineEngine else localEngine
+        val selectedEngine: AssistantEngine = localEngine
         scope.launch {
             var restoreConversationModel = false
             try {
                 // For coding/build work, automatically use Qwen only if the user already installed it.
                 // The selected conversation model is restored afterwards; nothing is downloaded silently.
                 if (
-                    !onlineSelected &&
                     wantsCoder &&
                     localEngine.hasSavedCoderModel() &&
                     !localEngine.displayName.contains("Qwen", ignoreCase = true)
@@ -494,7 +477,6 @@ fun KellvynApp() {
                             val project = result.project
                             existingProjects.clear()
                             existingProjects.addAll(workspaceStore.listProjects())
-                            builtProject = project
                             messages.add(
                                 ChatMessage(
                                     "Projeto \"${project.name}\" criado e validado estruturalmente com ${project.fileCount} arquivos. Vou iniciar a compilação local em segundo plano.",
@@ -530,10 +512,9 @@ fun KellvynApp() {
                         messages.add(ChatMessage(reply, false))
                         status = reply
                     } else {
-                        builtProject = selectedProject
                         messages.add(ChatMessage("Encontrei o projeto \"" + selectedProject.name + "\". Iniciando o build local em segundo plano.", false))
                         val repairEngineForBuild = if (
-                            (onlineSelected && onlineConfigured) || (!onlineSelected && modelReady)
+                            modelReady
                         ) selectedEngine else null
                         buildProjectAndReport(
                             selectedProject,
@@ -641,10 +622,8 @@ fun KellvynApp() {
                         is AssistantResult.Success -> {
                             messages.add(ChatMessage(result.text, false))
                             status = when {
-                                onlineSelected && internetToolsEnabled -> "Resposta online; pesquisa web autorizada quando solicitada"
-                                onlineSelected -> "Resposta recebida do provedor online; pesquisa web desligada"
-                                internetToolsEnabled -> "Resposta local; pesquisa web autorizada quando solicitada"
-                                else -> "Resposta gerada localmente • sem acesso à internet"
+                                internetToolsEnabled -> "Resposta local; pesquisa na internet ativada quando solicitada"
+                                else -> "Resposta gerada localmente • sem envio a provedores externos"
                             }
                         }
                         is AssistantResult.Unavailable -> {
@@ -692,15 +671,15 @@ fun KellvynApp() {
         when (result) {
             is AssistantResult.Success -> {
                 modelReady = true
-                if (!onlineMode) status = result.text
+                status = result.text
             }
             is AssistantResult.Unavailable -> {
                 modelReady = false
-                if (!onlineMode) status = result.reason
+                status = result.reason
             }
             is AssistantResult.Failure -> {
                 modelReady = false
-                if (!onlineMode) status = result.reason
+                status = result.reason
             }
         }
     }
@@ -718,22 +697,6 @@ fun KellvynApp() {
                 status = "Texto reconhecido. Revise antes de enviar."
             } else {
                 status = "Nenhuma fala foi reconhecida."
-            }
-        }
-    }
-
-    val modelPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            scope.launch {
-                isLoadingModel = true
-                if (!onlineMode) status = "Copiando e inicializando o modelo local…"
-                try {
-                    updateModelResult(localEngine.importAndLoad(uri))
-                } finally {
-                    isLoadingModel = false
-                }
             }
         }
     }
@@ -761,7 +724,7 @@ fun KellvynApp() {
         try {
             localEngine.recoverInterruptedModelSwap()
             if (localEngine.hasSavedModel()) {
-                if (!onlineMode) status = "Modelo local encontrado; inicializando…"
+                status = "Modelo local encontrado; inicializando…"
                 updateModelResult(localEngine.loadSavedModel())
             }
         } catch (e: Exception) {
@@ -816,11 +779,9 @@ fun KellvynApp() {
                     }
                     Text(
                         if (modelReady) {
-                            "NÚCLEO LOCAL • $activeModelLabel" + if (internetToolsEnabled) " • WEB" else ""
-                        } else if (internetToolsEnabled) {
-                            "NÚCLEO LOCAL • INTERNET ATIVA"
+                            "NÚCLEO LOCAL • $activeModelLabel"
                         } else {
-                            "NÚCLEO LOCAL • OFFLINE"
+                            "NÚCLEO LOCAL • INICIANDO OU SEM MODELO"
                         },
                         color = Muted,
                         fontSize = 9.sp,
@@ -886,13 +847,8 @@ fun KellvynApp() {
                 Spacer(Modifier.width(7.dp))
                 Text(
                     when {
-                        isDownloadingModel -> "Instalando modelo local · " + modelDownloadPercent + "%"
-                        isGenerating && interactionMode == "Build" && onlineMode -> "Gerando arquivos do projeto · modo online"
-                        isGenerating && interactionMode == "Build" -> "Gerando arquivos do projeto · modo local"
-                        isGenerating && onlineMode -> "Resposta em andamento · modo online"
-                        isGenerating -> "Resposta em andamento · modo local"
-                        onlineMode && onlineConfigured -> "Provedor online configurado"
-                        onlineMode -> "Modo online precisa de configuração"
+                        isGenerating && interactionMode == "Build" -> "Gerando arquivos do projeto no aparelho"
+                        isGenerating -> "Resposta em andamento no aparelho"
                         modelReady -> "Modelo local carregado"
                         else -> "Aguardando modelo local"
                     },
@@ -902,16 +858,6 @@ fun KellvynApp() {
                 )
                 Text("›", color = Muted, fontSize = 16.sp)
             }
-            if (isDownloadingModel) {
-                Spacer(Modifier.height(5.dp))
-                LinearProgressIndicator(
-                    progress = modelDownloadPercent / 100f,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp),
-                    color = Neon,
-                    trackColor = Panel
-                )
-            }
-
             LazyColumn(
                 state = chatListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -1032,7 +978,9 @@ fun KellvynApp() {
                         value = draft,
                         onValueChange = { if (it.length <= MAX_INPUT_CHARS) draft = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Pergunte qualquer coisa…", color = Muted, fontSize = 13.sp) },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { submitDraft() }),
+                        placeholder = { Text("Converse ou peça para criar um aplicativo…", color = Muted, fontSize = 13.sp) },
                         shape = RoundedCornerShape(12.dp),
                         minLines = 1,
                         maxLines = 4,
@@ -1116,7 +1064,7 @@ fun KellvynApp() {
                                 }
                             },
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                        ) { Text("♩", color = Neon, fontSize = 17.sp) }
+                        ) { Text("🎤", color = Neon, fontSize = 18.sp) }
 
                         Button(
                             enabled = !isGenerating,
@@ -1191,110 +1139,6 @@ fun KellvynApp() {
                     Text("Abas", color = if (selectedNav == "Abas") Neon else Muted, fontSize = 8.sp)
                 }
             }
-        }
-
-        if (showBuilderDialog) {
-            AlertDialog(
-                onDismissRequest = { if (!isBuildingProject) showBuilderDialog = false },
-                title = { Text("Construtor de aplicativos") },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text(
-                            "Descreva o app. O agente pede ao modelo ativo um projeto Android, valida os caminhos e guarda os arquivos localmente. A compilação local ainda não está integrada: a saída é código, não um APK.",
-                            color = Muted,
-                            fontSize = 12.sp
-                        )
-                        Text(
-                            if (onlineMode) "Motor selecionado: ONLINE" else "Motor selecionado: LOCAL",
-                            color = Neon,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
-                        OutlinedTextField(
-                            value = builderBrief,
-                            onValueChange = {
-                                if (it.length <= 3000) {
-                                    builderBrief = it
-                                    builderMessage = ""
-                                    builtProject = null
-                                }
-                            },
-                            label = { Text("O que o aplicativo deve fazer?") },
-                            placeholder = { Text("Ex.: crie um gerenciador de tarefas com categorias, busca e salvamento local…") },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 4,
-                            maxLines = 8
-                        )
-                        if (isBuildingProject) {
-                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                            Text("Gerando e validando os arquivos. Não feche o app.", color = Muted, fontSize = 12.sp)
-                        }
-                        if (builderMessage.isNotBlank()) {
-                            Text(builderMessage, color = if (builtProject != null) Neon else Warning, fontSize = 12.sp)
-                        }
-                        builtProject?.let { project ->
-                            Text("Arquivos: ${project.fileCount}", color = Color.White, fontWeight = FontWeight.Bold)
-                            Text("Após gerar, o Kellvyn tenta compilar o APK neste aparelho. O primeiro build pode pedir consentimento para baixar a plataforma Android. ZIP continua opcional.", color = Muted, fontSize = 12.sp)
-                        }
-                    }
-                },
-                confirmButton = {
-                    Row {
-                        TextButton(
-                            enabled = !isBuildingProject && builderBrief.trim().length >= 12,
-                            onClick = {
-                                val engine: AssistantEngine = if (onlineMode) onlineEngine else localEngine
-                                val ready = if (onlineMode) onlineConfigured else modelReady
-                                if (!ready) {
-                                    builderMessage = if (onlineMode) {
-                                        "Configure o provedor online ou selecione LOCAL e carregue um modelo."
-                                    } else {
-                                        "Carregue um modelo local ou mude para ONLINE e configure um provedor."
-                                    }
-                                } else {
-                                    isBuildingProject = true
-                                    builtProject = null
-                                    builderMessage = "O agente está preparando o projeto…"
-                                    scope.launch {
-                                        when (val result = appBuilderAgent.createProject(engine, builderBrief)) {
-                                            is AppBuildResult.Success -> {
-                                                builtProject = result.project
-                                                builderMessage = "Projeto criado: ${result.project.name}. Compilando APK localmente…"
-                                                existingProjects.clear()
-                                                existingProjects.addAll(workspaceStore.listProjects())
-                                                status = "Construtor criou ${result.project.fileCount} arquivos; compilação local iniciada."
-                                                buildProjectAndReport(result.project, repairBrief = builderBrief, repairEngine = engine)
-                                                builderMessage = latestBuiltApk?.let { "APK gerado: ${it.name}" } ?: status
-                                            }
-                                            is AppBuildResult.Failure -> {
-                                                builderMessage = result.reason
-                                            }
-                                        }
-                                        isBuildingProject = false
-                                    }
-                                }
-                            }
-                        ) { Text("Gerar projeto") }
-                        builtProject?.let { project ->
-                            TextButton(
-                                onClick = {
-                                    pendingExportProject = project
-                                    zipExportPicker.launch("${project.id}.zip")
-                                }
-                            ) { Text("Exportar ZIP") }
-                        }
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        enabled = !isBuildingProject,
-                        onClick = { showBuilderDialog = false }
-                    ) { Text("Fechar") }
-                }
-            )
         }
 
         if (showEditorDialog) {
@@ -1473,10 +1317,6 @@ fun KellvynApp() {
                 dismissButton = {
                     TextButton(onClick = {
                         showProjectsDialog = false
-                        builderBrief = ""
-                        builderMessage = ""
-                        builtProject = null
-                        showBuilderDialog = true
                     }) { Text("Criar projeto") }
                 }
             )
@@ -1681,16 +1521,12 @@ fun KellvynApp() {
                 terminal = workspaceTerminal,
                 memories = memoryStore,
                 localModelReady = modelReady,
-                onlineMode = onlineMode,
-                onlineConfigured = onlineConfigured,
                 onDismiss = { showConsoleDialog = false },
                 onAskAgent = { request, requestApproval ->
                     if (isGenerating) {
                         "O agente principal já está processando outra solicitação. Aguarde terminar antes de pedir ajuda pelo terminal."
-                    } else if (onlineMode && !onlineConfigured) {
-                        "O provedor online não está configurado. Configure-o no menu antes de pedir ajuda ao agente."
-                    } else if (!onlineMode && !modelReady) {
-                        "Nenhum modelo local está carregado. Carregue um modelo .litertlm ou selecione o provedor online para usar o agente."
+                    } else if (!modelReady) {
+                        "O núcleo local ainda não foi inicializado; o agente auxiliar precisa do modelo local."
                     } else {
                         messages.add(ChatMessage(request, true))
                         saveHistory()
@@ -1700,7 +1536,7 @@ fun KellvynApp() {
                             val turns = buildConversationTurns()
                             when (
                                 val result = assistantAgent.respond(
-                                    engine = if (onlineMode) onlineEngine else localEngine,
+                                    engine = localEngine,
                                     conversation = turns,
                                     internetAllowed = internetToolsEnabled,
                                     onToolStatus = { toolStatus -> status = toolStatus },
@@ -1748,7 +1584,6 @@ fun KellvynApp() {
                     showSdkLicenseDialog = false
                     pendingLicenseProjectId = null
                     pendingLicenseRepairBrief = null
-                    pendingLicenseRepairOnline = false
                     status = "Licença não aceita; o download da plataforma e a compilação foram cancelados."
                 },
                 title = { Text("Licença oficial do Android SDK") },
@@ -1776,12 +1611,11 @@ fun KellvynApp() {
                         onClick = {
                             val projectId = pendingLicenseProjectId
                             val repairBrief = pendingLicenseRepairBrief
-                            val repairEngine = if (pendingLicenseRepairOnline) onlineEngine else localEngine
+                            val repairEngine = localEngine
                             localAndroidCompiler.acceptSdkLicense()
                             showSdkLicenseDialog = false
                             pendingLicenseProjectId = null
                             pendingLicenseRepairBrief = null
-                            pendingLicenseRepairOnline = false
                             val project = projectId?.let { workspaceStore.getProject(it) }
                             if (project == null) {
                                 status = "O projeto que aguardava a licença não foi encontrado."
@@ -1804,7 +1638,6 @@ fun KellvynApp() {
                             showSdkLicenseDialog = false
                             pendingLicenseProjectId = null
                             pendingLicenseRepairBrief = null
-                            pendingLicenseRepairOnline = false
                             status = "Licença não aceita; nenhum download foi iniciado."
                         }
                     ) { Text("Não aceitar", color = Warning) }
@@ -1853,85 +1686,5 @@ fun KellvynApp() {
             )
         }
 
-        if (showOnlineSettings) {
-            AlertDialog(
-                onDismissRequest = { showOnlineSettings = false },
-                title = { Text("Provedor online") },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text(
-                            "Use um endpoint compatível com a API Chat Completions e HTTPS. Kellvyn não fornece chave nem assinatura. A chave será criptografada com Android Keystore.",
-                            color = Muted,
-                            fontSize = 12.sp
-                        )
-                        OutlinedTextField(
-                            value = endpointInput,
-                            onValueChange = { endpointInput = it },
-                            label = { Text("Endpoint HTTPS") },
-                            placeholder = { Text("https://seu-provedor.example/v1") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = modelInput,
-                            onValueChange = { modelInput = it },
-                            label = { Text("Nome do modelo") },
-                            placeholder = { Text("modelo-do-provedor") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = apiKeyInput,
-                            onValueChange = { apiKeyInput = it },
-                            label = { Text("Chave API (opcional)") },
-                            placeholder = { Text("Obrigatória para alguns provedores") },
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        if (settingsError.isNotBlank()) {
-                            Text(settingsError, color = Warning, fontSize = 12.sp)
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val endpoint = endpointInput.trim()
-                        val model = modelInput.trim()
-                        if (!endpoint.startsWith("https://", ignoreCase = true) || model.isBlank()) {
-                            settingsError = "Informe uma URL HTTPS válida e o nome do modelo."
-                        } else {
-                            try {
-                                onlineSettingsStore.save(endpoint, model, apiKeyInput)
-                                onlineConfigured = onlineSettingsStore.load().isConfigured
-                                showOnlineSettings = false
-                                status = "Provedor online salvo. Mensagens só serão enviadas quando o modo ONLINE estiver selecionado."
-                            } catch (e: Exception) {
-                                settingsError = "Não foi possível salvar as credenciais com segurança: " +
-                                    (e.message ?: e.javaClass.simpleName)
-                            }
-                        }
-                    }) { Text("Salvar") }
-                },
-                dismissButton = {
-                    Row {
-                        TextButton(onClick = {
-                            onlineSettingsStore.clear()
-                            endpointInput = ""
-                            modelInput = ""
-                            apiKeyInput = ""
-                            onlineConfigured = false
-                            settingsError = ""
-                            showOnlineSettings = false
-                            status = "Configuração online removida"
-                        }) { Text("Remover") }
-                        TextButton(onClick = { showOnlineSettings = false }) { Text("Cancelar") }
-                    }
-                }
-            )
-        }
     }
 }
