@@ -8,7 +8,7 @@ A referência de engenharia consultada é o projeto aberto AIDE-OS, cuja documen
 
 ## Fluxo proposto
 
-1. O usuário conversa com o Kellvyn e escolhe **Build** na setinha do compositor.
+1. O usuário descreve o aplicativo no chat; o agente decide internamente se deve chamar o construtor. Não existe modo manual de Build.
 2. O agente produz um projeto Android nativo, salva os arquivos no workspace privado e mostra a lista de arquivos.
 3. O usuário pode revisar e editar o código, ver as abas abertas e usar o Git local.
 4. O motor local verifica os pré-requisitos, baixa componentes de ferramentas publicados e fixados por versão/checksum quando necessário, e armazena-os no espaço privado do aplicativo.
@@ -32,7 +32,7 @@ O perfil de projeto Android com Gradle/Compose é mantido como alvo de exportaç
 
 ## Estado atual verificável
 
-Já existem o construtor, workspace privado, editor, terminal opcional e agente de chat. O fluxo Build do chat inicia a toolchain rápida de Java→DEX→APK; a mesma operação está disponível para o agente e retorna diagnósticos para uma correção limitada. O perfil Gradle completo continua sendo uma arquitetura futura separada.
+Já existem o construtor interno, workspace privado, editor, Terminal opcional e agente de chat. Pedidos de criação no chat acionam a toolchain rápida de Java→DEX→APK sem alternância manual; os diagnósticos voltam ao chat para uma correção limitada. O perfil Gradle completo continua sendo uma arquitetura futura separada. O build e os testes unitários do aplicativo anfitrião passaram, mas o fluxo deve ser validado no Poco F6 físico.
 
 ## Sequência prioritária
 

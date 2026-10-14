@@ -8,27 +8,27 @@ class ChatRequestRouterTest {
 
     @Test
     fun explicitCreationStartsBuildFromTheMainChat() {
-        assertTrue(ChatRequestRouter.shouldBuild("Faz minha IA", buildModeSelected = false))
-        assertTrue(ChatRequestRouter.shouldBuild("Crie um app Android com login", buildModeSelected = false))
-        assertTrue(ChatRequestRouter.shouldBuild("Quero um sistema de estoque com cadastro e busca", buildModeSelected = false))
-        assertTrue(ChatRequestRouter.shouldBuild("Quero uma IA que crie aplicativos", buildModeSelected = false))
+        assertTrue(ChatRequestRouter.shouldBuild("Faz minha IA"))
+        assertTrue(ChatRequestRouter.shouldBuild("Crie um app Android com login"))
+        assertTrue(ChatRequestRouter.shouldBuild("Quero um sistema de estoque com cadastro e busca"))
+        assertTrue(ChatRequestRouter.shouldBuild("Quero uma IA que crie aplicativos"))
     }
 
     @Test
     fun questionsAndAnalysisStayInOrdinaryChat() {
-        assertFalse(ChatRequestRouter.shouldBuild("Pode continuar", buildModeSelected = false))
-        assertFalse(ChatRequestRouter.shouldBuild("Como criar um app Android?", buildModeSelected = false))
-        assertFalse(ChatRequestRouter.shouldBuild("Você consegue criar um app?", buildModeSelected = false))
-        assertFalse(ChatRequestRouter.shouldBuild("Faça uma análise da minha IA", buildModeSelected = false))
-        assertFalse(ChatRequestRouter.shouldBuild("Faz uma análise da minha IA", buildModeSelected = false))
-        assertFalse(ChatRequestRouter.shouldBuild("Analise meu app", buildModeSelected = false))
+        assertFalse(ChatRequestRouter.shouldBuild("Pode continuar"))
+        assertFalse(ChatRequestRouter.shouldBuild("Como criar um app Android?"))
+        assertFalse(ChatRequestRouter.shouldBuild("Você consegue criar um app?"))
+        assertFalse(ChatRequestRouter.shouldBuild("Faça uma análise da minha IA"))
+        assertFalse(ChatRequestRouter.shouldBuild("Faz uma análise da minha IA"))
+        assertFalse(ChatRequestRouter.shouldBuild("Analise meu app"))
     }
 
     @Test
     fun botCreationRoutesToBuilderButCapabilityQuestionsStayInChat() {
-        assertTrue(ChatRequestRouter.shouldBuild("Crie um bot do Discord com comando ping", buildModeSelected = false))
-        assertTrue(ChatRequestRouter.shouldBuild("Quero um bot para WhatsApp", buildModeSelected = false))
-        assertFalse(ChatRequestRouter.shouldBuild("Ela gera bots no Discord? Consegue gerar bot de WhatsApp?", buildModeSelected = false))
+        assertTrue(ChatRequestRouter.shouldBuild("Crie um bot do Discord com comando ping"))
+        assertTrue(ChatRequestRouter.shouldBuild("Quero um bot para WhatsApp"))
+        assertFalse(ChatRequestRouter.shouldBuild("Ela gera bots no Discord? Consegue gerar bot de WhatsApp?"))
     }
 
     @Test
@@ -42,8 +42,8 @@ class ChatRequestRouterTest {
 
     @Test
     fun modifyingAnExistingProjectDoesNotCreateAnotherProject() {
-        assertFalse(ChatRequestRouter.shouldBuild("Corrija meu app existente", buildModeSelected = false))
-        assertFalse(ChatRequestRouter.shouldBuild("Adicione login ao projeto que você criou", buildModeSelected = true))
+        assertFalse(ChatRequestRouter.shouldBuild("Corrija meu app existente"))
+        assertFalse(ChatRequestRouter.shouldBuild("Adicione login ao projeto que você criou"))
     }
 
     @Test
@@ -85,9 +85,9 @@ class ChatRequestRouterTest {
     @Test
     fun detailedAppBriefUsesTheHiddenBuilderAutomatically() {
         val brief = "Quero um gerenciador de tarefas com tela de login, cadastro de usuários, categorias e busca."
-        assertTrue(ChatRequestRouter.shouldBuild(brief, buildModeSelected = false))
-        assertTrue(ChatRequestRouter.shouldBuild(brief, buildModeSelected = true))
-        assertFalse(ChatRequestRouter.shouldBuild("Como funciona um app com login e cadastro?", buildModeSelected = true))
-        assertFalse(ChatRequestRouter.shouldBuild("Adicione login ao meu app existente", buildModeSelected = false))
+        assertTrue(ChatRequestRouter.shouldBuild(brief))
+        assertTrue(ChatRequestRouter.shouldBuild(brief))
+        assertFalse(ChatRequestRouter.shouldBuild("Como funciona um app com login e cadastro?"))
+        assertFalse(ChatRequestRouter.shouldBuild("Adicione login ao meu app existente"))
     }
 }

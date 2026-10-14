@@ -32,9 +32,9 @@ O agente principal não usa a tela Terminal nem executa comandos por ela. Ele co
 - Caminhos absolutos, traversal com `..`, pastas internas e metadados protegidos são bloqueados.
 - Criação/edição normal de arquivos (`write_file`/`patch_file`) é automática depois de um pedido claro de alteração. Exclusões, importação de repositórios e operações Git que mudam estado continuam pedindo autorização.
 - As páginas web e os arquivos do workspace são dados não confiáveis. Instruções encontradas neles não ganham privilégios nem podem substituir as regras do agente.
-- A pesquisa web é desligada por padrão. Ao ativá-la, as consultas vão ao mecanismo público de busca e o aplicativo faz conexões HTTPS para páginas solicitadas. Isso é separado do motor de inferência: o modelo local continua inferindo no dispositivo.
-- Se o usuário selecionar o motor de IA online, a conversa/contexto é enviada ao endpoint HTTPS que ele configurou. Esse provedor não compila APKs.
-- O agente não afirma que uma ação funcionou quando a ferramenta retorna erro. O ciclo de compilação local de APK ainda não está integrado.
+- Pesquisa web/GitHub é acionada quando a mensagem atual solicita explicitamente esse acesso. A consulta usa a internet do aparelho, mas o modelo de conversa continua local; não há provedor de IA online nem envio da conversa a um endpoint de IA.
+- Não há seletor de motor online, configuração de endpoint ou solicitação de provedor externo. Pesquisa e leitura de páginas são ferramentas separadas da inferência local.
+- O agente não afirma que uma ação funcionou quando a ferramenta retorna erro. O fluxo local de compilação está conectado ao chat, mas a criação e instalação de APKs de projetos precisam de validação física no Poco F6.
 
 ## Próximas etapas
 

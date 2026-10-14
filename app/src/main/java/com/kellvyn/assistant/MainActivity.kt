@@ -107,8 +107,7 @@ private fun isKellvynIdentityQuestion(text: String): Boolean {
 
 private fun kellvynIdentityAnswer(): String =
     "Sou o Kellvyn IA, o assistente integrado a este aplicativo. " +
-        "Minhas respostas são processadas pelo núcleo local incluído no app, sem enviar sua conversa a um provedor de IA externo. " +
-        "Não sou a Alibaba Cloud nem o Qwen; esses nomes não são a identidade deste assistente."
+        "Minhas respostas são geradas pelo modelo instalado neste celular; o chat não exige conta nem serviço externo de IA."
 
 
 private fun projectIconGlyph(project: WorkspaceProject): String {
@@ -189,7 +188,6 @@ fun KellvynApp() {
     var modelReady by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
     var isLoadingModel by remember { mutableStateOf(false) }
-    var isRemovingModel by remember { mutableStateOf(false) }
     var showConsoleDialog by remember { mutableStateOf(false) }
     var showGitDialog by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
@@ -486,7 +484,7 @@ fun KellvynApp() {
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
         if (!modelReady && !existingBuildOnly) {
             messages.add(ChatMessage(text, true))
-            messages.add(ChatMessage("O núcleo de IA local ainda não está inicializado neste aparelho. O chat não depende de provedor externo; para responder de verdade, a build precisa incluir um modelo local compatível.", false))
+            messages.add(ChatMessage("O núcleo de IA ainda não iniciou. Confira o estado exibido na tela e tente novamente quando o carregamento terminar.", false))
             saveHistory()
             draft = ""
             status = "Núcleo local não inicializado."
@@ -498,12 +496,12 @@ fun KellvynApp() {
         draft = ""
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsExistingBuild &&
-            ChatRequestRouter.shouldBuild(text, buildModeSelected = false)
+            ChatRequestRouter.shouldBuild(text)
         val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseTerminal(text) || ChatRequestRouter.shouldUseOnlineTools(text)
         isGenerating = true
         streamingReply = ""
         status = if (wantsBuild) {
-            "Planejando e gerando arquivos do projeto com o motor selecionado…"
+            "Planejando e gerando o projeto com o núcleo local…"
         } else if (wantsExistingBuild) {
             "Selecionando o projeto e iniciando a compilação local…"
         } else {
@@ -691,7 +689,7 @@ fun KellvynApp() {
                         is AssistantResult.Success -> {
                             messages.add(ChatMessage(result.text, false))
                             status = when {
-                                else -> "Resposta gerada localmente • sem envio a provedores externos"
+                                else -> "Resposta gerada no aparelho"
                             }
                         }
                         is AssistantResult.Unavailable -> {

@@ -15,8 +15,7 @@ object ChatRequestRouter {
      * Route concrete app briefs automatically; questions and modifications to an
      * existing project remain in the regular chat agent.
      */
-    @Suppress("UNUSED_PARAMETER")
-    fun shouldBuild(text: String, buildModeSelected: Boolean): Boolean =
+    fun shouldBuild(text: String): Boolean =
         isExplicitAppBuildRequest(text) || isBuildBrief(text)
 
     /**

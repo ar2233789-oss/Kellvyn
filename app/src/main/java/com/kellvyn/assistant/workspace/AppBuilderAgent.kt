@@ -243,7 +243,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 val end = raw.lastIndexOf('}')
                 if (start < 0 || end <= start) {
                     return@withContext AppBuildResult.Failure(
-                        "O modelo não retornou um projeto estruturado. Tente uma descrição menor ou um provedor mais capaz."
+                        "A IA local não retornou um projeto estruturado válido. A correção automática tentará novamente; se falhar, peça uma versão inicial menor e mais específica."
                     )
                 }
 

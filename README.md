@@ -20,7 +20,7 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 - O app final deve ser Android nativo; não embutir páginas da web em WebView.
 - A criação de APKs deve ocorrer localmente no telefone. Não usar GitHub Actions, tokens, Replit ou serviços de build na nuvem para compilar os projetos criados.
 - O código gerado pode ser exportado em ZIP para inspeção, mas ZIP não é APK.
-- A tela principal deve privilegiar o APK compilado como resultado. A compilação é invocada diretamente pelo fluxo de Build do chat; o Terminal é opcional.
+- A tela principal deve privilegiar o APK compilado como resultado. A IA encaminha pedidos de criação e compilação automaticamente pelo chat; não há alternância manual entre conversar e criar apps. O Terminal é opcional.
 - Não fingir que recursos pendentes estão prontos.
 
 ## Escopo do primeiro pipeline local
