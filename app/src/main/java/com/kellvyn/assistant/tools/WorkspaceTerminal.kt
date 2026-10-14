@@ -198,7 +198,7 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
         val matches = file.readLines(Charsets.UTF_8).mapIndexedNotNull { index, line ->
             if (line.contains(query, ignoreCase = false)) "${index + 1}: $line" else null
         }
-        matches.take(500).joinToString("\n").ifBlank { "Nenhuma ocorrência de '$query'." }
+        return matches.take(500).joinToString("\n").ifBlank { "Nenhuma ocorrência de '$query'." }
     }
 
     private fun wordCount(args: List<String>): String {
