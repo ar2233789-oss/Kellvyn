@@ -1,6 +1,8 @@
 package com.kellvyn.assistant
 
 import android.app.Activity
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -11,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
@@ -38,6 +41,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
@@ -65,6 +69,11 @@ import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.WorkspaceProject
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
 import com.kellvyn.assistant.workspace.LocalApkBuildResult
+import com.kellvyn.assistant.runtime.DiscordBotCredentialsStore
+import com.kellvyn.assistant.runtime.DiscordBotRuntimeService
+import com.kellvyn.assistant.runtime.GeneratedProjectClassifier
+import com.kellvyn.assistant.runtime.GeneratedProjectKind
+import com.kellvyn.assistant.runtime.GeneratedProjectRuntimeStore
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -196,7 +205,19 @@ fun KellvynApp() {
     var editorContent by remember { mutableStateOf("") }
     var editorStatus by remember { mutableStateOf("") }
     var isSavingFile by remember { mutableStateOf(false) }
-    var pendingExportProject by remember { mutableStateOf<WorkspaceProject?>(null) }
+    val discordCredentialsStore = remember(context) { DiscordBotCredentialsStore(context) }
+    val projectRuntimeStore = remember(context) { GeneratedProjectRuntimeStore(context) }
+    val activeRuntimeProjects = remember(projectRuntimeStore) {
+        mutableStateListOf<String>().apply { addAll(projectRuntimeStore.activeProjectIds()) }
+    }
+    var showDiscordConfigDialog by remember { mutableStateOf(false) }
+    var discordConfigProject by remember { mutableStateOf<WorkspaceProject?>(null) }
+    var discordTokenDraft by remember { mutableStateOf("") }
+    var discordApplicationIdDraft by remember { mutableStateOf("") }
+    var discordSetupError by remember { mutableStateOf("") }
+    var pendingDiscordStartId by remember { mutableStateOf<String?>(null) }
+    var pendingFileExportContent by remember { mutableStateOf<String?>(null) }
+    var pendingFileExportName by remember { mutableStateOf("") }
     var latestBuiltApk by remember(localAndroidCompiler) { mutableStateOf(localAndroidCompiler.mostRecentApk()) }
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
     var showSdkLicenseDialog by remember { mutableStateOf(false) }
@@ -212,6 +233,39 @@ fun KellvynApp() {
 
     val existingProjects = remember(workspaceStore) {
         mutableStateListOf<WorkspaceProject>().apply { addAll(workspaceStore.listProjects()) }
+    }
+
+    fun startDiscordRuntimeNow(projectId: String) {
+        try {
+            DiscordBotRuntimeService.startDiscord(context, projectId)
+            if (!activeRuntimeProjects.contains(projectId)) activeRuntimeProjects.add(projectId)
+            status = "Solicitei ao Android que mantenha o bot ativo. A notificação mostrará a conexão real."
+        } catch (e: Exception) {
+            status = "Não consegui iniciar o runtime do bot: " + (e.message ?: e.javaClass.simpleName)
+        }
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val projectId = pendingDiscordStartId
+        pendingDiscordStartId = null
+        if (granted && projectId != null) {
+            startDiscordRuntimeNow(projectId)
+        } else if (projectId != null) {
+            status = "A permissão de notificação foi negada; o bot não foi iniciado para não ocultar seu estado."
+        }
+    }
+
+    fun requestDiscordRuntimeStart(projectId: String) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingDiscordStartId = projectId
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            startDiscordRuntimeNow(projectId)
+        }
     }
 
     val conversations = remember(conversationStore, historyStore) {
@@ -428,10 +482,10 @@ fun KellvynApp() {
         }
     }
 
-    fun installLatestApk() {
-        val apk = latestBuiltApk?.takeIf { it.isFile }
+    fun installApkFile(file: File?) {
+        val apk = file?.takeIf { it.isFile && it.length() > 0L }
         if (apk == null) {
-            status = "Ainda não há APK gerado para instalar."
+            status = "Ainda não há APK gerado para este projeto."
             return
         }
         try {
@@ -449,11 +503,13 @@ fun KellvynApp() {
                 .setDataAndType(uri, "application/vnd.android.package-archive")
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
-            status = "Abrindo o instalador do Android para o APK gerado."
+            status = "Abrindo o instalador do Android para " + apk.name + "."
         } catch (e: Exception) {
             status = "Não consegui abrir o instalador: " + (e.message ?: e.javaClass.simpleName)
         }
     }
+
+    fun installLatestApk() = installApkFile(latestBuiltApk)
 
     fun submitDraft() {
         val text = draft.trim()
@@ -502,14 +558,22 @@ fun KellvynApp() {
                             val project = result.project
                             existingProjects.clear()
                             existingProjects.addAll(workspaceStore.listProjects())
-                            if (appBuilderAgent.isBotProjectRequest(text)) {
+                            if (appBuilderAgent.isDiscordBotRequest(text)) {
                                 messages.add(
                                     ChatMessage(
-                                        "O código-fonte do bot \"${project.name}\" foi salvo em Apps. Abra o projeto e exporte o ZIP para executar em um ambiente com Node.js e as credenciais oficiais da plataforma. Este celular ainda não executa Node.js nem mantém o bot conectado em segundo plano; não vou afirmar que o bot está online.",
+                                        "O bot \"" + project.name + "\" foi salvo no catálogo Apps. Abra Apps e toque em Manter ativo para configurar o token e o Application ID do Discord. O runtime nativo executa os comandos declarados em kellvyn.bot.json e mostra o estado real numa notificação persistente; o código Node.js continua guardado como fonte.",
                                         false
                                     )
                                 )
-                                status = "Projeto de bot salvo; código-fonte disponível para exportação em Apps."
+                                status = "Bot Discord salvo em Apps; ainda precisa configurar as credenciais para conectar."
+                            } else if (appBuilderAgent.isBotProjectRequest(text)) {
+                                messages.add(
+                                    ChatMessage(
+                                        "O projeto de bot \"" + project.name + "\" foi salvo em Apps. A geração do código não significa que ele esteja online. O runtime nativo nesta versão só oferece suporte a bots do Discord compatíveis; para outras plataformas, revise o código e os requisitos antes de executar.",
+                                        false
+                                    )
+                                )
+                                status = "Código do bot salvo em Apps; runtime dessa plataforma ainda não está disponível."
                             } else {
                                 messages.add(
                                     ChatMessage(
@@ -717,19 +781,26 @@ fun KellvynApp() {
         }
     }
 
-    val zipExportPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/zip")
+    val fileExportPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
     ) { destination ->
-        val project = pendingExportProject
-        pendingExportProject = null
-        if (destination != null && project != null) {
+        val content = pendingFileExportContent
+        val name = pendingFileExportName
+        pendingFileExportContent = null
+        pendingFileExportName = ""
+        if (destination != null && content != null) {
             scope.launch {
-                status = "Exportando ${project.name} para ZIP…"
                 try {
-                    withContext(Dispatchers.IO) { workspaceStore.exportZip(project.id, destination) }
-                    status = "ZIP de ${project.name} exportado. Revise o código antes de executar."
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(destination, "w")?.use {
+                            it.write(content.toByteArray(Charsets.UTF_8))
+                        } ?: throw IllegalStateException("O Android não abriu o destino para salvar o arquivo.")
+                    }
+                    status = "Arquivo " + name + " baixado para o destino escolhido."
+                    editorStatus = status
                 } catch (e: Exception) {
-                    status = "Falha ao exportar projeto: " + (e.message ?: e.javaClass.simpleName)
+                    status = "Falha ao baixar o arquivo: " + (e.message ?: e.javaClass.simpleName)
+                    editorStatus = status
                 }
             }
         }
@@ -1098,7 +1169,11 @@ fun KellvynApp() {
                         if (editorStatus.isNotBlank()) Text(editorStatus, color = if (editorStatus.startsWith("Arquivo salvo")) Neon else Warning, fontSize = 10.sp, maxLines = 3)
                         if (isSavingFile) LinearProgressIndicator(Modifier.fillMaxWidth())
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(enabled = !isSavingFile && activeEditProject != null, onClick = { activeEditProject?.let { project -> pendingExportProject = project; zipExportPicker.launch(project.id + ".zip") } }) { Text("Exportar ZIP", color = Muted, fontSize = 10.sp) }
+                            TextButton(enabled = !isSavingFile && activeEditProject != null && activeFilePath.isNotBlank(), onClick = {
+                                pendingFileExportName = activeFilePath.substringAfterLast('/')
+                                pendingFileExportContent = editorContent
+                                fileExportPicker.launch(pendingFileExportName)
+                            }) { Text("Baixar arquivo", color = Muted, fontSize = 10.sp) }
                             Spacer(Modifier.weight(1f))
                             Button(enabled = !isSavingFile && activeEditProject != null && activeFilePath.isNotBlank(), onClick = {
                                 val project = activeEditProject
@@ -1161,10 +1236,6 @@ fun KellvynApp() {
                                                     status = "Não foi possível abrir o editor: " + (e.message ?: e.javaClass.simpleName)
                                                 }
                                             }) { Text("Editor") }
-                                            TextButton(onClick = {
-                                                pendingExportProject = project
-                                                zipExportPicker.launch("${project.id}.zip")
-                                            }) { Text("Exportar ZIP") }
                                             TextButton(onClick = { projectToDelete = project }) { Text("Apagar", color = Warning) }
                                         }
                                     }
@@ -1333,7 +1404,7 @@ fun KellvynApp() {
                                                             showEditorDialog = true
                                                         } catch (e: Exception) { status = "Falha ao abrir o código: " + (e.message ?: e.javaClass.simpleName) }
                                                     }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) { Text("Código", color = Neon, fontSize = 10.sp) }
-                                                    TextButton(onClick = { pendingExportProject = project; zipExportPicker.launch(project.id + ".zip") }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) { Text("ZIP", color = Muted, fontSize = 10.sp) }
+
                                                 }
                                             }
                                         }
