@@ -60,7 +60,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 }
                 appendLine("Não invente credenciais e não inclua tokens reais. Forneça .env.example com valores vazios em linhas separadas, valide entradas e não registre tokens nos logs.")
                 appendLine("O README precisa documentar requisitos reais, dependências, configuração e limitações. Bots precisam de Node.js e credenciais; WhatsApp Cloud também precisa de conta empresarial, número registrado e webhook HTTPS público.")
-                appendLine("Limite total de 12 arquivos e 18.000 caracteres. Escape corretamente o JSON. Nunca retorne arquivos vazios, binários, caminhos absolutos, .git ou .gradle.")
+                appendLine("Limite preferencial de 20 arquivos e 45.000 caracteres; para apps/jogos grandes, priorize um núcleo vertical jogável e funcional, sem placeholders. Escape corretamente o JSON. Nunca retorne arquivos vazios, binários, caminhos absolutos, .git ou .gradle.")
             } else {
             appendLine("TAREFA: criar um projeto de aplicativo Android nativo utilizável a partir do pedido abaixo.")
             appendLine("Produza somente um objeto JSON válido, sem markdown, sem bloco de código e sem texto antes/depois.")
@@ -79,7 +79,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             appendLine("- Não crie WebView. Não use compilação remota, GitHub Actions ou serviços externos de build.")
             appendLine("- Não inclua binários, gradlew, .git, .gradle ou qualquer caminho absoluto.")
             appendLine("- Cada item de files deve conter path e content como strings. Escape corretamente quebras de linha, aspas e barras para formar JSON válido.")
-            appendLine("- Prefira no máximo 8 arquivos e aprox. 12.000 caracteres; nunca ultrapasse 12 arquivos e 18.000 caracteres.")
+            appendLine("- Prefira arquivos enxutos e um núcleo funcional completo; nunca ultrapasse 24 arquivos nem 45.000 caracteres no total.")
             appendLine("- Em um pedido grande, implemente uma primeira versão útil e documente as funções no README.")
             projectSpecificGuidance(idea).forEach { appendLine(it) }
             }
@@ -430,11 +430,11 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         }
 
         const val MAX_BRIEF_CHARS = 3_000
-        const val MAX_FILES = 12
-        const val MAX_PROJECT_CHARS = 18_000
-        const val MAX_REPAIR_FILES = 8
-        const val MAX_REPAIR_FILE_CHARS = 12_000
-        const val MAX_REPAIR_CONTEXT_CHARS = 14_000
-        const val MAX_REPAIR_ERROR_CHARS = 6_000
+        const val MAX_FILES = 24
+        const val MAX_PROJECT_CHARS = 45_000
+        const val MAX_REPAIR_FILES = 16
+        const val MAX_REPAIR_FILE_CHARS = 24_000
+        const val MAX_REPAIR_CONTEXT_CHARS = 28_000
+        const val MAX_REPAIR_ERROR_CHARS = 10_000
     }
 }
