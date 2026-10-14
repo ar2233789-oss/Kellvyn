@@ -992,10 +992,6 @@ fun KellvynApp() {
                     modifier = Modifier.background(Panel)
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Conversas") },
-                        onClick = { showQuickMenu = false; showConversationsDialog = true }
-                    )
-                    DropdownMenuItem(
                         text = { Text("Códigos guardados") },
                         onClick = {
                             showQuickMenu = false
