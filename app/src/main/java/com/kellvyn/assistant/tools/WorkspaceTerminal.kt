@@ -28,6 +28,25 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
         return if (relative == ".") "/workspace" else "/workspace/$relative"
     }
 
+    /**
+     * Interactive hybrid console: workspace-safe commands use the built-in project/Git tools;
+     * other explicitly typed commands are run with Android's /system/bin/sh in the current
+     * private workspace folder. This is not root and does not provide Node/Python package runtimes.
+     */
+    fun executeInteractive(raw: String): String {
+        val command = tokenize(raw).firstOrNull()?.lowercase(Locale.ROOT) ?: return ""
+        val workspaceCommands = setOf(
+            "help", "pwd", "cd", "ls", "dir", "tree", "find", "cat", "head", "tail",
+            "grep", "wc", "mkdir", "touch", "write", "append", "rm", "cp", "mv", "stat",
+            "status", "projects", "git"
+        )
+        return if (command in workspaceCommands) {
+            execute(raw)
+        } else {
+            ManualShellExecutor(root).execute(raw, currentDirectoryFile())
+        }
+    }
+
     fun execute(raw: String): String {
         val tokens = tokenize(raw)
         if (tokens.isEmpty()) return ""
