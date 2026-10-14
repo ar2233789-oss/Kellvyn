@@ -1170,6 +1170,25 @@ fun KellvynApp() {
                                     }
                                     TextButton(
                                         onClick = {
+                                            if (!textToSpeechReady) {
+                                                status = "A voz ainda não está pronta neste aparelho."
+                                            } else if (textToSpeech.isSpeaking) {
+                                                textToSpeech.stop()
+                                                status = "Leitura em voz alta interrompida."
+                                            } else {
+                                                val lang = textToSpeech.setLanguage(Locale("pt", "BR"))
+                                                if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
+                                                    status = "A voz em português não está disponível neste aparelho."
+                                                } else {
+                                                    textToSpeech.speak(message.text, TextToSpeech.QUEUE_FLUSH, null, "kellvyn-message-${message.hashCode()}")
+                                                    status = "Lendo a resposta em voz alta."
+                                                }
+                                            }
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                    ) { Text("🔊 Ler", color = Muted, fontSize = 10.sp) }
+                                    TextButton(
+                                        onClick = {
                                             clipboard.setText(AnnotatedString(message.text))
                                             status = "Resposta copiada para a área de transferência."
                                         },
@@ -1299,10 +1318,30 @@ fun KellvynApp() {
                             maxLines = 1
                         )
 
+                        TextButton(
+                            enabled = !isGenerating && !attachmentBusy,
+                            onClick = { attachmentPicker.launch(arrayOf("application/pdf", "image/*", "text/plain", "text/markdown", "application/json")) },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                        ) { Text(if (attachmentBusy) "…" else "📎", color = Neon, fontSize = 17.sp) }
+
+                        TextButton(
+                            enabled = !isGenerating,
+                            onClick = {
+                                val voiceIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale com o Kellvyn")
+                                }
+                                runCatching { speechInputLauncher.launch(voiceIntent) }
+                                    .onFailure { status = "Reconhecimento de voz indisponível: " + (it.message ?: "sem serviço instalado") }
+                            },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                        ) { Text("🎙", color = Neon, fontSize = 17.sp) }
+
                         Spacer(Modifier.weight(1f))
 
                         Button(
-                            enabled = !isGenerating,
+                            enabled = !isGenerating && !attachmentBusy,
                             onClick = { submitDraft() },
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.height(34.dp),
