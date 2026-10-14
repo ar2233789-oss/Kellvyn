@@ -90,7 +90,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                         val repairPrompt = buildString {
                             appendLine("A geração anterior não passou pela validação automática do construtor.")
                             appendLine("Erro detectado: ${firstAttempt.reason}")
-                            appendLine("Gere uma versão corrigida completa do projeto Android para o pedido original abaixo.")
+                            appendLine(if (isBotProjectRequest(idea)) "Gere uma versão corrigida completa do projeto de bot para o pedido original abaixo." else "Gere uma versão corrigida completa do projeto Android para o pedido original abaixo.")
                             appendLine("Retorne SOMENTE JSON válido no esquema definido, sem markdown. Inclua todos os arquivos obrigatórios.")
                             appendLine("Não descreva o que faria; entregue o conteúdo de cada arquivo.")
                             appendLine()
