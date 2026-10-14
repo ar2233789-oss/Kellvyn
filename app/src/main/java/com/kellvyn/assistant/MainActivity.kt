@@ -1292,19 +1292,15 @@ fun KellvynApp() {
         if (showNavigatorDialog) {
             AlertDialog(
                 onDismissRequest = { showNavigatorDialog = false },
-                title = { Text("Navegador do Android") },
+                title = { Text("Navegador e pesquisa") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "Para manter o Kellvyn nativo e sem WebView, os links são abertos no navegador instalado no Android.",
-                            color = Muted,
-                            fontSize = 12.sp
-                        )
+                        Text("Abre no navegador padrão do Android (Chrome, Brave ou outro instalado). Informe um endereço ou uma frase para pesquisar.", color = Muted, fontSize = 12.sp)
                         OutlinedTextField(
                             value = browserUrl,
                             onValueChange = { browserUrl = it.take(2_000) },
-                            label = { Text("Endereço HTTPS") },
-                            placeholder = { Text("https://exemplo.com") },
+                            label = { Text("Endereço ou pesquisa") },
+                            placeholder = { Text("github.com ou como criar um app Android") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -1313,20 +1309,28 @@ fun KellvynApp() {
                 confirmButton = {
                     TextButton(onClick = {
                         val typed = browserUrl.trim()
-                        val url = if (typed.startsWith("https://", true) || typed.startsWith("http://", true)) typed else "https://$typed"
-                        try {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                            status = "Link entregue ao navegador do Android."
-                            showNavigatorDialog = false
-                        } catch (e: Exception) {
-                            status = "Não há navegador disponível ou o endereço é inválido: " + (e.message ?: e.javaClass.simpleName)
+                        if (typed.isBlank()) {
+                            status = "Digite um endereço ou uma pesquisa."
+                        } else {
+                            val isUrl = typed.startsWith("http://", true) || typed.startsWith("https://", true) || (typed.contains(".") && !typed.any { it.isWhitespace() })
+                            val target = if (isUrl) {
+                                if (typed.startsWith("http://", true) || typed.startsWith("https://", true)) typed else "https://" + typed
+                            } else {
+                                "https://www.google.com/search?q=" + Uri.encode(typed)
+                            }
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                status = if (isUrl) "Site aberto no navegador padrão." else "Pesquisa aberta no navegador padrão."
+                                showNavigatorDialog = false
+                            } catch (e: Exception) {
+                                status = "Não consegui abrir o navegador: " + (e.message ?: e.javaClass.simpleName)
+                            }
                         }
-                    }) { Text("Abrir") }
+                    }) { Text("Pesquisar / Abrir") }
                 },
                 dismissButton = { TextButton(onClick = { showNavigatorDialog = false }) { Text("Fechar") } }
             )
         }
-
         if (showConversationsDialog) {
             androidx.compose.ui.window.Dialog(
                 onDismissRequest = { showConversationsDialog = false },
