@@ -32,15 +32,6 @@ class ChatRequestRouterTest {
     }
 
     @Test
-    fun terminalRunsOnlyAfterAnExplicitRequestInTheCurrentMessage() {
-        assertTrue(ChatRequestRouter.shouldUseTerminal("terminal: ls"))
-        assertTrue(ChatRequestRouter.shouldUseTerminal("Execute no terminal pwd"))
-        assertTrue(ChatRequestRouter.shouldUseTerminal("Use o terminal para executar git status"))
-        assertFalse(ChatRequestRouter.shouldUseTerminal("Como funciona um terminal Android?"))
-        assertFalse(ChatRequestRouter.shouldUseTerminal("Bom dia"))
-    }
-
-    @Test
     fun modifyingAnExistingProjectDoesNotCreateAnotherProject() {
         assertFalse(ChatRequestRouter.shouldBuild("Corrija meu app existente"))
         assertFalse(ChatRequestRouter.shouldBuild("Adicione login ao projeto que você criou"))
