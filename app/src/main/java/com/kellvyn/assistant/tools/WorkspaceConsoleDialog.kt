@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,8 +60,6 @@ fun WorkspaceConsoleDialog(
     terminal: WorkspaceTerminal,
     memories: UserMemoryStore,
     localModelReady: Boolean,
-    onlineMode: Boolean,
-    onlineConfigured: Boolean,
     onDismiss: () -> Unit,
     onAskAgent: suspend (String, suspend (String) -> Boolean) -> String
 ) {
@@ -135,8 +134,7 @@ fun WorkspaceConsoleDialog(
                         "help" -> terminal.execute("help")
                         "status" -> buildString {
                             appendLine("Motor local: " + if (localModelReady) "modelo pronto" else "sem modelo carregado")
-                            appendLine("Modo selecionado: " + if (onlineMode) "ONLINE" else "LOCAL")
-                            appendLine("Provedor online: " + if (onlineConfigured) "configurado" else "não configurado")
+                            appendLine("Agente auxiliar local: " + if (localModelReady) "modelo pronto" else "modelo ainda não inicializado")
                             appendLine("Projetos salvos: ${workspace.listProjects().size}")
                             appendLine("Memórias explícitas: ${memories.list().size}")
                             appendLine("Pasta do terminal: ${terminal.pathLabel()}")
@@ -221,12 +219,12 @@ fun WorkspaceConsoleDialog(
             border = androidx.compose.foundation.BorderStroke(1.dp, ConsoleBorder)
         ) {
             Column(
-                modifier = Modifier.fillMaxSize().background(ConsoleNight).padding(14.dp),
+                modifier = Modifier.fillMaxSize().background(ConsoleNight).padding(14.dp).imePadding(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("TERMINAL LOCAL", color = ConsoleNeon, fontSize = 14.sp)
+                        Text("TERMINAL", color = ConsoleNeon, fontSize = 15.sp)
                         Text(terminal.pathLabel(), color = ConsoleMuted, fontSize = 11.sp)
                     }
                     TextButton(onClick = onDismiss) { Text("Fechar", color = Color.White) }
@@ -237,8 +235,8 @@ fun WorkspaceConsoleDialog(
                         onValueChange = { command = it },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        label = { Text("Comando") },
-                        placeholder = { Text("help, ls, cd, git status, ! comando…") },
+                        label = { Text("Comando local") },
+                        placeholder = { Text("help, projects, ls, cd, git status…") },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { execute(command) })
                     )
@@ -287,7 +285,7 @@ fun WorkspaceConsoleDialog(
                     ) { Text(if (terminalBusy) "IA analisando…" else "Pedir ajuda à IA", color = ConsoleNeon) }
                 }
                 Text(
-                    "O chat principal funciona sem abrir o terminal. Este botão só envia o contexto acima ao agente; o shell manual continua separado e pede confirmação antes de executar comandos.",
+                    "Terminal independente. O agente auxiliar só analisa o contexto do terminal; ele não é necessário para conversar ou pedir criação de apps no chat principal.",
                     color = ConsoleMuted,
                     fontSize = 10.sp
                 )
