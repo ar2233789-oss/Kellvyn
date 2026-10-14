@@ -215,15 +215,18 @@ class AgentToolRouter(
                     require(command.isNotBlank()) { "Informe um comando para o terminal." }
                     require(command.length <= MAX_TERMINAL_COMMAND_CHARS) { "O comando ultrapassa o limite de " + MAX_TERMINAL_COMMAND_CHARS + " caracteres." }
                     require(command.none { it.code == 0 }) { "O comando contém um caractere inválido." }
-                    require(listOf(";", "&&", "||", "`").none { it in command } && command.none { it.code == 36 }) {
-                        "Envie um comando simples; encadeamento e expansão de shell são bloqueados para o agente."
+                    require(listOf(";", "&&", "||", "|", ">", "<").none { it in command } && command.none { it.code == 36 || it.code == 96 }) {
+                        "Envie um comando simples; encadeamento, redirecionamento e expansão de shell são bloqueados para o agente."
                     }
                     val lowerCommand = command.lowercase(Locale.ROOT)
                     require(listOf("sudo ", "su ", "reboot", "poweroff", "mkfs", "dd if=", "pm clear", "am force-stop", "rm -rf /", "rm -r ").none { it in lowerCommand }) {
                         "Este comando administrativo ou de exclusão recursiva está bloqueado para o agente."
                     }
-                    require(!Regex("""(^|[\\s/])\\.\\.(?:/|\\\\|$)""").containsMatchIn(command)) {
+                    require(!command.contains("..")) {
                         "O agente não pode usar caminhos que saiam da pasta de trabalho; use caminhos relativos seguros."
+                    }
+                    require(!Regex("""(^|[\s>])["']?/""").containsMatchIn(command) && !command.contains("~")) {
+                        "O agente só pode usar caminhos relativos no workspace."
                     }
                     val activeTerminal = requireNotNull(terminal) { "O terminal não foi conectado ao agente desta sessão." }
                     onStatus("Executando o comando explicitamente solicitado no terminal local…")
