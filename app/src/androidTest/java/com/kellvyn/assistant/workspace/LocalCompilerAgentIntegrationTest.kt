@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kellvyn.assistant.ai.AgentToolRouter
+import com.kellvyn.assistant.ai.AssistantAgent
 import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
@@ -315,12 +316,72 @@ class LocalCompilerAgentIntegrationTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val workspace = ProjectWorkspaceStore(context)
         val terminal = WorkspaceTerminal(workspace)
-        assertEquals("/workspace", terminal.execute("pwd"))
-        val output = terminal.executeInteractive("echo KELLVYN_ANDROID_SHELL_SMOKE")
-        assertTrue("O shell Android não retornou a saída esperada: $output", output.contains("KELLVYN_ANDROID_SHELL_SMOKE"))
-        assertTrue("O shell Android não informou o estado do processo: $output", output.contains("exit code: 0"))
-        assertTrue("O terminal deve explicar que não executou Gradle nem compilou esse comando.",
-            terminal.execute("gradle assembleDebug").contains("nenhum build foi executado por este comando"))
+        val smokeDirectoryName = "qa_file_access_smoke"
+        val smokeDirectory = File(workspace.workspaceDirectory(), smokeDirectoryName)
+        smokeDirectory.deleteRecursively()
+        try {
+            assertEquals("/workspace", terminal.execute("pwd"))
+            val output = terminal.executeInteractive("echo KELLVYN_ANDROID_SHELL_SMOKE")
+            assertTrue("O shell Android não retornou a saída esperada: $output", output.contains("KELLVYN_ANDROID_SHELL_SMOKE"))
+            assertTrue("O shell Android não informou o estado do processo: $output", output.contains("exit code: 0"))
+            assertTrue("O terminal deve explicar que não executou Gradle nem compilou esse comando.",
+                terminal.execute("gradle assembleDebug").contains("nenhum build foi executado por este comando"))
+
+            assertTrue(terminal.execute("mkdir $smokeDirectoryName").contains("Criada"))
+            terminal.execute("write $smokeDirectoryName/roundtrip.txt KELLVYN_FILE_ACCESS_ROUNDTRIP")
+            assertTrue(
+                "O terminal não conseguiu reler um arquivo criado no workspace.",
+                terminal.execute("cat $smokeDirectoryName/roundtrip.txt").contains("KELLVYN_FILE_ACCESS_ROUNDTRIP")
+            )
+            val denied = runCatching { terminal.execute("cat ../../etc/passwd") }.exceptionOrNull()
+            assertTrue("O terminal deixou escapar um caminho para fora do workspace.", denied?.message.orEmpty().contains("sai do workspace"))
+        } finally {
+            smokeDirectory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun explicitMainChatRequestCanInvokeAndReportTheWorkspaceTerminal() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val workspace = ProjectWorkspaceStore(context)
+        val terminal = WorkspaceTerminal(workspace)
+        val engine = MainChatTerminalFixtureEngine()
+        val result = AssistantAgent(AgentToolRouter(workspace, terminal = terminal)).respond(
+            engine = engine,
+            conversation = listOf(AssistantTurn(AssistantTurn.Role.USER, "terminal: echo KELLVYN_AGENT_TERMINAL")),
+            internetAllowed = false,
+            requestApproval = { false },
+            terminalAllowed = true
+        )
+        assertTrue("O chat principal falhou ao completar o pedido explícito de terminal: $result", result is AssistantResult.Success)
+        assertTrue("O teste não percorreu a chamada de ferramenta e a resposta final.", engine.calls == 2)
+        assertTrue("A resposta final não informou a saída real do terminal.", (result as AssistantResult.Success).text.contains("KELLVYN_AGENT_TERMINAL"))
+    }
+
+    private class MainChatTerminalFixtureEngine : AssistantEngine {
+        var calls: Int = 0
+            private set
+        override val displayName: String = "main-chat-terminal-test-fixture"
+        override suspend fun isAvailable(): Boolean = true
+
+        override suspend fun reply(conversation: List<AssistantTurn>): AssistantResult {
+            calls++
+            val system = conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }?.content.orEmpty()
+            assertTrue("O agente não mostrou a ferramenta do terminal após um pedido explícito.", system.contains("terminal_execute {command}"))
+            return if (calls == 1) {
+                assertTrue(conversation.last().content.startsWith("terminal:"))
+                AssistantResult.Success(
+                    """{"kind":"tool","name":"terminal_execute","arguments":{"command":"echo KELLVYN_AGENT_TERMINAL"}}"""
+                )
+            } else {
+                val evidence = conversation.lastOrNull()?.content.orEmpty()
+                assertTrue("O agente não recebeu a saída real do terminal.", evidence.contains("KELLVYN_AGENT_TERMINAL"))
+                assertTrue("O agente não recebeu o código de saída do comando.", evidence.contains("exit code: 0"))
+                AssistantResult.Success(
+                    """{"kind":"answer","text":"O terminal executou o comando e retornou KELLVYN_AGENT_TERMINAL com código 0."}"""
+                )
+            }
+        }
     }
 
     private class BotFixtureEngine(private val response: String) : AssistantEngine {
