@@ -5,7 +5,7 @@ import java.util.Locale
 /**
  * Pure routing rules for the main chat composer.
  *
- * A direct creation request can start Build even when the composer currently says Converse.
+ * A direct creation request is routed automatically by the chat agent; no mode selector is involved.
  * Questions, analysis requests and modifications to existing projects stay in the chat agent.
  */
 object ChatRequestRouter {
@@ -90,7 +90,7 @@ object ChatRequestRouter {
 
     fun shouldPreferCoder(text: String): Boolean {
         val t = text.lowercase(Locale.ROOT)
-        if (shouldBuild(text, buildModeSelected = false)) return true
+        if (shouldBuild(text)) return true
 
         val explicitWorkAction = listOf(
             "corrija", "corrigir", "corrige", "conserte", "consertar", "arrume", "arrumar",
