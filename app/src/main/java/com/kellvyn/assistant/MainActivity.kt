@@ -55,6 +55,7 @@ import com.kellvyn.assistant.data.SavedConversation
 import com.kellvyn.assistant.data.MemoryFact
 import com.kellvyn.assistant.data.UserMemoryStore
 import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
+import com.kellvyn.assistant.tools.WorkspaceGitDialog
 import com.kellvyn.assistant.tools.WorkspaceTerminal
 import com.kellvyn.assistant.workspace.AppBuilderAgent
 import com.kellvyn.assistant.workspace.EditorSyncPolicy
@@ -190,6 +191,7 @@ fun KellvynApp() {
     var isLoadingModel by remember { mutableStateOf(false) }
     var isRemovingModel by remember { mutableStateOf(false) }
     var showConsoleDialog by remember { mutableStateOf(false) }
+    var showGitDialog by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
     var showNavigatorDialog by remember { mutableStateOf(false) }
     var showConversationsDialog by remember { mutableStateOf(false) }
@@ -198,7 +200,6 @@ fun KellvynApp() {
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
     var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     var selectedNav by remember { mutableStateOf("AI") }
-    var buildModeSelected by remember { mutableStateOf(false) }
     var showMemoryDialog by remember { mutableStateOf(false) }
     var memoryDraft by remember { mutableStateOf("") }
     var memoryStatus by remember { mutableStateOf("") }
@@ -497,7 +498,7 @@ fun KellvynApp() {
         draft = ""
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsExistingBuild &&
-            ChatRequestRouter.shouldBuild(text, buildModeSelected = buildModeSelected)
+            ChatRequestRouter.shouldBuild(text, buildModeSelected = false)
         val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseTerminal(text) || ChatRequestRouter.shouldUseOnlineTools(text)
         isGenerating = true
         streamingReply = ""
@@ -993,20 +994,12 @@ fun KellvynApp() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-                        TextButton(
-                            onClick = { buildModeSelected = false },
-                            modifier = Modifier.height(32.dp),
-                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
-                        ) {
-                            Text("Conversa", color = if (!buildModeSelected) Neon else Muted, fontSize = 10.sp, maxLines = 1)
-                        }
-                        TextButton(
-                            onClick = { buildModeSelected = true },
-                            modifier = Modifier.height(32.dp),
-                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
-                        ) {
-                            Text("Build", color = if (buildModeSelected) Neon else Muted, fontSize = 10.sp, maxLines = 1)
-                        }
+                        Text(
+                            if (modelReady) "● IA local" else if (isLoadingModel) "◌ Preparando IA" else "IA local indisponível",
+                            color = if (modelReady) Neon else Muted,
+                            fontSize = 10.sp,
+                            maxLines = 1
+                        )
 
                         Spacer(Modifier.weight(1f))
 
@@ -1053,7 +1046,9 @@ fun KellvynApp() {
                 Box(
                     Modifier.weight(1f).fillMaxHeight().clickable {
                         selectedNav = "Git"
-                        showConsoleDialog = true
+                        existingProjects.clear()
+                        existingProjects.addAll(workspaceStore.listProjects())
+                        showGitDialog = true
                     },
                     contentAlignment = Alignment.Center
                 ) { Text("⑂ Git", color = if (selectedNav == "Git") Neon else Muted, fontSize = 10.sp) }
@@ -1322,7 +1317,7 @@ fun KellvynApp() {
                     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("MEUS APPS", color = Neon, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text("APPS CRIADOS PELA IA", color = Neon, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 Text("Projetos criados pelo chat principal", color = Muted, fontSize = 11.sp)
                             }
                             TextButton(onClick = { showAppsDialog = false }) { Text("Fechar", color = Color.White) }
@@ -1358,20 +1353,12 @@ fun KellvynApp() {
                                                     TextButton(onClick = { pendingExportProject = project; zipExportPicker.launch(project.id + ".zip") }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) { Text("ZIP", color = Muted, fontSize = 10.sp) }
                                                 }
                                             }
-                                            TextButton(enabled = !isGenerating, onClick = {
-                                                showAppsDialog = false
-                                                scope.launch {
-                                                    isGenerating = true
-                                                    status = "Compilando " + project.name + " localmente…"
-                                                    try { buildProjectAndReport(project) } finally { isGenerating = false }
-                                                }
-                                            }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) { Text("APK", color = Neon, fontSize = 10.sp) }
                                         }
                                     }
                                 }
                             }
                         }
-                        Text("Os cartões mostram os projetos salvos; a compilação do APK é feita no aparelho.", color = Muted, fontSize = 10.sp)
+                        Text("A IA cria e compila os aplicativos pelo chat. Aqui você consulta o código ou exporta uma cópia.", color = Muted, fontSize = 10.sp)
                     }
                 }
             }
@@ -1456,6 +1443,13 @@ fun KellvynApp() {
                 workspace = workspaceStore,
                 terminal = workspaceTerminal,
                 onDismiss = { showConsoleDialog = false }
+            )
+        }
+        if (showGitDialog) {
+            WorkspaceGitDialog(
+                workspace = workspaceStore,
+                projects = existingProjects.toList(),
+                onDismiss = { showGitDialog = false }
             )
         }
 
