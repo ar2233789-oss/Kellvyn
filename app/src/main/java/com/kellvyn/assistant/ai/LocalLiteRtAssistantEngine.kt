@@ -21,6 +21,7 @@ import java.security.MessageDigest
 class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoCloseable {
     private companion object {
         const val MAX_SYSTEM_CONTEXT_CHARS = 12_000
+        const val BUNDLE_VERIFIED_KEY = "bundled_model_verified"
         const val BUNDLED_MODEL_BYTES = 373_719_040L
         const val BUNDLED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
     }
@@ -28,6 +29,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
     private val appContext = context.applicationContext
     private val modelDirectory = File(appContext.filesDir, "models")
     private val modelFile = File(modelDirectory, "kellvyn-model.litertlm")
+    private val bundlePrefs = appContext.getSharedPreferences("kellvyn_model_bundle", Context.MODE_PRIVATE)
     @Volatile private var engine: Engine? = null
 
     // One integrated Kellvyn assistant; no light/heavy model modes are exposed.
@@ -64,17 +66,21 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         }
     }
 
-    /**
-     * Seeds the private model slot from the APK asset on first launch. The packaged
-     * weights are checksum-verified; after this copy all inference runs on-device.
-     * An existing user model is never overwritten.
-     */
+    /** Installs the one checksum-verified model bundled in the APK; no picker or downloader exists. */
     private fun installBundledConversationModelIfAvailable() {
-        if (modelFile.isFile && modelFile.length() > 0L) return
+        if (bundlePrefs.getBoolean(BUNDLE_VERIFIED_KEY, false) &&
+            modelFile.isFile && modelFile.length() == BUNDLED_MODEL_BYTES
+        ) return
+
+        if (hasBundledChecksum(modelFile)) {
+            bundlePrefs.edit().putBoolean(BUNDLE_VERIFIED_KEY, true).apply()
+            return
+        }
+
         val bundledInput = try {
             appContext.assets.open("models/kellvyn-model.litertlm")
         } catch (_: Exception) {
-            // Development builds without the packaging workflow remain installable, but have no bundled model.
+            // Development builds without the APK packaging step cannot initialize offline inference.
             return
         }
         val temporary = File(modelDirectory, "kellvyn-model.bundled")
@@ -97,12 +103,35 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                     }
                 }
             }
+            if (modelFile.exists() && !modelFile.delete()) {
+                throw IllegalStateException("Não foi possível substituir o modelo antigo pelo núcleo integrado.")
+            }
             if (!temporary.renameTo(modelFile)) {
                 throw IllegalStateException("Não foi possível instalar o modelo integrado no armazenamento privado.")
             }
+            bundlePrefs.edit().putBoolean(BUNDLE_VERIFIED_KEY, true).apply()
         } catch (e: Exception) {
             temporary.delete()
             throw IllegalStateException("Não consegui preparar o núcleo local integrado: " + (e.message ?: e.javaClass.simpleName), e)
+        }
+    }
+
+    private fun hasBundledChecksum(file: File): Boolean {
+        if (!file.isFile || file.length() != BUNDLED_MODEL_BYTES) return false
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().buffered().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    if (count > 0) digest.update(buffer, 0, count)
+                }
+            }
+            digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+                .equals(BUNDLED_MODEL_SHA256, ignoreCase = true)
+        } catch (_: Exception) {
+            false
         }
     }
 
