@@ -201,7 +201,15 @@ fun KellvynApp() {
     val uiPreferences = remember(context) { context.getSharedPreferences("kellvyn_ui_settings", Context.MODE_PRIVATE) }
     var accentChoice by remember(context) { mutableStateOf(uiPreferences.getString("accent_choice", "green") ?: "green") }
     var rainUiEnabled by remember(context) { mutableStateOf(uiPreferences.getBoolean("rain_background_enabled", false)) }
-    LaunchedEffect(accentChoice) { KellvynAccent.choice.value = accentChoice }
+    var onlineMode by remember(context) { mutableStateOf(uiPreferences.getBoolean("online_mode_enabled", false)) }
+    var proactiveSafety by remember(context) { mutableStateOf(uiPreferences.getBoolean("proactive_safety_enabled", true)) }
+    LaunchedEffect(accentChoice) {
+        KellvynAccent.choice.value = accentChoice
+        uiPreferences.edit().putString("accent_choice", accentChoice).apply()
+    }
+    LaunchedEffect(rainUiEnabled) { uiPreferences.edit().putBoolean("rain_background_enabled", rainUiEnabled).apply() }
+    LaunchedEffect(onlineMode) { uiPreferences.edit().putBoolean("online_mode_enabled", onlineMode).apply() }
+    LaunchedEffect(proactiveSafety) { uiPreferences.edit().putBoolean("proactive_safety_enabled", proactiveSafety).apply() }
     val historyStore = remember(context) { ChatHistoryStore(context) }
     val conversationStore = remember(context) { ChatConversationStore(context) }
     val memoryStore = remember(context) { UserMemoryStore(context) }
@@ -638,8 +646,8 @@ fun KellvynApp() {
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsExistingBuild &&
             ChatRequestRouter.shouldBuild(text)
-        val internetAllowedThisTurn = hasInternetConnection(context)
-        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseOnlineTools(text) || internetAllowedThisTurn
+        val internetAllowedThisTurn = onlineMode && hasInternetConnection(context)
+        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || onlineMode || ChatRequestRouter.shouldUseOnlineTools(text)
         isGenerating = true
         streamingReply = ""
         status = if (wantsBuild) {
@@ -996,6 +1004,7 @@ fun KellvynApp() {
             onSurface = Color.White
         )
     ) {
+        Box(Modifier.fillMaxSize().background(Night)) {
         Column(
             modifier = Modifier.fillMaxSize().background(Night).padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
@@ -1012,7 +1021,7 @@ fun KellvynApp() {
                 Column(Modifier.weight(1f)) {
                     Text("Kellvyn Assistente", color = Neon, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Text(
-                        if (modelReady) "KELLVYN IA • LOCAL" else "KELLVYN IA • INICIALIZANDO",
+                        if (!modelReady) "KELLVYN IA • INICIALIZANDO" else if (onlineMode) "KELLVYN IA • ONLINE" else "KELLVYN IA • OFFLINE",
                         color = Muted,
                         fontSize = 9.sp,
                         letterSpacing = 1.sp,
@@ -1024,8 +1033,12 @@ fun KellvynApp() {
                     onDismissRequest = { showQuickMenu = false },
                     modifier = Modifier.background(Panel)
                 ) {
-                    DropdownMenuItem(text = { Text("Conversas") }, onClick = { showQuickMenu = false; showConversationsDialog = true })
+                    DropdownMenuItem(text = { Text("Conversas e histórico") }, onClick = { showQuickMenu = false; showConversationsDialog = true })
                 }
+                TextButton(
+                    onClick = { showUiSettingsDialog = true },
+                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
+                ) { Text("⋮", color = Neon, fontSize = 22.sp) }
             }
 
             Divider(color = Color(0xFF143D33), thickness = 1.dp)
@@ -1217,7 +1230,7 @@ fun KellvynApp() {
                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Text(
-                            if (modelReady) (if (hasInternetConnection(context)) "● IA local + internet" else "● IA local · offline") else if (isLoadingModel) "◌ Preparando IA" else "IA local indisponível",
+                            if (modelReady) (if (onlineMode && hasInternetConnection(context)) "● IA online" else if (onlineMode) "● Online · sem rede" else "● IA local · offline") else if (isLoadingModel) "◌ Preparando IA" else "IA local indisponível",
                             color = if (modelReady) Neon else Muted,
                             fontSize = 10.sp,
                             maxLines = 1
@@ -1284,6 +1297,78 @@ fun KellvynApp() {
                     contentAlignment = Alignment.Center
                 ) { Text("▦ Apps", color = if (selectedNav == "Apps") Neon else Muted, fontSize = 10.sp) }
             }
+        }
+
+        if (rainUiEnabled) {
+            StartupRainOverlay(modifier = Modifier.fillMaxSize(), accent = Neon)
+        }
+
+        if (showUiSettingsDialog) {
+            AlertDialog(
+                onDismissRequest = { showUiSettingsDialog = false },
+                title = { Text("Configurações da interface", color = Neon) },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("MODO DA IA", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(if (onlineMode) "Online ativado" else "Offline", color = Color.White, fontSize = 13.sp)
+                                Text(
+                                    if (onlineMode) "A IA continua local e pode usar pesquisa e ferramentas de internet sem selecionar provedor." else "A IA usa o modelo local; ferramentas de internet ficam desativadas.",
+                                    color = Muted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Switch(checked = onlineMode, onCheckedChange = { onlineMode = it })
+                        }
+                        Divider(color = Color(0xFF143D33))
+                        Text("COR DA IA", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        listOf(
+                            "green" to ("Verde neon" to Color(0xFF38E6BC)),
+                            "blue" to ("Azul elétrico" to Color(0xFF48A9FF)),
+                            "purple" to ("Violeta" to Color(0xFFBB86FC)),
+                            "orange" to ("Laranja" to Color(0xFFFFA64D))
+                        ).forEach { (key, pair) ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable { accentChoice = key },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Canvas(Modifier.size(18.dp)) { drawCircle(pair.second) }
+                                Spacer(Modifier.width(8.dp))
+                                Text(pair.first, color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                if (accentChoice == key) Text("✓", color = pair.second, fontSize = 15.sp)
+                            }
+                        }
+                        Divider(color = Color(0xFF143D33))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Chuva animada ao entrar", color = Color.White, fontSize = 13.sp)
+                                Text("Efeito decorativo sobre a interface. Desative para poupar bateria.", color = Muted, fontSize = 11.sp)
+                            }
+                            Switch(checked = rainUiEnabled, onCheckedChange = { rainUiEnabled = it })
+                        }
+                        Divider(color = Color(0xFF143D33))
+                        Text("SEGURANÇA DO APARELHO", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(if (proactiveSafety) "Análises proativas ativadas" else "Análises proativas desativadas", color = Color.White, fontSize = 13.sp)
+                                Text(
+                                    "A análise heurística avisa sobre sinais suspeitos em APKs examinados, mas não garante ausência de malware.",
+                                    color = Muted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Switch(checked = proactiveSafety, onCheckedChange = { proactiveSafety = it })
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showUiSettingsDialog = false }) { Text("Fechar", color = Neon) }
+                }
+            )
         }
 
         if (showEditorDialog) {
@@ -1900,5 +1985,6 @@ fun KellvynApp() {
             )
         }
 
+        }
     }
 }
