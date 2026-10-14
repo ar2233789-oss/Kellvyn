@@ -9,6 +9,7 @@ import com.kellvyn.assistant.ai.AgentToolRouter
 import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
+import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
 import com.kellvyn.assistant.tools.WorkspaceTerminal
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -120,6 +121,79 @@ class LocalCompilerAgentIntegrationTest {
         }
     }
 
+
+
+    @Test
+    fun bundledLocalModelCanGenerateAndCompileARealAndroidApp() = runBlocking {
+        assumeTrue(
+            "A geração com o modelo completo é executada no emulador de CI.",
+            Build.FINGERPRINT.startsWith("generic", ignoreCase = true) ||
+                Build.FINGERPRINT.contains("sdk_gphone", ignoreCase = true) ||
+                Build.MODEL.contains("emulator", ignoreCase = true) ||
+                Build.MODEL.contains("Android SDK built for", ignoreCase = true)
+        )
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val workspace = ProjectWorkspaceStore(context)
+        val engine = LocalLiteRtAssistantEngine(context)
+        val buildRoot = File(context.filesDir, "kellvyn_builds")
+        val licensePreferences = context.getSharedPreferences("kellvyn_local_builder", Context.MODE_PRIVATE)
+        var originalLicense: Boolean? = null
+        var projectId: String? = null
+        var apk: File? = null
+        try {
+            engine.recoverInterruptedModelSwap()
+            val loaded = engine.loadSavedModel()
+            assertTrue("O modelo local real não carregou: $loaded", loaded is AssistantResult.Success)
+
+            val generated = AppBuilderAgent(workspace).createProject(
+                engine,
+                "Crie um app Android nativo simples de lista de tarefas com campo de texto, botão Adicionar e lista visível de tarefas. Faça a lista funcionar. Use Java Android."
+            )
+            assertTrue("O modelo local não gerou um projeto Android estruturalmente válido: $generated",
+                generated is AppBuildResult.Success)
+            val project = (generated as AppBuildResult.Success).project
+            projectId = project.id
+
+            val compiler = LocalAndroidCompiler(context, workspace)
+            originalLicense = compiler.hasAcceptedSdkLicense()
+            compiler.acceptSdkLicense()
+            when (val built = compiler.build(project.id)) {
+                is LocalApkBuildResult.Success -> {
+                    apk = built.apk
+                    assertEquals("O compilador gerou um applicationId inesperado.", "com.example.app", built.applicationId)
+                    assertTrue("O compilador não publicou um APK real.", built.apk.isFile && built.apk.length() > 0L)
+                    ZipFile(built.apk).use { zip ->
+                        assertNotNull("O APK gerado pelo modelo não contém AndroidManifest.xml.", zip.getEntry("AndroidManifest.xml"))
+                        assertNotNull("O APK gerado pelo modelo não contém classes.dex.", zip.getEntry("classes.dex"))
+                    }
+                    val parsedPackage = context.packageManager.getPackageArchiveInfo(
+                        built.apk.absolutePath,
+                        PackageManager.GET_ACTIVITIES
+                    )
+                    assertNotNull("O APK do modelo não foi reconhecido pelo PackageManager.", parsedPackage)
+                    assertEquals("com.example.app", parsedPackage!!.packageName)
+                    assertTrue("O APK não anuncia uma Activity inicializável.",
+                        parsedPackage.activities?.any { it.name == "com.example.app.MainActivity" } == true)
+                }
+                is LocalApkBuildResult.Failure ->
+                    throw AssertionError("O projeto criado pelo modelo falhou na compilação local: \${built.reason}")
+                LocalApkBuildResult.LicenseRequired ->
+                    throw AssertionError("A compilação pediu licença depois de a licença ter sido aceita no teste.")
+            }
+        } finally {
+            projectId?.let { id ->
+                workspace.deleteProject(id)
+                File(buildRoot, id).deleteRecursively()
+                File(buildRoot, id + ".apk.tmp").delete()
+                File(buildRoot, id + ".apk.previous").delete()
+            }
+            apk?.delete()
+            originalLicense?.let { accepted ->
+                licensePreferences.edit().putBoolean("android_sdk_license_accepted", accepted).apply()
+            }
+            engine.close()
+        }
+    }
 
     @Test
     fun discordBotRequestCreatesExportableSourceAndNeverClaimsItIsOnline() = runBlocking {
