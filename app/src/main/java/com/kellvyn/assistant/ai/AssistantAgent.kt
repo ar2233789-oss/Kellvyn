@@ -937,12 +937,7 @@ class AssistantAgent(
             appendLine("- git_init {project_id}: inicializa Git local; precisa de aprovação")
             appendLine("- git_stage_all {project_id}: prepara arquivos locais para commit; precisa de aprovação")
             appendLine("- git_commit {project_id,message}: cria commit local; precisa de aprovação")
-            appendLine("As ferramentas normais de projetos, arquivos e Git acessam o workspace diretamente, sem depender da tela Terminal.")
-            if (terminalAllowed) {
-                appendLine("- terminal_execute {command}: executa um único comando que o usuário pediu explicitamente nesta mensagem, dentro da pasta privada /workspace, usando o shell Android. Use somente o comando solicitado; não encadeie comandos, não redirecione arquivos, não use expansão de shell, não tente root ou caminhos fora do workspace. Informe a saída real.")
-            } else {
-                appendLine("A ferramenta terminal_execute não está disponível nesta mensagem. Só a ofereça quando o texto atual do usuário solicitar explicitamente um comando pelo terminal.")
-            }
+            appendLine("O terminal é uma ferramenta manual opcional do usuário, não tem agente próprio nem é um meio para você executar comandos. Quando o usuário pedir ajuda com Termux/terminal no chat principal, responda como assistente: organize comandos e arquivos completos para copiar, explique a pasta correta e a ordem de execução, antecipe erros comuns e forneça correções. Não afirme que você executou os comandos e não use uma ferramenta terminal_execute. Ajudar a preparar comandos não exige que o usuário mude de tela ou de modo.")
             appendLine("- write_file {project_id,path,content}: grava ou substitui um arquivo automaticamente quando isso atende ao pedido claro do usuário")
             appendLine("- patch_file {project_id,path,old_text,new_text}: aplica uma edição pontual automaticamente após pedido claro; falha sem gravar se o trecho não for único")
             appendLine("Ao editar código, prefira patch_file para mudanças pontuais; old_text precisa identificar uma única ocorrência. Use write_file para substituição completa somente quando for necessário. Depois de uma escrita, leia novamente o trecho ou arquivo para conferir quando possível.")
