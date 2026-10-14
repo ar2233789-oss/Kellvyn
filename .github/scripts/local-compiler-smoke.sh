@@ -18,12 +18,13 @@ if [ "$build_status" -eq 0 ]; then
   adb install -r app/build/outputs/apk/debug/app-debug.apk >> app/build/qa/emulator-diagnostics.txt 2>&1
   install_status=$?
   if [ "$install_status" -eq 0 ]; then
-    adb shell mkdir -p /sdcard/Android/data/com.kellvyn.assistant/files/kellvyn_qa >> app/build/qa/emulator-diagnostics.txt 2>&1
-    adb push "$KELLVYN_QA_MODEL_PATH" /sdcard/Android/data/com.kellvyn.assistant/files/kellvyn_qa/kellvyn-model.litertlm >> app/build/qa/emulator-diagnostics.txt 2>&1
+    # Android 15 restricts shell writes to /sdcard/Android/data. Push to the
+    # shell-owned temp area, then copy into app-private storage as the app UID.
+    adb push "$KELLVYN_QA_MODEL_PATH" /data/local/tmp/kellvyn-model.litertlm >> app/build/qa/emulator-diagnostics.txt 2>&1
     push_status=$?
     if [ "$push_status" -eq 0 ]; then
       adb shell run-as com.kellvyn.assistant mkdir -p files/models >> app/build/qa/emulator-diagnostics.txt 2>&1
-      adb shell run-as com.kellvyn.assistant cp /sdcard/Android/data/com.kellvyn.assistant/files/kellvyn_qa/kellvyn-model.litertlm files/models/kellvyn-model.litertlm >> app/build/qa/emulator-diagnostics.txt 2>&1
+      adb shell run-as com.kellvyn.assistant cp /data/local/tmp/kellvyn-model.litertlm files/models/kellvyn-model.litertlm >> app/build/qa/emulator-diagnostics.txt 2>&1
       adb shell run-as com.kellvyn.assistant ls -l files/models/kellvyn-model.litertlm >> app/build/qa/emulator-diagnostics.txt 2>&1
       gradle --no-daemon connectedDebugAndroidTest
       android_status=$?
@@ -31,6 +32,7 @@ if [ "$build_status" -eq 0 ]; then
   fi
 fi
 
+adb shell rm -f /data/local/tmp/kellvyn-model.litertlm >> app/build/qa/emulator-diagnostics.txt 2>&1 || true
 adb shell df -h /data >> app/build/qa/emulator-diagnostics.txt 2>&1 || true
 adb shell pm list packages com.kellvyn.assistant >> app/build/qa/emulator-diagnostics.txt 2>&1 || true
 adb shell run-as com.kellvyn.assistant cat files/kellvyn_qa/model-acceptance-report.md > app/build/qa/model-acceptance-report.md 2> app/build/qa/report-pull-error.txt || true
