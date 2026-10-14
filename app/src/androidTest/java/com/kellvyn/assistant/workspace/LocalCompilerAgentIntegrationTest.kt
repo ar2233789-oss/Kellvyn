@@ -14,6 +14,8 @@ import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
 import com.kellvyn.assistant.ai.reasonOrText
+import android.os.Environment
+import android.provider.MediaStore
 import com.kellvyn.assistant.runtime.DiscordBotCredentialsStore
 import com.kellvyn.assistant.runtime.DiscordBotDefinition
 import com.kellvyn.assistant.runtime.GeneratedProjectClassifier
@@ -445,6 +447,36 @@ class LocalCompilerAgentIntegrationTest {
             }
             persist()
             engine.close()
+        }
+    }
+
+    @Test
+    fun successfulBuildArtifactCanBeDownloadedFromTheChatToAndroidDownloads() {
+        assumeTrue("MediaStore Downloads is available on Android 10+", Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val source = File(context.cacheDir, "kellvyn-direct-download-test.apk")
+        val expected = "KELLVYN_APK_DOWNLOAD_BYTES".toByteArray(Charsets.UTF_8)
+        source.writeBytes(expected)
+        var uri: android.net.Uri? = null
+        try {
+            uri = ApkDownloadStore(context).saveToDownloads(source)
+            val actual = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            assertTrue("O download não entregou os mesmos bytes do APK compilado.", expected.contentEquals(actual))
+            context.contentResolver.query(
+                uri,
+                arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.MIME_TYPE, MediaStore.MediaColumns.RELATIVE_PATH),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                assertTrue("O arquivo baixado não possui metadados.", cursor.moveToFirst())
+                assertTrue(cursor.getString(0).endsWith(".apk", ignoreCase = true))
+                assertEquals("application/vnd.android.package-archive", cursor.getString(1))
+                assertEquals(Environment.DIRECTORY_DOWNLOADS + "/Kellvyn", cursor.getString(2))
+            } ?: throw AssertionError("O Android não conseguiu consultar o arquivo baixado.")
+        } finally {
+            uri?.let { runCatching { context.contentResolver.delete(it, null, null) } }
+            source.delete()
         }
     }
 
