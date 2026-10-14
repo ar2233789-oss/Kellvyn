@@ -340,8 +340,7 @@ fun KellvynApp() {
                     pendingLicenseRepairBrief = null
                     showSdkLicenseDialog = true
                     status = "O agente quer compilar um projeto. Leia a licença oficial do Android SDK antes do primeiro download."
-                },
-                terminal = workspaceTerminal
+                }
             )
         )
     }
@@ -703,8 +702,7 @@ fun KellvynApp() {
                             conversation = turns,
                             internetAllowed = ChatRequestRouter.shouldUseOnlineTools(text),
                             onToolStatus = { toolStatus -> status = toolStatus },
-                            requestApproval = { summary -> requestAgentApproval(summary) },
-                            terminalAllowed = false
+                            requestApproval = { summary -> requestAgentApproval(summary) }
                         )
                     } else {
                         // Everyday conversation skips the agent JSON/tool loop and calls the local model directly.
