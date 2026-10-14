@@ -100,9 +100,8 @@ private fun isKellvynIdentityQuestion(text: String): Boolean {
     return listOf(
         "quem te criou", "quem criou você", "quem criou voce", "quem desenvolveu você", "quem desenvolveu voce",
         "quem é você", "quem e voce", "quem é voce", "quem e você", "quem é a ia", "quem e a ia",
-        "qual é seu nome", "qual e seu nome", "você é da alibaba", "voce e da alibaba",
-        "alibaba cloud", "você é o qwen", "voce e o qwen", "você é o chatgpt", "voce e o chatgpt",
-        "foi criado por", "foi desenvolvida por", "quem é o modelo", "quem e o modelo"
+        "qual é seu nome", "qual e seu nome", "você é da alibaba", "voce e da alibaba", "criado pela alibaba", "criada pela alibaba", "feito pela alibaba", "feito por alibaba",
+        "você é o qwen", "voce e o qwen", "você é o chatgpt", "voce e o chatgpt", "quem é o modelo", "quem e o modelo"
     ).any { it in value }
 }
 
