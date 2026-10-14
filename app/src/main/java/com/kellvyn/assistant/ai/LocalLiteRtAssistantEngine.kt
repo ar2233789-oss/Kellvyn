@@ -21,8 +21,8 @@ import java.security.MessageDigest
 class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoCloseable {
     private companion object {
         const val MAX_SYSTEM_CONTEXT_CHARS = 12_000
-        const val RECOMMENDED_MODEL_BYTES = 373_719_040L
-        const val RECOMMENDED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
+        const val BUNDLED_MODEL_BYTES = 373_719_040L
+        const val BUNDLED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
     }
 
     private val appContext = context.applicationContext
@@ -92,7 +92,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                     }
                     output.fd.sync()
                     val actualHash = digest.digest().joinToString("") { byte -> "%02x".format(byte) }
-                    if (temporary.length() != RECOMMENDED_MODEL_BYTES || !actualHash.equals(RECOMMENDED_MODEL_SHA256, ignoreCase = true)) {
+                    if (temporary.length() != BUNDLED_MODEL_BYTES || !actualHash.equals(BUNDLED_MODEL_SHA256, ignoreCase = true)) {
                         throw IllegalStateException("O modelo integrado no APK não passou na verificação de integridade.")
                     }
                 }
@@ -108,7 +108,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
 
     suspend fun loadSavedModel(): AssistantResult {
         if (!hasSavedModel()) {
-            return AssistantResult.Unavailable("Nenhum modelo local foi selecionado.")
+            return AssistantResult.Unavailable("O núcleo local integrado não está disponível nesta versão.")
         }
         return loadModel()
     }
@@ -128,7 +128,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             engine = candidate
             candidate = null
             try { previous?.close() } catch (_: Exception) { }
-            AssistantResult.Success("Modelo local carregado e pronto para responder.")
+            AssistantResult.Success("Kellvyn IA pronta para conversar.")
         } catch (e: Exception) {
             try { candidate?.close() } catch (_: Exception) { }
             AssistantResult.Failure(
@@ -151,7 +151,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         onPartial: suspend (String) -> Unit = {}
     ): AssistantResult = withContext(Dispatchers.IO) {
         val activeEngine = engine
-            ?: return@withContext AssistantResult.Unavailable("Carregue um modelo local antes de enviar mensagens.")
+            ?: return@withContext AssistantResult.Unavailable("O núcleo local ainda não terminou de inicializar. Tente enviar novamente.")
 
         val lastUserIndex = conversation.indexOfLast { it.role == AssistantTurn.Role.USER }
         if (lastUserIndex < 0) {
