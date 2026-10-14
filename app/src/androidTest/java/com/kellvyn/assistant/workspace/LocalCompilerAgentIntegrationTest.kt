@@ -317,7 +317,6 @@ class LocalCompilerAgentIntegrationTest {
                 )),
                 internetAllowed = false,
                 requestApproval = { false },
-                terminalAllowed = false
             )
             val fileAnswer = fileRead.reasonOrText()
             section("Teste de acesso a arquivos pelo chat", "Resultado: " + fileRead.javaClass.simpleName + "\nResposta do modelo: " + fileAnswer)
@@ -594,7 +593,7 @@ class LocalCompilerAgentIntegrationTest {
         val workspace = ProjectWorkspaceStore(context)
         val terminal = WorkspaceTerminal(workspace)
         val engine = MainChatTerminalGuidanceFixtureEngine()
-        val result = AssistantAgent(AgentToolRouter(workspace, terminal = terminal)).respond(
+        val result = AssistantAgent(AgentToolRouter(workspace)).respond(
             engine = engine,
             conversation = listOf(AssistantTurn(
                 AssistantTurn.Role.USER,
@@ -602,7 +601,6 @@ class LocalCompilerAgentIntegrationTest {
             )),
             internetAllowed = false,
             requestApproval = { false },
-            terminalAllowed = true
         )
         assertTrue("O chat principal não respondeu ao pedido de ajuda com Termux: $result", result is AssistantResult.Success)
         assertEquals("A orientação manual deve ser respondida no chat sem acionar ferramenta.", 1, engine.calls)
