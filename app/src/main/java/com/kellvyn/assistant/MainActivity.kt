@@ -137,12 +137,10 @@ fun KellvynApp() {
     var isRemovingModel by remember { mutableStateOf(false) }
     var showConsoleDialog by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
-    var showModeMenu by remember { mutableStateOf(false) }
     var showNavigatorDialog by remember { mutableStateOf(false) }
     var showConversationsDialog by remember { mutableStateOf(false) }
     var showAppsDialog by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf("https://developer.android.com") }
-    var interactionMode by remember { mutableStateOf("Conversa") }
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
     var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     var selectedNav by remember { mutableStateOf("AI") }
@@ -431,7 +429,7 @@ fun KellvynApp() {
         draft = ""
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsExistingBuild &&
-            ChatRequestRouter.shouldBuild(text, buildModeSelected = interactionMode == "Build")
+            ChatRequestRouter.shouldBuild(text, buildModeSelected = false)
         val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text)
         isGenerating = true
         streamingReply = ""
@@ -748,9 +746,6 @@ fun KellvynApp() {
                         maxLines = 1
                     )
                 }
-                TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Text("⋮", color = Neon, fontSize = 23.sp)
-                }
                 DropdownMenu(
                     expanded = showQuickMenu,
                     onDismissRequest = { showQuickMenu = false },
@@ -769,10 +764,10 @@ fun KellvynApp() {
                 Text("◉", color = Neon, fontSize = 13.sp)
                 Spacer(Modifier.width(7.dp))
                 Text(
-                    if (isGenerating && interactionMode == "Build") "Planejando projeto"
-                    else if (isGenerating) "Pensando"
-                    else if (isLoadingModel) "Inicializando núcleo"
-                    else "Núcleo",
+                    if (isGenerating && status.contains("projeto", ignoreCase = true)) "Trabalhando no aplicativo"
+                    else if (isGenerating) "Respondendo"
+                    else if (isLoadingModel) "Inicializando"
+                    else "Assistente local",
                     color = Neon,
                     fontSize = 11.sp,
                     modifier = Modifier.weight(1f)
@@ -787,7 +782,7 @@ fun KellvynApp() {
                 Spacer(Modifier.width(7.dp))
                 Text(
                     when {
-                        isGenerating && interactionMode == "Build" -> "Gerando arquivos do projeto no aparelho"
+                        isGenerating && status.contains("projeto", ignoreCase = true) -> "Trabalhando no aplicativo neste aparelho"
                         isGenerating -> "Resposta em andamento no aparelho"
                         modelReady -> "Assistente local pronto"
                         else -> "Aguardando modelo local"
@@ -957,35 +952,6 @@ fun KellvynApp() {
                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
 
-                        Box {
-                            Surface(
-                                color = Color(0xFF061510),
-                                shape = RoundedCornerShape(9.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
-                            ) {
-                                TextButton(
-                                    onClick = { showModeMenu = true },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                                ) {
-                                    Text("$interactionMode ⌄", color = Neon, fontSize = 10.sp, maxLines = 1)
-                                }
-                            }
-                            DropdownMenu(
-                                expanded = showModeMenu,
-                                onDismissRequest = { showModeMenu = false },
-                                modifier = Modifier.background(Panel)
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Conversa normal") },
-                                    onClick = { interactionMode = "Conversa"; showModeMenu = false }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Build · criar aplicativo") },
-                                    onClick = { interactionMode = "Build"; showModeMenu = false }
-                                )
-
-                            }
-                        }
 
                         Spacer(Modifier.weight(1f))
 
