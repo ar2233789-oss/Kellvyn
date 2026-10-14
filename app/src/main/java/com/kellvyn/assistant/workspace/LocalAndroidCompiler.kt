@@ -198,7 +198,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
         if (isUsableAndroidJar()) return androidJar
         if (androidJar.exists()) androidJar.delete()
         platformDir.mkdirs()
-        val archive = File(platformDir, "platform-36.zip")
+        val archive = File(platformDir, "platform-35.zip")
         val partial = File(platformDir, "platform-36.zip.part")
         // Discard any stale archive after an interrupted or invalid attempt.
         archive.delete()
