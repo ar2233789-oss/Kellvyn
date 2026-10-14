@@ -226,6 +226,34 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         }
     }
 
+    private fun validateDiscordBotManifest(content: String): String? = try {
+        val json = JSONObject(content)
+        if (!json.optString("platform").equals("discord", ignoreCase = true)) {
+            return "platform precisa ser discord."
+        }
+        val commands = json.optJSONArray("commands") ?: return "commands precisa ser uma lista."
+        if (commands.length() !in 1..25) return "defina de 1 a 25 comandos slash."
+        val supported = setOf("response", "ping", "current_time", "roll_dice", "coin_flip", "user_name", "server_id", "echo")
+        val names = ArrayList<String>()
+        for (index in 0 until commands.length()) {
+            val item = commands.optJSONObject(index) ?: return "o comando " + (index + 1) + " não é um objeto."
+            val name = item.optString("name").trim().lowercase(Locale.ROOT)
+            val description = item.optString("description").trim()
+            val action = item.optString("action", "response").trim().lowercase(Locale.ROOT).ifBlank { "response" }
+            val response = item.optString("response").trim()
+            if (!name.matches(Regex("[a-z0-9_-]{1,32}"))) return "nome de comando inválido: " + name
+            if (description.isBlank() || description.length > 100) return "descrição inválida para /" + name
+            if (action !in supported) return "ação não suportada em /" + name + ": " + action
+            if (action == "response" && (response.isBlank() || response.length > 1800)) {
+                return "a resposta de /" + name + " está vazia ou longa demais."
+            }
+            names += name
+        }
+        if (names.distinct().size != names.size) "há nomes de comandos repetidos." else null
+    } catch (e: Exception) {
+        "JSON inválido (" + (e.message ?: e.javaClass.simpleName) + ")."
+    }
+
     private fun isRecoverableGenerationFailure(reason: String): Boolean {
         val text = reason.lowercase()
         return listOf(
@@ -240,6 +268,9 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             "repetiu caminhos de arquivo",
             "ultrapassou o limite seguro",
             "json",
+            "manifesto de bot inválido",
+            "ação não suportada",
+            "comandos slash",
             "estrutura"
         ).any { it in text }
     }
@@ -335,6 +366,14 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     return@withContext AppBuildResult.Failure(
                         "A resposta de código ultrapassou o limite seguro. Peça uma versão inicial menor."
                     )
+                }
+
+                if (isDiscordBotRequest(idea)) {
+                    val manifestContent = files.firstOrNull { it.path.replace('\\\\', '/') == "kellvyn.bot.json" }?.content.orEmpty()
+                    val manifestError = validateDiscordBotManifest(manifestContent)
+                    if (manifestError != null) {
+                        return@withContext AppBuildResult.Failure("Manifesto de bot inválido: " + manifestError)
+                    }
                 }
 
                 if (!botProject) {
