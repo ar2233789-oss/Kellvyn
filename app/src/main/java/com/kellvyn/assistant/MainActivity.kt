@@ -129,6 +129,7 @@ fun KellvynApp() {
         }.also { speechOutputHolder[0] = it }
     }
     var draft by remember { mutableStateOf("") }
+    var streamingReply by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("Kellvyn pronto. Converse pelo chat principal.") }
     var modelReady by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
@@ -433,6 +434,7 @@ fun KellvynApp() {
             ChatRequestRouter.shouldBuild(text, buildModeSelected = interactionMode == "Build")
         val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text)
         isGenerating = true
+        streamingReply = ""
         status = if (wantsBuild) {
             "Planejando e gerando arquivos do projeto com o motor selecionado…"
         } else if (wantsExistingBuild) {
@@ -443,29 +445,7 @@ fun KellvynApp() {
 
         val selectedEngine: AssistantEngine = localEngine
         scope.launch {
-            var restoreConversationModel = false
             try {
-                // For coding/build work, automatically use Qwen only if the user already installed it.
-                // The selected conversation model is restored afterwards; nothing is downloaded silently.
-                if (
-                    wantsCoder &&
-                    localEngine.hasSavedCoderModel() &&
-                    !localEngine.displayName.contains("Qwen", ignoreCase = true)
-                ) {
-                    status = "Qwen Coder local já instalado: ativando temporariamente para esta tarefa…"
-                    restoreConversationModel = when (val coderResult = localEngine.loadCoderModel()) {
-                        is AssistantResult.Success -> true
-                        is AssistantResult.Unavailable -> {
-                            status = "Qwen Coder não pôde ser ativado (${coderResult.reason}); vou usar o modelo selecionado."
-                            false
-                        }
-                        is AssistantResult.Failure -> {
-                            status = "Qwen Coder não pôde ser ativado (${coderResult.reason}); vou usar o modelo selecionado."
-                            false
-                        }
-                    }
-                }
-
                 if (wantsBuild) {
                     when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
                         is AppBuildResult.Success -> {
@@ -531,13 +511,20 @@ fun KellvynApp() {
                         }
                     } else null
                     val savedEditorBefore = savedEditorBeforeResult?.getOrNull()
-                    val agentResult = assistantAgent.respond(
-                        engine = selectedEngine,
-                        conversation = turns,
-                        internetAllowed = false,
-                        onToolStatus = { toolStatus -> status = toolStatus },
-                        requestApproval = { summary -> requestAgentApproval(summary) }
-                    )
+                    val agentResult = if (wantsCoder) {
+                        assistantAgent.respond(
+                            engine = selectedEngine,
+                            conversation = turns,
+                            internetAllowed = false,
+                            onToolStatus = { toolStatus -> status = toolStatus },
+                            requestApproval = { summary -> requestAgentApproval(summary) }
+                        )
+                    } else {
+                        // Everyday conversation skips the agent JSON/tool loop and calls the local model directly.
+                        localEngine.replyStreaming(turns) { partial ->
+                            withContext(Dispatchers.Main.immediate) { streamingReply = partial }
+                        }
+                    }
                     val refreshedProjects = withContext(Dispatchers.IO) { workspaceStore.listProjects() }
                     latestBuiltApk = localAndroidCompiler.mostRecentApk() ?: latestBuiltApk
                     existingProjects.clear()
@@ -637,25 +624,7 @@ fun KellvynApp() {
                 saveHistory()
                 status = "Falha inesperada: $reason"
             } finally {
-                if (restoreConversationModel) {
-                    val taskStatus = status
-                    status = "Restaurando o modelo de conversa selecionado…"
-                    when (val restoreResult = localEngine.loadConversationModel()) {
-                        is AssistantResult.Success -> status = taskStatus
-                        is AssistantResult.Unavailable -> {
-                            val warning = "$taskStatus O modelo de conversa não foi restaurado: ${restoreResult.reason}. Qwen Coder continua ativo."
-                            messages.add(ChatMessage(warning, false))
-                            status = warning
-                            saveHistory()
-                        }
-                        is AssistantResult.Failure -> {
-                            val warning = "$taskStatus O modelo de conversa não foi restaurado: ${restoreResult.reason}. Qwen Coder continua ativo."
-                            messages.add(ChatMessage(warning, false))
-                            status = warning
-                            saveHistory()
-                        }
-                    }
-                }
+                streamingReply = ""
                 isGenerating = false
             }
         }
@@ -734,6 +703,11 @@ fun KellvynApp() {
             chatListState.animateScrollToItem(messages.lastIndex)
         }
     }
+    LaunchedEffect(streamingReply.length) {
+        if (streamingReply.isNotBlank()) {
+            chatListState.animateScrollToItem(messages.size)
+        }
+    }
 
     DisposableEffect(localEngine, speechOutput) {
         onDispose {
@@ -766,17 +740,8 @@ fun KellvynApp() {
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Kellvyn Assistente", color = Neon, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                    val activeModelLabel = if (localEngine.displayName.contains("Qwen", ignoreCase = true)) {
-                        "QWEN CODER"
-                    } else {
-                        "MODELO LEVE"
-                    }
                     Text(
-                        if (modelReady) {
-                            "NÚCLEO LOCAL • $activeModelLabel"
-                        } else {
-                            "NÚCLEO LOCAL • INICIANDO OU SEM MODELO"
-                        },
+                        if (modelReady) "KELLVYN IA • LOCAL" else "KELLVYN IA • INICIALIZANDO",
                         color = Muted,
                         fontSize = 9.sp,
                         letterSpacing = 1.sp,
@@ -824,7 +789,7 @@ fun KellvynApp() {
                     when {
                         isGenerating && interactionMode == "Build" -> "Gerando arquivos do projeto no aparelho"
                         isGenerating -> "Resposta em andamento no aparelho"
-                        modelReady -> "Modelo local carregado"
+                        modelReady -> "Assistente local pronto"
                         else -> "Aguardando modelo local"
                     },
                     color = Muted,
@@ -902,6 +867,24 @@ fun KellvynApp() {
                                 }
                             }
                         }
+                    }
+                }
+            }
+            if (streamingReply.isNotBlank()) {
+                item(key = "kellvyn_streaming_reply") {
+                    Surface(
+                        color = Night,
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0B3329)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            streamingReply + " ▍",
+                            modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
+                            color = Color(0xFF9ED7C8),
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp
+                        )
                     }
                 }
             }
