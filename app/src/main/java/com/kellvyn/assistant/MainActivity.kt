@@ -128,6 +128,7 @@ private fun projectIconGlyph(project: WorkspaceProject): String {
         listOf("dinheiro", "finança", "financa", "banco", "gasto", "orçamento", "orcamento").any { it in description } -> "💰"
         listOf("calculadora", "cálculo", "calculo", "matemática", "matematica").any { it in description } -> "🧮"
         listOf("saúde", "saude", "treino", "fitness", "exercício", "exercicio").any { it in description } -> "💠"
+        listOf("bot", "discord", "whatsapp", "telegram", "wpp").any { it in description } -> "🤖"
         else -> "▣"
     }
 }
@@ -524,14 +525,24 @@ fun KellvynApp() {
                             val project = result.project
                             existingProjects.clear()
                             existingProjects.addAll(workspaceStore.listProjects())
-                            messages.add(
-                                ChatMessage(
-                                    "Projeto \"${project.name}\" criado e validado estruturalmente com ${project.fileCount} arquivos. Vou iniciar a compilação local em segundo plano.",
-                                    false
+                            if (appBuilderAgent.isBotProjectRequest(text)) {
+                                messages.add(
+                                    ChatMessage(
+                                        "O código-fonte do bot \"\${project.name}\" foi salvo em Apps. Abra o projeto e exporte o ZIP para executar em um ambiente com Node.js e as credenciais oficiais da plataforma. Este celular ainda não executa Node.js nem mantém o bot conectado em segundo plano; não vou afirmar que o bot está online.",
+                                        false
+                                    )
                                 )
-                            )
-                            status = "Projeto salvo. Iniciando o compilador local…"
-                            buildProjectAndReport(project, repairBrief = text, repairEngine = selectedEngine)
+                                status = "Projeto de bot salvo; código-fonte disponível para exportação em Apps."
+                            } else {
+                                messages.add(
+                                    ChatMessage(
+                                        "Projeto \"\${project.name}\" criado e validado estruturalmente com \${project.fileCount} arquivos. Vou iniciar a compilação local em segundo plano.",
+                                        false
+                                    )
+                                )
+                                status = "Projeto salvo. Iniciando o compilador local…"
+                                buildProjectAndReport(project, repairBrief = text, repairEngine = selectedEngine)
+                            }
                         }
                         is AppBuildResult.Failure -> {
                             messages.add(ChatMessage("Não consegui concluir a geração do projeto: ${result.reason}", false))
