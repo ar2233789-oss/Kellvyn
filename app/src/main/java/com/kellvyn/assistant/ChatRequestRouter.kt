@@ -60,7 +60,9 @@ object ChatRequestRouter {
             "revise ", "revisar ", "inspecione ", "inspecionar ", "leia ", "ler ",
             "corrija o bug", "corrija o erro", "fix ", "debug ", "review ", "patch ",
             "continue o projeto", "termine o projeto",
-            "termine minha ia", "finalize o projeto", "conclua o projeto", "complete o projeto"
+            "termine minha ia", "finalize essa ia", "finaliza essa ia", "finalizar essa ia",
+            "finalize a ia", "finaliza a ia", "finalizar a ia", "conclua essa ia",
+            "finalize o projeto", "conclua o projeto", "complete o projeto"
         ).any { it in t }
         val codeTarget = Regex("\\.(kt|kts|java|xml|gradle|md|json|properties|py|js|ts|tsx|html|css)(\\b|$)", RegexOption.IGNORE_CASE)
             .containsMatchIn(text) ||
