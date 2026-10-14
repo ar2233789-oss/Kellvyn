@@ -131,7 +131,9 @@ object ChatRequestRouter {
             "como criar", "como faço", "como faco", "me explique", "explique como",
             "tutorial de", "passo a passo para", "você consegue", "voce consegue",
             "é possível", "e possivel", "qual aplicativo devo usar", "você pode",
-            "voce pode", "consegue criar", "será que", "sera que", "tem como"
+            "voce pode", "consegue criar", "consegue gerar", "consegue fazer",
+            "ela gera", "ela consegue", "você gera", "voce gera", "pode gerar",
+            "dá para gerar", "da para gerar", "será que", "sera que", "tem como"
         ).any { it in t }
         val startsWithAnalysisOrReview = listOf(
             "faça uma análise", "faca uma analise", "faz uma análise", "faz uma analise",
