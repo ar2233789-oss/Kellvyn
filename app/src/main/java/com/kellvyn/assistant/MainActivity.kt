@@ -925,16 +925,18 @@ fun KellvynApp() {
     }
 
     DisposableEffect(context) {
-        lateinit var created: TextToSpeech
-        created = TextToSpeech(context) { result ->
-            if (result == TextToSpeech.SUCCESS) {
-                val languageResult = created.setLanguage(Locale("pt", "BR"))
+        val engineHolder = arrayOfNulls<TextToSpeech>(1)
+        val created = TextToSpeech(context) { result ->
+            val activeEngine = engineHolder[0]
+            if (result == TextToSpeech.SUCCESS && activeEngine != null) {
+                val languageResult = activeEngine.setLanguage(Locale("pt", "BR"))
                 ttsReady = languageResult != TextToSpeech.LANG_MISSING_DATA &&
                     languageResult != TextToSpeech.LANG_NOT_SUPPORTED
             } else {
                 ttsReady = false
             }
         }
+        engineHolder[0] = created
         ttsEngine = created
         onDispose {
             created.stop()
