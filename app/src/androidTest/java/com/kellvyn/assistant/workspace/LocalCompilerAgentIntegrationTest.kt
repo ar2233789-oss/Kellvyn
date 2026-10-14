@@ -207,8 +207,8 @@ class LocalCompilerAgentIntegrationTest {
         val output = terminal.executeInteractive("echo KELLVYN_ANDROID_SHELL_SMOKE")
         assertTrue("O shell Android não retornou a saída esperada: $output", output.contains("KELLVYN_ANDROID_SHELL_SMOKE"))
         assertTrue("O shell Android não informou o estado do processo: $output", output.contains("exit code: 0"))
-        assertFalse("O terminal não deve reportar comandos de shell como executados pelo interpretador de workspace.",
-            terminal.execute("gradle assembleDebug").contains("nenhum build foi executado por este comando").not())
+        assertTrue("O terminal deve explicar que não executou Gradle nem compilou esse comando.",
+            terminal.execute("gradle assembleDebug").contains("nenhum build foi executado por este comando"))
     }
 
     private class BotFixtureEngine(private val response: String) : AssistantEngine {
