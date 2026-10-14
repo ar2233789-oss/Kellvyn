@@ -528,7 +528,7 @@ fun KellvynApp() {
                             if (appBuilderAgent.isBotProjectRequest(text)) {
                                 messages.add(
                                     ChatMessage(
-                                        "O código-fonte do bot \"\${project.name}\" foi salvo em Apps. Abra o projeto e exporte o ZIP para executar em um ambiente com Node.js e as credenciais oficiais da plataforma. Este celular ainda não executa Node.js nem mantém o bot conectado em segundo plano; não vou afirmar que o bot está online.",
+                                        "O código-fonte do bot \"${project.name}\" foi salvo em Apps. Abra o projeto e exporte o ZIP para executar em um ambiente com Node.js e as credenciais oficiais da plataforma. Este celular ainda não executa Node.js nem mantém o bot conectado em segundo plano; não vou afirmar que o bot está online.",
                                         false
                                     )
                                 )
@@ -536,7 +536,7 @@ fun KellvynApp() {
                             } else {
                                 messages.add(
                                     ChatMessage(
-                                        "Projeto \"\${project.name}\" criado e validado estruturalmente com \${project.fileCount} arquivos. Vou iniciar a compilação local em segundo plano.",
+                                        "Projeto \"${project.name}\" criado e validado estruturalmente com ${project.fileCount} arquivos. Vou iniciar a compilação local em segundo plano.",
                                         false
                                     )
                                 )
