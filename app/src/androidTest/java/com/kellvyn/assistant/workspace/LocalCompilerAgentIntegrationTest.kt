@@ -9,10 +9,12 @@ import com.kellvyn.assistant.ai.AgentToolRouter
 import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
+import com.kellvyn.assistant.tools.WorkspaceTerminal
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -115,6 +117,113 @@ class LocalCompilerAgentIntegrationTest {
             licensePreferences.edit()
                 .putBoolean("android_sdk_license_accepted", licenseWasAccepted)
                 .apply()
+        }
+    }
+
+
+    @Test
+    fun discordBotRequestCreatesExportableSourceAndNeverClaimsItIsOnline() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val workspace = ProjectWorkspaceStore(context)
+        val projectJson = JSONObject()
+            .put("name", "Discord Ping Bot Smoke Test")
+            .put("description", "Fixture de teste do gerador de bots do Discord.")
+            .put("files", JSONArray().apply {
+                put(JSONObject().put("path", "package.json").put(
+                    "content",
+                    """{"name":"kellvyn-discord-ping-smoke","version":"1.0.0","private":true,"main":"src/index.js","scripts":{"start":"node src/index.js","register":"node src/register-commands.js"},"dependencies":{"discord.js":"^14.0.0"}}"""
+                ))
+                put(JSONObject().put("path", "src/index.js").put("content", """
+                    const { Client, Events } = require('discord.js');
+                    const token = process.env.DISCORD_TOKEN;
+                    if (!token) throw new Error('Configure DISCORD_TOKEN before starting this bot.');
+                    const client = new Client({ intents: [] });
+                    client.once(Events.ClientReady, ready => console.log('Bot ready as ' + ready.user.tag));
+                    client.on(Events.InteractionCreate, async interaction => {
+                      if (!interaction.isChatInputCommand() || interaction.commandName !== 'ping') return;
+                      await interaction.reply({ content: 'Pong!', ephemeral: true });
+                    });
+                    client.login(token).catch(error => {
+                      console.error('Discord login failed; check credentials and network.');
+                      process.exitCode = 1;
+                    });
+                """.trimIndent()))
+                put(JSONObject().put("path", "src/register-commands.js").put("content", """
+                    const { REST, Routes, SlashCommandBuilder } = require('discord.js');
+                    const { DISCORD_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID } = process.env;
+                    if (!DISCORD_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID) {
+                      throw new Error('Set DISCORD_TOKEN, DISCORD_CLIENT_ID and DISCORD_GUILD_ID.');
+                    }
+                    const command = new SlashCommandBuilder().setName('ping').setDescription('Responde Pong!');
+                    const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
+                    rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID), {
+                      body: [command.toJSON()]
+                    }).then(() => console.log('Slash command registered.'))
+                      .catch(() => { console.error('Command registration failed.'); process.exitCode = 1; });
+                """.trimIndent()))
+                put(JSONObject().put("path", ".env.example").put(
+                    "content",
+                    "DISCORD_TOKEN=\\nDISCORD_CLIENT_ID=\\nDISCORD_GUILD_ID=\\n"
+                ))
+                put(JSONObject().put("path", "README.md").put("content", """
+                    # Discord Ping Bot
+                    Requer Node.js 22/24 e uma aplicação/bot criado no Discord Developer Portal.
+                    Configure as variáveis de ambiente usando .env.example como referência.
+                    Rode npm install, depois npm run register e npm start.
+                    Convide o bot somente com os escopos bot e applications.commands e as permissões mínimas.
+                    Este projeto é código-fonte: o teste do construtor não autentica nem hospeda o bot.
+                """.trimIndent()))
+            })
+            .toString()
+        val engine = BotFixtureEngine(projectJson)
+        val result = AppBuilderAgent(workspace).createProject(
+            engine,
+            "Crie um bot do Discord com comando slash /ping"
+        )
+        assertTrue("O construtor não salvou a fonte do bot: $result", result is AppBuildResult.Success)
+        val project = (result as AppBuildResult.Success).project
+        try {
+            val paths = workspace.listFiles(project.id).toSet()
+            assertTrue(paths.contains("package.json"))
+            assertTrue(paths.contains("src/index.js"))
+            assertTrue(paths.contains("src/register-commands.js"))
+            assertTrue(paths.contains(".env.example"))
+            assertTrue(paths.contains("README.md"))
+            assertTrue(workspace.readFile(project.id, "src/index.js").contains("Pong!"))
+            assertTrue(workspace.readFile(project.id, ".env.example").contains("DISCORD_TOKEN="))
+            assertTrue(workspace.readFile(project.id, "README.md").contains("não autentica nem hospeda"))
+            assertFalse("O projeto do bot não deve ser empacotado como app Android.", paths.contains("app/src/main/AndroidManifest.xml"))
+        } finally {
+            workspace.deleteProject(project.id)
+        }
+    }
+
+    @Test
+    fun androidTerminalRunsWorkspaceCommandsAndExplicitManualShell() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val workspace = ProjectWorkspaceStore(context)
+        val terminal = WorkspaceTerminal(workspace)
+        assertEquals("/workspace", terminal.execute("pwd"))
+        val output = terminal.executeInteractive("echo KELLVYN_ANDROID_SHELL_SMOKE")
+        assertTrue("O shell Android não retornou a saída esperada: $output", output.contains("KELLVYN_ANDROID_SHELL_SMOKE"))
+        assertTrue("O shell Android não informou o estado do processo: $output", output.contains("exit code: 0"))
+        assertFalse("O terminal não deve reportar comandos de shell como executados pelo interpretador de workspace.",
+            terminal.execute("gradle assembleDebug").contains("nenhum build foi executado por este comando").not())
+    }
+
+    private class BotFixtureEngine(private val response: String) : AssistantEngine {
+        override val displayName: String = "discord-bot-test-fixture"
+
+        override suspend fun isAvailable(): Boolean = true
+
+        override suspend fun reply(conversation: List<AssistantTurn>): AssistantResult {
+            val prompt = conversation.lastOrNull()?.content.orEmpty()
+            assertTrue("O construtor não marcou o pedido como fonte de bot, não APK.", prompt.contains("não um APK Android"))
+            assertTrue("O construtor não especificou discord.js.", prompt.contains("discord.js"))
+            assertTrue("O construtor não exigiu comando slash /ping.", prompt.contains("comando slash /ping"))
+            assertTrue("O construtor não protegeu o token do bot.", prompt.contains("DISCORD_TOKEN"))
+            assertTrue("O pedido original não chegou ao construtor.", prompt.contains("Crie um bot do Discord com comando slash /ping"))
+            return AssistantResult.Success(response)
         }
     }
 
