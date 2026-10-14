@@ -126,7 +126,7 @@ private fun projectIconGlyph(project: WorkspaceProject): String {
 }
 
 @Composable
-private fun KellvynMark(diameter: androidx.compose.ui.unit.Dp = 28.dp, accent: Color = accent) {
+private fun KellvynMark(diameter: androidx.compose.ui.unit.Dp = 28.dp, accent: Color = Neon) {
     Canvas(modifier = Modifier.size(diameter)) {
         val d = this.size.minDimension
         val r = d * 0.46f
@@ -1477,7 +1477,7 @@ fun KellvynApp() {
                         Divider(color = Color(0xFF143D33))
                         Text("SEGURANÇA", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Text(
-                            "Ações destrutivas e operações Git que alteram dados continuam exigindo confirmação. A IA local não envia suas mensagens a um provedor externo.",
+                            "Ações destrutivas e operações Git que alteram dados continuam exigindo confirmação. A conversa usa o modelo integrado no aparelho; pesquisas na internet só acontecem quando você pedir explicitamente.",
                             color = Muted,
                             fontSize = 12.sp
                         )
