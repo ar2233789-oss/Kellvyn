@@ -7,6 +7,7 @@ import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.SamplerConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
@@ -24,6 +25,8 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         const val BUNDLE_VERIFIED_KEY = "bundled_model_verified"
         const val BUNDLED_MODEL_BYTES = 373_719_040L
         const val BUNDLED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
+        const val MAX_CHAT_OUTPUT_TOKENS = 1024
+        const val MAX_PROJECT_OUTPUT_TOKENS = 4096
     }
 
     private val appContext = context.applicationContext
@@ -198,6 +201,11 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         try {
             val answer = StringBuilder()
             var lastPublishedLength = 0
+            val requestedText = conversation[lastUserIndex].content
+            val projectGeneration = requestedText.contains("TAREFA: criar um projeto", ignoreCase = true) ||
+                requestedText.contains("TAREFA: criar código-fonte funcional", ignoreCase = true) ||
+                requestedText.contains("REGRAS TÉCNICAS E ESQUEMA:", ignoreCase = true) ||
+                requestedText.contains("Esquema obrigatório:", ignoreCase = true)
             val config = ConversationConfig(
                 systemInstruction = Contents.of(
                     buildString {
@@ -205,7 +213,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                             "Você é Kellvyn IA, o assistente integrado ao aplicativo Kellvyn. Responda em português brasileiro, com clareza, naturalidade e sem enrolação. " +
                                 "Identidade fixa: o projeto Kellvyn IA foi idealizado e criado por Kellvyn, que definiu sua identidade, seus objetivos e seu comportamento. Se perguntarem quem te criou, quem desenvolveu o projeto ou quem você é, reconheça explicitamente Kellvyn como criador do projeto. " +
                                 "Você usa um modelo de linguagem que roda localmente no aparelho; esse modelo é a tecnologia usada para gerar respostas, não o criador do Kellvyn IA. Não atribua a criação do projeto à Alibaba Cloud, Qwen, OpenAI, Google ou ao fabricante do modelo, e não invente qual é o fabricante. " +
-                                "Não invente capacidades nem ações executadas."
+                                "Não invente capacidades nem ações executadas. Neste build, o chat só produz texto: ele não gera/edita imagens bitmap, não recebe anexos de imagem e não consegue enviar uma imagem como referência visual. Se pedirem uma imagem, explique essa limitação sem fingir que criou um arquivo. Você pode escrever código Canvas/SVG como parte de um app, mas isso não equivale a gerar um arquivo de imagem nem a verificar sua semelhança visual."
                         )
                         conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }
                             ?.content
@@ -214,7 +222,16 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                             ?.let { appendLine(); appendLine(); append(it) }
                     }
                 ),
-                initialMessages = priorMessages
+                initialMessages = priorMessages,
+                // Bound output length so malformed model output cannot stream indefinitely.
+                // Code generation gets a larger budget because it must return a complete JSON project.
+                maxOutputToken = if (projectGeneration) MAX_PROJECT_OUTPUT_TOKENS else MAX_CHAT_OUTPUT_TOKENS,
+                samplerConfig = SamplerConfig(
+                    topK = 40,
+                    topP = 0.9,
+                    temperature = if (projectGeneration) 0.2 else 0.7,
+                    seed = System.nanoTime().toInt()
+                )
             )
             activeEngine.createConversation(config).use { chat ->
                 chat.sendMessageAsync(conversation[lastUserIndex].content).collect { part ->
