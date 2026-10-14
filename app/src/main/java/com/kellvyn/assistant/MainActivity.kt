@@ -140,6 +140,7 @@ fun KellvynApp() {
     var showModeMenu by remember { mutableStateOf(false) }
     var showNavigatorDialog by remember { mutableStateOf(false) }
     var showConversationsDialog by remember { mutableStateOf(false) }
+    var showAppsDialog by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf("https://developer.android.com") }
     var interactionMode by remember { mutableStateOf("Conversa") }
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
@@ -291,11 +292,6 @@ fun KellvynApp() {
                 )
             }
         }
-    }
-
-    fun rememberOpenTab(projectId: String, path: String) {
-        val tab = "$projectId::$path"
-        openTabs = (openTabs + tab).distinct().takeLast(40)
     }
 
     suspend fun requestAgentApproval(summary: String): Boolean {
@@ -797,26 +793,7 @@ fun KellvynApp() {
                     onDismissRequest = { showQuickMenu = false },
                     modifier = Modifier.background(Panel)
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Memória do assistente") },
-                        onClick = {
-                            showQuickMenu = false
-                            savedMemories.clear()
-                            savedMemories.addAll(memoryStore.list())
-                            memoryDraft = ""
-                            memoryStatus = ""
-                            showMemoryDialog = true
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Limpar conversa") },
-                        onClick = {
-                            showQuickMenu = false
-                            historyStore.clear()
-                            messages.clear()
-                            status = "Histórico local apagado."
-                        }
-                    )
+                    DropdownMenuItem(text = { Text("Conversas") }, onClick = { showQuickMenu = false; showConversationsDialog = true })
                 }
             }
 
@@ -1133,10 +1110,10 @@ fun KellvynApp() {
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                     TextButton(
-                        onClick = { selectedNav = "Abas"; showTabsDialog = true },
+                        onClick = { selectedNav = "Apps"; existingProjects.clear(); existingProjects.addAll(workspaceStore.listProjects()); showAppsDialog = true },
                         contentPadding = PaddingValues(1.dp)
-                    ) { Text("▦", color = if (selectedNav == "Abas") Neon else Muted, fontSize = 19.sp) }
-                    Text("Abas", color = if (selectedNav == "Abas") Neon else Muted, fontSize = 8.sp)
+                    ) { Text("▦", color = if (selectedNav == "Apps") Neon else Muted, fontSize = 19.sp) }
+                    Text("Apps", color = if (selectedNav == "Apps") Neon else Muted, fontSize = 8.sp)
                 }
             }
         }
@@ -1167,7 +1144,6 @@ fun KellvynApp() {
                                                 editorStatus = "Arquivo grande demais para editar nesta tela. Exporte o ZIP para editá-lo fora do app."
                                             } else {
                                                 activeFilePath = path
-                                                rememberOpenTab(project.id, path)
                                                 editorContent = fileText
                                                 editorStatus = ""
                                             }
@@ -1288,7 +1264,6 @@ fun KellvynApp() {
                                                     activeEditProject = project
                                                     editablePaths = paths
                                                     activeFilePath = paths.firstOrNull().orEmpty()
-                                                    if (activeFilePath.isNotBlank()) rememberOpenTab(project.id, activeFilePath)
                                                     editorContent = if (activeFilePath.isNotBlank()) {
                                                         workspaceStore.readFile(project.id, activeFilePath).take(MAX_EDITOR_CHARS)
                                                     } else ""
