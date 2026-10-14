@@ -19,8 +19,8 @@ import java.security.MessageDigest
 import javax.net.ssl.HttpsURLConnection
 
 /**
- * Offline inference engine. The user supplies a compatible .litertlm model file;
- * this class stores it in app-private storage and never sends prompts to a server.
+ * On-device inference engine. The APK packages a compatible .litertlm model
+ * and seeds it into private app storage. Prompts are never sent to an AI provider.
  */
 class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoCloseable {
     private companion object {
@@ -51,22 +51,10 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
     private val modelPreferences = appContext.getSharedPreferences("kellvyn_local_model", Context.MODE_PRIVATE)
     @Volatile private var engine: Engine? = null
 
-    override val displayName: String
-        get() = if (modelPreferences.getString(ACTIVE_MODEL_KEY, CONVERSATION_MODEL_KEY) == CODER_MODEL_KEY) {
-            "LiteRT-LM Qwen Coder 1.5B (local)"
-        } else {
-            "LiteRT-LM conversação leve (local)"
-        }
+    // One integrated Kellvyn assistant; no light/heavy model modes are exposed.
+    override val displayName: String = "Kellvyn IA — núcleo local"
 
-    private fun selectedModelFile(): File {
-        val preferred = modelPreferences.getString(ACTIVE_MODEL_KEY, CONVERSATION_MODEL_KEY)
-        return when {
-            preferred == CODER_MODEL_KEY && coderModelFile.isFile -> coderModelFile
-            modelFile.isFile -> modelFile
-            coderModelFile.isFile -> coderModelFile
-            else -> modelFile
-        }
-    }
+    private fun selectedModelFile(): File = modelFile
 
     fun hasSavedConversationModel(): Boolean = modelFile.isFile && modelFile.length() > 0L
 
@@ -596,8 +584,9 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 systemInstruction = Contents.of(
                     buildString {
                         append(
-                            "Você é Kellvyn IA, um assistente útil, direto e honesto. Responda em português brasileiro por padrão. " +
-                                "Não invente capacidades, não afirme ter realizado ações que não realizou e explique claramente limitações."
+                            "Você é Kellvyn IA, o assistente integrado ao aplicativo Kellvyn. Responda em português brasileiro, com clareza, naturalidade e sem enrolação. " +
+                                "Você usa um modelo de linguagem que roda localmente no aparelho. Não diga que foi criado pela Alibaba Cloud, Qwen, OpenAI, Google ou por qualquer fabricante do modelo. " +
+                                "Se perguntarem quem você é, diga que é o Kellvyn IA, um assistente local integrado a este aplicativo. Não invente capacidades nem ações executadas."
                         )
                         conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }
                             ?.content
