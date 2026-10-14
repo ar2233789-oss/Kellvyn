@@ -16,6 +16,13 @@ class BotPlatformDetectorTest {
     }
 
     @Test
+    fun detectsTelegramAsPrimaryPlatform() {
+        assertTrue(BotPlatformDetector.isTelegram("Crie um bot para Telegram"))
+        assertFalse(BotPlatformDetector.isTelegram("Crie um bot para Discord e também avise no Telegram"))
+        assertTrue(BotPlatformDetector.isTelegram("Crie um bot para WhatsApp, não Telegram").not())
+    }
+
+    @Test
     fun detectsWhatsAppAsASeparatePlatform() {
         assertFalse(BotPlatformDetector.isDiscord("Quero um bot para WhatsApp Business"))
         assertFalse(BotPlatformDetector.isDiscord("Crie um bot para WPP"))
