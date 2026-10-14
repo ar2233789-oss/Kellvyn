@@ -15,6 +15,14 @@ class ChatRequestRouterTest {
     }
 
     @Test
+    fun mentioningATerminalOrConsoleAsAnAppFeatureDoesNotBlockBuilderRouting() {
+        val brief = "Um aplicativo de gerenciamento com tela de login, cadastro de usuários, banco de dados, botões para salvar e busca, além de um console de logs."
+        assertTrue(ChatRequestRouter.shouldBuild(brief))
+        val terminalBrief = "Um aplicativo de gerenciamento com tela de login, cadastro de usuários, banco de dados, botões para salvar e busca, além de um terminal de logs."
+        assertTrue(ChatRequestRouter.shouldBuild(terminalBrief))
+    }
+
+    @Test
     fun questionsAndAnalysisStayInOrdinaryChat() {
         assertFalse(ChatRequestRouter.shouldBuild("Pode continuar"))
         assertFalse(ChatRequestRouter.shouldBuild("Como criar um app Android?"))
