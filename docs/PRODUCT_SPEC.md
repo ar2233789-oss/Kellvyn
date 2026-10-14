@@ -13,8 +13,8 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 ## Chat principal e navegação da interface
 - O construtor é uma ferramenta interna do agente e não pode aparecer como tela, botão ou modo manual de Build. O usuário descreve o que quer no chat; a IA decide quando criar um projeto, editar arquivos ou iniciar a compilação local.
 - Pedidos claros para criar aplicativos ou projetos são encaminhados automaticamente ao construtor. Perguntas, análises e modificações de projetos existentes permanecem no agente de conversa, sem criar outro projeto indevidamente.
-- O compositor mostra somente o estado real do núcleo local e o botão de envio; não oferece seleção de provedor externo de IA.
-- Preservar o compositor compacto e a navegação inferior AI, Navegador, Editor, Terminal, Git e Apps. Navegador abre links no navegador do Android por intent (sem WebView); Terminal e Git são ferramentas distintas e funcionam no espaço local.
+- O compositor mostra somente o estado real da IA integrada e o botão de envio; não oferece seleção de modelo nem configuração externa.
+- A tela principal é o chat único, com cabeçalho compacto e compositor fixo. Não exibir barra inferior com abas de ferramentas. Conversas, códigos guardados, Apps/APKs e memória ficam no menu superior. O editor serve para guardar e consultar código, sem ser um agente independente. Termux só pode ser usado se o usuário pedir explicitamente pelo chat principal; nunca em segundo plano. Tarefas de internet usam a conexão que o Android já tem ativa sem solicitar configuração manual.
 
 ## Restrições obrigatórias
 - Entrega final: APK Android nativo. Nada de site embrulhado em WebView. Interface em Kotlin/Jetpack Compose, sem WebView.
@@ -44,13 +44,13 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 
 ## Cérebro de IA
 - LiteRT-LM é um runtime, não um modelo criado do zero nem o cérebro inteiro.
-- O adaptador atual usa um único modelo SmolLM2-360M-Instruct (~374 MB), empacotado no APK, copiado ao armazenamento privado e verificado por SHA-256 antes do uso. A troca automática para Qwen Coder, importação de modelos ou seleção de outro motor não está implementada nesta revisão. Compatibilidade, qualidade e desempenho ainda requerem teste real no telefone.
+- O adaptador atual usa um único modelo de conversa integrado ao APK, copiado ao armazenamento privado e verificado por SHA-256. Não existe seletor de modelos nem alternância de modos na interface.
 - O modelo incluído é de porte leve, adequado principalmente a conversa e tarefas básicas; a qualidade de programação não deve ser presumida e precisa ser avaliada com testes reais.
 - O chat não envia prompts a um provedor externo de IA. As ferramentas de pesquisa web/GitHub são outra capacidade e só são acionadas quando a mensagem atual solicita explicitamente uma pesquisa ou ação sobre um link.
 - O projeto deve manter Kotlin/Compose Compiler alinhados com a versão da API LiteRT-LM escolhida e usar versões de coroutines compatíveis com o runtime. A compatibilidade do modelo e o desempenho precisam ser verificados na build e no aparelho-alvo.
-- O agente não pede nem configura provedor de IA online. A pesquisa web/GitHub só é roteada quando o usuário pede explicitamente esse acesso na mensagem atual; nesse caso, o site consultado acessa a internet, mas o motor conversacional continua local.
+- A conversa usa o modelo local integrado. Pesquisa web/GitHub só é acionada quando o usuário pede explicitamente; usa a conexão ativa do Android sem exigir configuração manual.
 - O núcleo desejado deve planejar, dividir tarefas, usar ferramentas reais, observar resultados, diagnosticar erros, corrigir e tentar novamente com limites/controles.
-- Princípio arquitetural obrigatório: o agente principal trabalha diretamente pelo chat e não exige que o usuário abra, configure ou use a tela Terminal. Ele deve planejar e executar tarefas pelo acesso próprio e controlado ao workspace, arquivos, projetos, pesquisa e ferramentas de build. O Terminal é uma interface manual opcional; dentro dele, um agente auxiliar pode explicar comandos, diagnosticar erros e orientar o usuário sem tirar dele o controle.
+- Princípio arquitetural obrigatório: o agente principal trabalha pelo chat, planeja tarefas, altera arquivos e inicia a compilação quando necessário. Não depende de uma tela de terminal. Termux só pode ser usado se o próprio usuário pedir explicitamente pelo chat principal; nunca em segundo plano ou por iniciativa própria.
 - Implementado no código: ciclo limitado de ferramentas no chat para workspace, leitura/busca de arquivos locais, pesquisa web, consulta de páginas HTTPS e leitura de arquivos públicos do GitHub. O acesso à internet é acionado quando o pedido atual o solicita; não há provedor de IA online. Importações e ações Git protegidas pedem confirmação. O diagnóstico do Terminal é auxiliar, não dependência.
 - Criação/edição normal de arquivos ocorre automaticamente após pedido claro no chat, usando APIs diretas do workspace. O Editor sincroniza a versão salva após alterações feitas pelo agente quando não há rascunho não salvo; quando há conflito, preserva o rascunho e avisa. Exclusões, importação de repositórios e operações Git que alteram estado pedem confirmação. O agente usa uma camada JGit separada; não usa a tela Terminal nem o shell manual. O shell manual é separado e exige confirmação.
 - Memória de conversa não é a mesma coisa que memória duradoura. O código atual permite salvar, ver e apagar fatos explícitos; isso não é treino automático nem alteração dos pesos do modelo.
@@ -70,11 +70,11 @@ Pipeline local implementado no código: ECJ compila Java, D8 gera DEX, o empacot
 
 ## Ferramentas e tarefas futuras
 - Editor de arquivos com salvamento local.
-- O chat autônomo consulta/edita arquivos diretamente pelo workspace, pode ler arquivos grandes por trechos limitados a 120 linhas e usa JGit para operações de versão local, sem depender da tela Terminal. O Terminal é uma área opcional com shell manual separado, acionado pelo usuário com `! comando`, confirmação e limites de tempo/saída. Esse shell nunca é acessível ao agente automático e não é um sandbox: como roda com o UID do app, comandos podem alcançar arquivos privados acessíveis ao aplicativo. O botão de ajuda do terminal envia o contexto para o mesmo agente, que continua usando APIs diretas.
+- O chat consulta/edita arquivos diretamente pelo workspace e usa JGit internamente quando solicitado, sem depender da tela Terminal. O editor serve para guardar e consultar códigos; não é um agente separado. Não há tela ou ícone de terminal na navegação principal.
 - Git local via JGit está disponível em uma área própria, separada do Terminal; não é requisito para compilar projetos.
 - Sem navegador baseado em WebView. Não reintroduzir WebView.
 - Aprender a jogar exige capacidade concreta de observar estado do jogo, receber pixels/dados, executar comandos de controle autorizados e avaliar o resultado. Um LLM sozinho não enxerga nem controla jogo. Essa função ainda não está implementada.
-- Automação de jogos, overlay flutuante, terminal seguro, depuração automática e ciclo de build/teste continuam pendentes até haver código funcional e teste real.
+- Automação de jogos, overlay flutuante e depuração automática continuam pendentes até haver código funcional e teste real.
 
 ## Segurança e qualidade
 - Tratar código gerado pelo modelo como entrada não confiável.
