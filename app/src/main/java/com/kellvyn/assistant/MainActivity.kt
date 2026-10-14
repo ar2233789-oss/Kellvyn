@@ -95,21 +95,6 @@ private fun isRepairableSourceBuildFailure(reason: String): Boolean {
 
 data class ChatMessage(val text: String, val fromUser: Boolean)
 
-private fun isKellvynIdentityQuestion(text: String): Boolean {
-    val value = text.lowercase(Locale.ROOT)
-    return listOf(
-        "quem te criou", "quem criou você", "quem criou voce", "quem desenvolveu você", "quem desenvolveu voce",
-        "quem é você", "quem e voce", "quem é voce", "quem e você", "quem é a ia", "quem e a ia",
-        "qual é seu nome", "qual e seu nome", "você é da alibaba", "voce e da alibaba", "criado pela alibaba", "criada pela alibaba", "feito pela alibaba", "feito por alibaba",
-        "você é o qwen", "voce e o qwen", "você é o chatgpt", "voce e o chatgpt", "quem é o modelo", "quem e o modelo"
-    ).any { it in value }
-}
-
-private fun kellvynIdentityAnswer(): String =
-    "Sou o Kellvyn IA, o assistente integrado a este aplicativo. " +
-        "Minhas respostas são geradas pelo modelo instalado neste celular; o chat não exige conta nem serviço externo de IA."
-
-
 private fun projectIconGlyph(project: WorkspaceProject): String {
     val description = (project.name + " " + project.description).lowercase(Locale.ROOT)
     return when {
@@ -473,9 +458,9 @@ fun KellvynApp() {
     fun submitDraft() {
         val text = draft.trim()
         if (text.isEmpty() || isGenerating) return
-        if (isKellvynIdentityQuestion(text)) {
+        if (KellvynIdentity.isIdentityQuestion(text)) {
             messages.add(ChatMessage(text, true))
-            messages.add(ChatMessage(kellvynIdentityAnswer(), false))
+            messages.add(ChatMessage(KellvynIdentity.answer(), false))
             draft = ""
             saveHistory()
             status = "Kellvyn IA — identidade do assistente"
