@@ -15,6 +15,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
@@ -829,26 +830,6 @@ fun KellvynApp() {
             }
 
             Divider(color = Color(0xFF143D33), thickness = 1.dp)
-            Spacer(Modifier.height(5.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 1.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("◎", color = Neon.copy(alpha = 0.8f), fontSize = 12.sp)
-                Spacer(Modifier.width(7.dp))
-                Text(
-                    when {
-                        isGenerating && status.contains("projeto", ignoreCase = true) -> "Trabalhando no aplicativo neste aparelho"
-                        isGenerating -> "Resposta em andamento no aparelho"
-                        modelReady -> "Assistente local pronto"
-                        else -> "Aguardando modelo local"
-                    },
-                    color = Muted,
-                    fontSize = 10.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("›", color = Muted, fontSize = 16.sp)
-            }
             LazyColumn(
                 state = chatListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -880,17 +861,6 @@ fun KellvynApp() {
                             ) {
                                 TextButton(
                                     onClick = {
-                                        if (!speechOutputReady) status = "A saída de voz em português não está disponível neste aparelho."
-                                        else {
-                                            speechOutput.stop()
-                                            val result = speechOutput.speak(message.text, TextToSpeech.QUEUE_FLUSH, null, UUID.randomUUID().toString())
-                                            status = if (result == TextToSpeech.SUCCESS) "Lendo a resposta em voz alta…" else "O serviço de voz não conseguiu ler esta resposta."
-                                        }
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-                                ) { Text("Ouvir", color = Muted, fontSize = 10.sp) }
-                                TextButton(
-                                    onClick = {
                                         clipboard.setText(AnnotatedString(message.text))
                                         status = "Resposta copiada para a área de transferência."
                                     },
@@ -920,7 +890,6 @@ fun KellvynApp() {
                         }
                     }
                 }
-            }
                 if (streamingReply.isNotBlank()) {
                     item(key = "kellvyn_streaming_reply") {
                         Surface(
@@ -943,29 +912,15 @@ fun KellvynApp() {
 
             if (latestBuiltApk?.isFile == true) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth().height(28.dp).padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("APK LOCAL PRONTO", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            latestBuiltApk?.name.orEmpty(),
-                            color = Muted,
-                            fontSize = 10.sp,
-                            maxLines = 1
-                        )
-                    }
-                    Button(
+                    Text("APK pronto", color = Neon, fontSize = 9.sp)
+                    Spacer(Modifier.weight(1f))
+                    TextButton(
                         onClick = { installLatestApk() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF0D604A),
-                            contentColor = Color.White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                    ) {
-                        Text("Instalar APK", fontSize = 11.sp)
-                    }
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) { Text("Instalar", color = Neon, fontSize = 10.sp) }
                 }
             }
 
@@ -1012,25 +967,6 @@ fun KellvynApp() {
 
                         Spacer(Modifier.weight(1f))
 
-                        TextButton(
-                            enabled = !isGenerating,
-                            onClick = {
-                                try {
-                                    speechLauncher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
-                                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale sua mensagem para o Kellvyn Assistente")
-                                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                                    })
-                                } catch (_: ActivityNotFoundException) {
-                                    status = "Nenhum reconhecedor de voz está instalado ou disponível."
-                                } catch (e: Exception) {
-                                    status = "Não foi possível abrir o microfone: " + (e.message ?: e.javaClass.simpleName)
-                                }
-                            },
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                        ) { Text("🎤", color = Neon, fontSize = 18.sp) }
-
                         Button(
                             enabled = !isGenerating,
                             onClick = { submitDraft() },
@@ -1042,67 +978,50 @@ fun KellvynApp() {
                 }
             }
 
-            Spacer(Modifier.height(5.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 1.dp, bottom = 1.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.fillMaxWidth().height(36.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    TextButton(
-                        onClick = { selectedNav = "AI" },
-                        contentPadding = PaddingValues(1.dp)
-                    ) { Text("✧", color = if (selectedNav == "AI") Neon else Muted, fontSize = 20.sp) }
-                    Text("AI", color = if (selectedNav == "AI") Neon else Muted, fontSize = 8.sp)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    TextButton(
-                        onClick = { selectedNav = "Navegador"; showNavigatorDialog = true },
-                        contentPadding = PaddingValues(1.dp)
-                    ) { Text("◎", color = if (selectedNav == "Navegador") Neon else Muted, fontSize = 19.sp) }
-                    Text("Navegador", color = if (selectedNav == "Navegador") Neon else Muted, fontSize = 8.sp)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    TextButton(
-                        onClick = {
-                            selectedNav = "Editor"
-                            existingProjects.clear()
-                            existingProjects.addAll(workspaceStore.listProjects())
-                            showProjectsDialog = true
-                        },
-                        contentPadding = PaddingValues(1.dp)
-                    ) { Text("</>", color = if (selectedNav == "Editor") Neon else Muted, fontSize = 14.sp) }
-                    Text("Editor", color = if (selectedNav == "Editor") Neon else Muted, fontSize = 8.sp)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    TextButton(
-                        onClick = {
-                            selectedNav = "Terminal"
-                            status = "Terminal local: use projects, cd <id>, ls, cat, write, git status e git commit."
-                            showConsoleDialog = true
-                        },
-                        contentPadding = PaddingValues(1.dp)
-                    ) { Text(">_", color = if (selectedNav == "Terminal") Neon else Muted, fontSize = 17.sp) }
-                    Text("Terminal", color = if (selectedNav == "Terminal") Neon else Muted, fontSize = 8.sp)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    TextButton(
-                        onClick = {
-                            selectedNav = "Git"
-                            status = "Git local: abra Terminal, use projects, cd <id>, git init, git status, git add . e git commit <mensagem>. Nada é enviado a um servidor."
-                            showConsoleDialog = true
-                        },
-                        contentPadding = PaddingValues(1.dp)
-                    ) { Text("⑂", color = if (selectedNav == "Git") Neon else Muted, fontSize = 19.sp) }
-                    Text("Git", color = if (selectedNav == "Git") Neon else Muted, fontSize = 8.sp)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    TextButton(
-                        onClick = { selectedNav = "Apps"; existingProjects.clear(); existingProjects.addAll(workspaceStore.listProjects()); showAppsDialog = true },
-                        contentPadding = PaddingValues(1.dp)
-                    ) { Text("▦", color = if (selectedNav == "Apps") Neon else Muted, fontSize = 19.sp) }
-                    Text("Apps", color = if (selectedNav == "Apps") Neon else Muted, fontSize = 8.sp)
-                }
+                Box(
+                    Modifier.weight(1f).fillMaxHeight().clickable { selectedNav = "AI" },
+                    contentAlignment = Alignment.Center
+                ) { Text("✧ IA", color = if (selectedNav == "AI") Neon else Muted, fontSize = 10.sp) }
+                Box(
+                    Modifier.weight(1f).fillMaxHeight().clickable { selectedNav = "Navegador"; showNavigatorDialog = true },
+                    contentAlignment = Alignment.Center
+                ) { Text("◎ Web", color = if (selectedNav == "Navegador") Neon else Muted, fontSize = 10.sp) }
+                Box(
+                    Modifier.weight(1f).fillMaxHeight().clickable {
+                        selectedNav = "Editor"
+                        existingProjects.clear()
+                        existingProjects.addAll(workspaceStore.listProjects())
+                        showProjectsDialog = true
+                    },
+                    contentAlignment = Alignment.Center
+                ) { Text("</> Edit.", color = if (selectedNav == "Editor") Neon else Muted, fontSize = 9.sp) }
+                Box(
+                    Modifier.weight(1f).fillMaxHeight().clickable {
+                        selectedNav = "Terminal"
+                        showConsoleDialog = true
+                    },
+                    contentAlignment = Alignment.Center
+                ) { Text(">_ Term.", color = if (selectedNav == "Terminal") Neon else Muted, fontSize = 9.sp) }
+                Box(
+                    Modifier.weight(1f).fillMaxHeight().clickable {
+                        selectedNav = "Git"
+                        showConsoleDialog = true
+                    },
+                    contentAlignment = Alignment.Center
+                ) { Text("⑂ Git", color = if (selectedNav == "Git") Neon else Muted, fontSize = 10.sp) }
+                Box(
+                    Modifier.weight(1f).fillMaxHeight().clickable {
+                        selectedNav = "Apps"
+                        existingProjects.clear()
+                        existingProjects.addAll(workspaceStore.listProjects())
+                        showAppsDialog = true
+                    },
+                    contentAlignment = Alignment.Center
+                ) { Text("▦ Apps", color = if (selectedNav == "Apps") Neon else Muted, fontSize = 10.sp) }
             }
         }
 
