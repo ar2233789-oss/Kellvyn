@@ -31,6 +31,11 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         ).any { it in value }
     }
 
+    fun isDiscordBotRequest(brief: String): Boolean {
+        val value = brief.lowercase(Locale.ROOT)
+        return "discord" in value
+    }
+
     suspend fun createProject(engine: AssistantEngine, brief: String): AppBuildResult {
         val idea = brief.trim()
         val botProject = isBotProjectRequest(idea)
@@ -49,7 +54,11 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 appendLine("Para Discord, use conta de BOT oficial e discord.js. Implemente pelo menos o comando slash /ping, tratamento básico de erro e instruções de registro/convite com permissões mínimas. Leia DISCORD_TOKEN apenas de variável de ambiente; nunca automatize conta pessoal/self-bot.")
                 appendLine("Para WhatsApp, use a WhatsApp Business Cloud API oficial da Meta, com webhook GET de verificação, POST para mensagens recebidas e resposta por /messages. Use META_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN, META_APP_SECRET e META_GRAPH_VERSION apenas por ambiente.")
                 appendLine("Para Telegram, use a Bot API oficial e TELEGRAM_BOT_TOKEN. Para outra plataforma, use a API oficial apropriada e documente os pré-requisitos.")
-                appendLine("Não invente credenciais e não inclua tokens reais. Forneça .env.example com valores vazios/PLACEHOLDER, valide entradas e não registre tokens nos logs.")
+                if (isDiscordBotRequest(idea)) {
+                    appendLine("Além dos arquivos Node.js exportáveis, inclua kellvyn.bot.json com JSON válido: {\\"platform\\":\\"discord\\",\\"name\\":\\"nome\\",\\"commands\\":[{\\"name\\":\\"ping\\",\\"description\\":\\"descrição curta\\",\\"action\\":\\"ping\\",\\"response\\":\\"opcional para action=response\\"}]} .")
+                    appendLine("O runtime nativo do Kellvyn lê kellvyn.bot.json; ele suporta actions response, ping, current_time, roll_dice, coin_flip, user_name, server_id e echo. echo recebe uma opção de texto. Crie comandos úteis e criativos de acordo com o pedido, usando apenas essas actions suportadas; para funcionalidades que precisem executar JavaScript arbitrário ou permissões privilegiadas, explique a limitação no README.")
+                }
+                appendLine("Não invente credenciais e não inclua tokens reais. Forneça .env.example com valores vazios em linhas separadas, valide entradas e não registre tokens nos logs.")
                 appendLine("O README precisa documentar requisitos reais, dependências, configuração e limitações. Bots precisam de Node.js e credenciais; WhatsApp Cloud também precisa de conta empresarial, número registrado e webhook HTTPS público.")
                 appendLine("Limite total de 12 arquivos e 18.000 caracteres. Escape corretamente o JSON. Nunca retorne arquivos vazios, binários, caminhos absolutos, .git ou .gradle.")
             } else {
@@ -300,7 +309,11 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 }
                 val normalizedPaths = normalizedPathList.toSet()
                 val required = if (botProject) {
-                    listOf("package.json", "src/index.js", ".env.example", "README.md")
+                    if (isDiscordBotRequest(idea)) {
+                        listOf("package.json", "src/index.js", ".env.example", "README.md", "kellvyn.bot.json")
+                    } else {
+                        listOf("package.json", "src/index.js", ".env.example", "README.md")
+                    }
                 } else {
                     listOf(
                         "settings.gradle.kts",
