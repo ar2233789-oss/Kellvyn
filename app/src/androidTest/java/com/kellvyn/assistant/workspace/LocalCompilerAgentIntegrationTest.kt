@@ -341,46 +341,43 @@ class LocalCompilerAgentIntegrationTest {
     }
 
     @Test
-    fun explicitMainChatRequestCanInvokeAndReportTheWorkspaceTerminal() = runBlocking {
+    fun mainChatGivesOrganizedTermuxGuidanceWithoutExecutingCommands() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val workspace = ProjectWorkspaceStore(context)
         val terminal = WorkspaceTerminal(workspace)
-        val engine = MainChatTerminalFixtureEngine()
+        val engine = MainChatTerminalGuidanceFixtureEngine()
         val result = AssistantAgent(AgentToolRouter(workspace, terminal = terminal)).respond(
             engine = engine,
-            conversation = listOf(AssistantTurn(AssistantTurn.Role.USER, "terminal: echo KELLVYN_AGENT_TERMINAL")),
+            conversation = listOf(AssistantTurn(
+                AssistantTurn.Role.USER,
+                "Me passe o comando para eu executar echo KELLVYN_AGENT_TERMINAL no Termux, organizado para copiar."
+            )),
             internetAllowed = false,
             requestApproval = { false },
             terminalAllowed = true
         )
-        assertTrue("O chat principal falhou ao completar o pedido explícito de terminal: $result", result is AssistantResult.Success)
-        assertTrue("O teste não percorreu a chamada de ferramenta e a resposta final.", engine.calls == 2)
-        assertTrue("A resposta final não informou a saída real do terminal.", (result as AssistantResult.Success).text.contains("KELLVYN_AGENT_TERMINAL"))
+        assertTrue("O chat principal não respondeu ao pedido de ajuda com Termux: $result", result is AssistantResult.Success)
+        assertEquals("A orientação manual deve ser respondida no chat sem acionar ferramenta.", 1, engine.calls)
+        assertTrue((result as AssistantResult.Success).text.contains("copiar"))
+        assertTrue("O chat não deixou claro que não executou o comando.", result.text.contains("não executei"))
+        assertEquals("O teste de orientação não deve executar nada no terminal.", "/workspace", terminal.execute("pwd"))
     }
 
-    private class MainChatTerminalFixtureEngine : AssistantEngine {
+    private class MainChatTerminalGuidanceFixtureEngine : AssistantEngine {
         var calls: Int = 0
             private set
-        override val displayName: String = "main-chat-terminal-test-fixture"
+        override val displayName: String = "main-chat-terminal-guidance-test-fixture"
         override suspend fun isAvailable(): Boolean = true
 
         override suspend fun reply(conversation: List<AssistantTurn>): AssistantResult {
             calls++
             val system = conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }?.content.orEmpty()
-            assertTrue("O agente não mostrou a ferramenta do terminal após um pedido explícito.", system.contains("terminal_execute {command}"))
-            return if (calls == 1) {
-                assertTrue(conversation.last().content.startsWith("terminal:"))
-                AssistantResult.Success(
-                    """{"kind":"tool","name":"terminal_execute","arguments":{"command":"echo KELLVYN_AGENT_TERMINAL"}}"""
-                )
-            } else {
-                val evidence = conversation.lastOrNull()?.content.orEmpty()
-                assertTrue("O agente não recebeu a saída real do terminal.", evidence.contains("KELLVYN_AGENT_TERMINAL"))
-                assertTrue("O agente não recebeu o código de saída do comando.", evidence.contains("exit code: 0"))
-                AssistantResult.Success(
-                    """{"kind":"answer","text":"O terminal executou o comando e retornou KELLVYN_AGENT_TERMINAL com código 0."}"""
-                )
-            }
+            assertTrue("O chat não recebeu a política de ajuda manual para o terminal.", system.contains("O terminal é uma ferramenta manual opcional"))
+            assertFalse("O chat não deve oferecer um agente para executar comandos no terminal.", system.contains("- terminal_execute {command}"))
+            assertTrue("A política não exige que o chat organize comandos para copiar.", system.contains("organize comandos e arquivos completos"))
+            return AssistantResult.Success(
+                """{"kind":"answer","text":"Copie este comando no Termux: echo KELLVYN_AGENT_TERMINAL. Eu não executei o comando; estou apenas preparando a instrução para você copiar."}"""
+            )
         }
     }
 
