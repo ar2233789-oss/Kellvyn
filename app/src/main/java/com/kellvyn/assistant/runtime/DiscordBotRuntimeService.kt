@@ -249,7 +249,14 @@ private class DiscordBotGatewayClient(
         onStatus("Registrando " + definition.commands.size + " comandos slash...")
         val body = JSONArray()
         definition.commands.forEach { command ->
-            body.put(JSONObject().put("type", 1).put("name", command.name).put("description", command.description))
+            val item = JSONObject().put("type", 1).put("name", command.name).put("description", command.description)
+            if (command.action == "echo") {
+                item.put("options", JSONArray().put(
+                    JSONObject().put("type", 3).put("name", "texto")
+                        .put("description", "Texto que o bot repetirá").put("required", true).put("max_length", 500)
+                ))
+            }
+            body.put(item)
         }
         val request = Request.Builder()
             .url("https://discord.com/api/v10/applications/" + credentials.applicationId + "/commands")
@@ -341,9 +348,31 @@ private class DiscordBotGatewayClient(
         val userName = user?.optString("global_name").orEmpty().ifBlank {
             user?.optString("username").orEmpty().ifBlank { "pessoa" }
         }
-        val content = command.response.replace("{user}", userName)
-            .replace("{serverId}", interaction.optString("guild_id").ifBlank { "servidor" })
-            .replace("{time}", java.time.Instant.now().toString()).take(1900)
+        val now = java.time.ZonedDateTime.now()
+            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss", java.util.Locale("pt", "BR")))
+        val dynamicResponse = when (command.action) {
+            "ping" -> "Pong! Estou ativo."
+            "current_time" -> "Agora são " + now + "."
+            "roll_dice" -> "🎲 Resultado: " + kotlin.random.Random.nextInt(1, 21)
+            "coin_flip" -> "🪙 " + if (kotlin.random.Random.nextBoolean()) "Cara!" else "Coroa!"
+            "user_name" -> "Você está falando comigo, " + userName + "."
+            "server_id" -> "ID deste servidor: " + interaction.optString("guild_id").ifBlank { "indisponível" }
+            "echo" -> {
+                val options = interaction.optJSONObject("data")?.optJSONArray("options")
+                var value = ""
+                if (options != null) {
+                    for (index in 0 until options.length()) {
+                        val option = options.optJSONObject(index) ?: continue
+                        if (option.optString("name") == "texto") value = option.optString("value")
+                    }
+                }
+                value.ifBlank { "Você não enviou texto." }.take(500)
+            }
+            else -> command.response.replace("{user}", userName)
+                .replace("{serverId}", interaction.optString("guild_id").ifBlank { "servidor" })
+                .replace("{time}", now)
+        }
+        val content = dynamicResponse.take(1900)
         val request = Request.Builder()
             .url("https://discord.com/api/v10/interactions/" + interactionId + "/" + interactionToken + "/callback")
             .post(JSONObject().put("type", 4).put("data", JSONObject().put("content", content))
