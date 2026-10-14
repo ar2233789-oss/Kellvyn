@@ -10,6 +10,11 @@ import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
+import com.kellvyn.assistant.runtime.DiscordBotCredentialsStore
+import com.kellvyn.assistant.runtime.DiscordBotDefinition
+import com.kellvyn.assistant.runtime.GeneratedProjectClassifier
+import com.kellvyn.assistant.runtime.GeneratedProjectKind
+import com.kellvyn.assistant.runtime.GeneratedProjectRuntimeStore
 import com.kellvyn.assistant.tools.WorkspaceTerminal
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -147,7 +152,7 @@ class LocalCompilerAgentIntegrationTest {
 
             val generated = AppBuilderAgent(workspace).createProject(
                 engine,
-                "Crie um app Android nativo simples de lista de tarefas com campo de texto, botão Adicionar e lista visível de tarefas. Faça a lista funcionar. Use Java Android."
+                "Crie um app Android nativo original chamado Forja de Criaturas. Deve ter campo de texto para uma semente, botão Criar e área visual com nome, elemento, poder e descrição de criatura gerados por regras criativas locais. Cada toque deve conseguir criar outra criatura sem internet. Use Java Android e faça os controles funcionarem."
             )
             assertTrue("O modelo local não gerou um projeto Android estruturalmente válido: $generated",
                 generated is AppBuildResult.Success)
@@ -235,9 +240,10 @@ class LocalCompilerAgentIntegrationTest {
                     }).then(() => console.log('Slash command registered.'))
                       .catch(() => { console.error('Command registration failed.'); process.exitCode = 1; });
                 """.trimIndent()))
+                put(JSONObject().put("path", "kellvyn.bot.json").put("content", """{"platform":"discord","name":"Discord Ping Bot","commands":[{"name":"ping","description":"Responde Pong!","action":"ping","response":""},{"name":"dado","description":"Rola um dado d20","action":"roll_dice","response":""},{"name":"moeda","description":"Lança uma moeda","action":"coin_flip","response":""}]}"""))
                 put(JSONObject().put("path", ".env.example").put(
                     "content",
-                    "DISCORD_TOKEN=\\nDISCORD_CLIENT_ID=\\nDISCORD_GUILD_ID=\\n"
+                    listOf("DISCORD_TOKEN=", "DISCORD_CLIENT_ID=", "DISCORD_GUILD_ID=").joinToString("\n")
                 ))
                 put(JSONObject().put("path", "README.md").put("content", """
                     # Discord Ping Bot
@@ -263,12 +269,44 @@ class LocalCompilerAgentIntegrationTest {
             assertTrue(paths.contains("src/register-commands.js"))
             assertTrue(paths.contains(".env.example"))
             assertTrue(paths.contains("README.md"))
+            assertTrue(paths.contains("kellvyn.bot.json"))
+            val packageText = workspace.readFile(project.id, "package.json")
+            assertEquals(GeneratedProjectKind.DISCORD_BOT, GeneratedProjectClassifier.classify(paths, packageText, project.description, project.name))
+            val definition = DiscordBotDefinition.load(workspace, project.id, project.name)
+            assertEquals(listOf("ping", "dado", "moeda"), definition.commands.map { it.name })
+            assertEquals(listOf("ping", "roll_dice", "coin_flip"), definition.commands.map { it.action })
             assertTrue(workspace.readFile(project.id, "src/index.js").contains("Pong!"))
             assertTrue(workspace.readFile(project.id, ".env.example").contains("DISCORD_TOKEN="))
             assertTrue(workspace.readFile(project.id, "README.md").contains("não autentica nem hospeda"))
             assertFalse("O projeto do bot não deve ser empacotado como app Android.", paths.contains("app/src/main/AndroidManifest.xml"))
         } finally {
             workspace.deleteProject(project.id)
+        }
+    }
+
+    @Test
+    fun discordCredentialsStayEncryptedAndRuntimeTogglePersists() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val projectId = "bot-keystore-test"
+        val credentials = DiscordBotCredentialsStore(context)
+        val runtime = GeneratedProjectRuntimeStore(context)
+        val fakeToken = "NOT-A-REAL-DISCORD-TOKEN-1234567890"
+        credentials.remove(projectId)
+        runtime.setActive(projectId, false)
+        try {
+            credentials.save(projectId, fakeToken, "123456789012345678")
+            assertEquals(fakeToken, credentials.get(projectId)?.token)
+            assertEquals("123456789012345678", credentials.get(projectId)?.applicationId)
+            val rawStoredCiphertext = context.getSharedPreferences("kellvyn_discord_bot_credentials", Context.MODE_PRIVATE)
+                .getString("token_" + projectId, "")
+            assertFalse("O token não pode estar gravado em texto puro.", rawStoredCiphertext.orEmpty().contains(fakeToken))
+            runtime.setActive(projectId, true)
+            assertTrue(runtime.isActive(projectId))
+            runtime.setActive(projectId, false)
+            assertFalse(runtime.isActive(projectId))
+        } finally {
+            credentials.remove(projectId)
+            runtime.setActive(projectId, false)
         }
     }
 
@@ -296,6 +334,8 @@ class LocalCompilerAgentIntegrationTest {
             assertTrue("O construtor não especificou discord.js.", prompt.contains("discord.js"))
             assertTrue("O construtor não exigiu comando slash /ping.", prompt.contains("comando slash /ping"))
             assertTrue("O construtor não protegeu o token do bot.", prompt.contains("DISCORD_TOKEN"))
+            assertTrue("O construtor não solicitou um manifesto para o runtime nativo.", prompt.contains("kellvyn.bot.json"))
+            assertTrue("O construtor não limitou o manifesto às ações executáveis.", prompt.contains("roll_dice"))
             assertTrue("O pedido original não chegou ao construtor.", prompt.contains("Crie um bot do Discord com comando slash /ping"))
             return AssistantResult.Success(response)
         }
