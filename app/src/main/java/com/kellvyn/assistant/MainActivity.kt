@@ -57,6 +57,7 @@ import com.kellvyn.assistant.data.MemoryFact
 import com.kellvyn.assistant.data.UserMemoryStore
 import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
 import com.kellvyn.assistant.tools.WorkspaceTerminal
+import com.kellvyn.assistant.tools.ManualShellExecutor
 import com.kellvyn.assistant.workspace.AppBuilderAgent
 import com.kellvyn.assistant.workspace.EditorSyncPolicy
 import com.kellvyn.assistant.workspace.AppBuildResult
@@ -455,6 +456,35 @@ fun KellvynApp() {
             draft = ""
             saveHistory()
             status = "Kellvyn IA — identidade do assistente"
+            return
+        }
+        val explicitTerminalRequest = text.trim().takeIf { it.startsWith("terminal:", ignoreCase = true) }
+            ?.substringAfter(":")?.trim()?.takeIf { it.isNotBlank() && it.length <= 2_000 }
+        if (explicitTerminalRequest != null) {
+            messages.add(ChatMessage(text, true))
+            draft = ""
+            isGenerating = true
+            status = "Executando o comando pedido no terminal local…"
+            saveHistory()
+            scope.launch {
+                val answer = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val command = explicitTerminalRequest
+                        val result = if (command == "cd" || command.startsWith("cd ")) {
+                            workspaceTerminal.execute(command)
+                        } else {
+                            ManualShellExecutor(workspaceStore.workspaceDirectory())
+                                .execute(command, workspaceTerminal.currentDirectoryFile())
+                        }
+                        workspaceTerminal.saveOutput((workspaceTerminal.storedOutput() + "\n\n$ " + command + "\n" + result).takeLast(48_000))
+                        result
+                    }.getOrElse { "Falha no terminal: " + (it.message ?: it.javaClass.simpleName) }
+                }
+                messages.add(ChatMessage(answer, false))
+                saveHistory()
+                status = "Comando concluído no terminal."
+                isGenerating = false
+            }
             return
         }
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
