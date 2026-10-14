@@ -42,6 +42,37 @@ import java.util.zip.ZipFile
 @RunWith(AndroidJUnit4::class)
 class LocalCompilerAgentIntegrationTest {
     @Test
+    fun invalidProjectFailsBeforeSdkConsentOrDownload() = runBlocking {
+        assumeTrue(Build.VERSION.SDK_INT >= 26)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val workspace = ProjectWorkspaceStore(context)
+        val project = workspace.createProject(
+            "Invalid Source Before SDK Consent",
+            "This project intentionally contains no Java source.",
+            listOf(ProjectFileInput("README.md", "No Android sources in this fixture."))
+        )
+        val compiler = LocalAndroidCompiler(context, workspace)
+        val preferences = context.getSharedPreferences("kellvyn_local_builder", Context.MODE_PRIVATE)
+        val licenseWasAccepted = compiler.hasAcceptedSdkLicense()
+        try {
+            compiler.acceptSdkLicense()
+            preferences.edit().putBoolean("android_sdk_license_accepted", false).commit()
+
+            val result = compiler.build(project.id)
+
+            assertTrue("A project without Java sources must fail validation, not ask for SDK consent: $result",
+                result is LocalApkBuildResult.Failure)
+            assertTrue("The diagnostic should explain the missing Java sources.",
+                (result as LocalApkBuildResult.Failure).reason.contains("não contém fontes Java"))
+            assertFalse("Source validation must not silently accept the SDK license.",
+                compiler.hasAcceptedSdkLicense())
+        } finally {
+            workspace.deleteProject(project.id)
+            preferences.edit().putBoolean("android_sdk_license_accepted", licenseWasAccepted).commit()
+        }
+    }
+
+    @Test
     fun builderProjectCanBeBuiltByTheAgentToolIntoVerifiedInstallableApk() = runBlocking {
         assumeTrue(
             "This network/toolchain smoke test is intended for the Android emulator in CI.",
