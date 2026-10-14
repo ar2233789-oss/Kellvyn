@@ -250,12 +250,17 @@ fun KellvynApp() {
 
     val assistantAgent = remember(workspaceStore, localAndroidCompiler) {
         AssistantAgent(
-            AgentToolRouter(workspaceStore, localAndroidCompiler) { projectId ->
-                pendingLicenseProjectId = projectId
-                pendingLicenseRepairBrief = null
-                showSdkLicenseDialog = true
-                status = "O agente quer compilar um projeto. Leia a licença oficial do Android SDK antes do primeiro download."
-            }
+            AgentToolRouter(
+                workspace = workspaceStore,
+                localCompiler = localAndroidCompiler,
+                onLicenseRequired = { projectId ->
+                    pendingLicenseProjectId = projectId
+                    pendingLicenseRepairBrief = null
+                    showSdkLicenseDialog = true
+                    status = "O agente quer compilar um projeto. Leia a licença oficial do Android SDK antes do primeiro download."
+                },
+                terminal = workspaceTerminal
+            )
         )
     }
 
@@ -459,30 +464,6 @@ fun KellvynApp() {
             status = "Kellvyn IA — identidade do assistente"
             return
         }
-        val explicitTerminalRequest = text.trim().takeIf { it.startsWith("terminal:", ignoreCase = true) }
-            ?.substringAfter(":")?.trim()?.takeIf { it.isNotBlank() && it.length <= 2_000 }
-        if (explicitTerminalRequest != null) {
-            messages.add(ChatMessage(text, true))
-            draft = ""
-            isGenerating = true
-            status = "Executando o comando pedido no terminal local…"
-            saveHistory()
-            scope.launch {
-                val answer = withContext(Dispatchers.IO) {
-                    runCatching {
-                        val command = explicitTerminalRequest
-                        val result = workspaceTerminal.executeInteractive(command)
-                        workspaceTerminal.saveOutput((workspaceTerminal.storedOutput() + "\n\n$ " + command + "\n" + result).takeLast(48_000))
-                        result
-                    }.getOrElse { "Falha no terminal: " + (it.message ?: it.javaClass.simpleName) }
-                }
-                messages.add(ChatMessage(answer, false))
-                saveHistory()
-                status = "Comando concluído no terminal."
-                isGenerating = false
-            }
-            return
-        }
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
         if (!modelReady && !existingBuildOnly) {
             messages.add(ChatMessage(text, true))
@@ -499,7 +480,7 @@ fun KellvynApp() {
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsExistingBuild &&
             ChatRequestRouter.shouldBuild(text, buildModeSelected = false)
-        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text)
+        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseTerminal(text)
         isGenerating = true
         streamingReply = ""
         status = if (wantsBuild) {
@@ -603,7 +584,8 @@ fun KellvynApp() {
                             conversation = turns,
                             internetAllowed = false,
                             onToolStatus = { toolStatus -> status = toolStatus },
-                            requestApproval = { summary -> requestAgentApproval(summary) }
+                            requestApproval = { summary -> requestAgentApproval(summary) },
+                            terminalAllowed = ChatRequestRouter.shouldUseTerminal(text)
                         )
                     } else {
                         // Everyday conversation skips the agent JSON/tool loop and calls the local model directly.
