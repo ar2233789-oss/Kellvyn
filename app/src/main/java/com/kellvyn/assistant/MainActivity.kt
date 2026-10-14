@@ -549,30 +549,6 @@ fun KellvynApp() {
         }
     }
 
-    fun downloadApkFile(file: File?) {
-        val apk = file?.takeIf { it.isFile && it.length() > 0L }
-        if (apk == null) {
-            status = "O APK compilado não está mais disponível para baixar."
-            return
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            scope.launch {
-                try {
-                    status = "Salvando o APK em Downloads/Kellvyn…"
-                    withContext(Dispatchers.IO) {
-                        ApkDownloadStore(context).saveToDownloads(apk)
-                    }
-                    status = "Download concluído: Downloads/Kellvyn/" + apk.name
-                } catch (e: Exception) {
-                    status = "Falha ao salvar o APK: " + (e.message ?: e.javaClass.simpleName)
-                }
-            }
-        } else {
-            pendingApkExportFile = apk.absolutePath
-            apkExportPicker.launch(apk.name)
-        }
-    }
-
     fun installApkFile(file: File?) {
         val apk = file?.takeIf { it.isFile && it.length() > 0L }
         if (apk == null) {
@@ -918,6 +894,31 @@ fun KellvynApp() {
             }
         }
     }
+
+    fun downloadApkFile(file: File?) {
+        val apk = file?.takeIf { it.isFile && it.length() > 0L }
+        if (apk == null) {
+            status = "O APK compilado não está mais disponível para baixar."
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            scope.launch {
+                try {
+                    status = "Salvando o APK em Downloads/Kellvyn…"
+                    withContext(Dispatchers.IO) {
+                        ApkDownloadStore(context).saveToDownloads(apk)
+                    }
+                    status = "Download concluído: Downloads/Kellvyn/" + apk.name
+                } catch (e: Exception) {
+                    status = "Falha ao salvar o APK: " + (e.message ?: e.javaClass.simpleName)
+                }
+            }
+        } else {
+            pendingApkExportFile = apk.absolutePath
+            apkExportPicker.launch(apk.name)
+        }
+    }
+
 
     LaunchedEffect(localEngine) {
         isLoadingModel = true
