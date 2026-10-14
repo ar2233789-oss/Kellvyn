@@ -13,6 +13,7 @@ import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
+import com.kellvyn.assistant.ai.reasonOrText
 import com.kellvyn.assistant.runtime.DiscordBotCredentialsStore
 import com.kellvyn.assistant.runtime.DiscordBotDefinition
 import com.kellvyn.assistant.runtime.GeneratedProjectClassifier
@@ -197,7 +198,7 @@ class LocalCompilerAgentIntegrationTest {
             val node = Regex("<node\\b[^>]*/?>").findAll(xml)
                 .firstOrNull { it.value.contains("content-desc=\"" + description + "\"") }
                 ?: return null
-            val match = Regex("bounds=\\\"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]\\\"").find(node.value)
+            val match = Regex("bounds=\\\"\\\\[(\\\\d+),(\\\\d+)\\\\]\\\\[(\\\\d+),(\\\\d+)\\\\]\\\"").find(node.value)
                 ?: return null
             val x = (match.groupValues[1].toInt() + match.groupValues[3].toInt()) / 2
             val y = (match.groupValues[2].toInt() + match.groupValues[4].toInt()) / 2
@@ -363,6 +364,17 @@ class LocalCompilerAgentIntegrationTest {
                     val intensityChanged = clickedIntensity && intensityBefore.isNotBlank() && intensityAfter.isNotBlank() && intensityBefore != intensityAfter
                     section("Mecânica de intensidade da chuva", "Clicável encontrado: " + clickedIntensity + "\nEstado antes: " + intensityBefore + "\nEstado depois: " + intensityAfter + "\nMudança observada: " + intensityChanged)
                     if (!intensityChanged) failures.add("O controle de intensidade não alterou o estado acessível observado.")
+                    val beforePause = Regex("<node\\b[^>]*/?>").findAll(xmlAfterIntensity).firstOrNull { it.value.contains("content-desc=\"game_status\"") }?.value.orEmpty()
+                    val clickedPause = tapControl(xmlAfterIntensity, "game_pause")
+                    val xmlAfterPause = uiTree()
+                    val afterPause = Regex("<node\\b[^>]*/?>").findAll(xmlAfterPause).firstOrNull { it.value.contains("content-desc=\"game_status\"") }?.value.orEmpty()
+                    val pauseChanged = clickedPause && beforePause.isNotBlank() && afterPause.isNotBlank() && beforePause != afterPause
+                    section("Pausar e retomar jogo", "Estado antes: " + beforePause + "\nEstado após toque em pausar: " + afterPause + "\nPausa altera o estado: " + pauseChanged)
+                    if (!pauseChanged) failures.add("O botão de pausa não alterou o estado acessível observado.")
+                    val clickedRestart = tapControl(xmlAfterPause, "game_restart")
+                    val xmlAfterRestart = uiTree()
+                    section("Reiniciar jogo", "Botão reiniciar clicável: " + clickedRestart + "\nEstado após reinício:\n" + Regex("<node\\b[^>]*/?>").findAll(xmlAfterRestart).firstOrNull { it.value.contains("content-desc=\"game_status\"") }?.value.orEmpty())
+                    if (!clickedRestart) failures.add("Não foi possível acionar o botão reiniciar.")
                     shell("screencap -p /sdcard/kellvyn_game_screen.png")
                     shell("pm uninstall com.example.app >/dev/null 2>&1 || true")
                 }
