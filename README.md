@@ -13,13 +13,13 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 - O chat usa somente o motor local; não há provedor externo de IA ou tela de configuração de endpoint. As ferramentas de internet só são usadas quando a mensagem pede explicitamente uma pesquisa ou ação sobre um link.
 - O agente principal trabalha diretamente pelo chat: consulta e altera arquivos do workspace, planeja tarefas, cria projetos, compila e apresenta diagnósticos. Pesquisa web/GitHub só é acionada quando a mensagem pede explicitamente esse acesso; usa a conexão já ativa do Android sem etapas manuais de configuração.
 - Não existe aba ou ícone independente de terminal. Termux só pode entrar no fluxo após um pedido explícito do usuário no chat principal; nunca inicia automaticamente.
-- O construtor é uma ferramenta interna do chat, sem tela, botão ou alternância de modo. O editor serve para guardar e consultar códigos, não atua como agente separado. O catálogo conserva projetos e APKs; pedidos de criação e correção começam no chat principal.
+- O construtor é uma ferramenta interna do chat, sem tela, botão ou alternância de modo. O editor serve para guardar e consultar códigos, não atua como agente separado. O menu de aplicativos/ferramentas deve reunir leitura de arquivos, voz e demais funções solicitadas. Pedidos de criação e correção começam no chat principal.
 
 ## Requisitos que não podem ser violados
 
 - O app final deve ser Android nativo; não embutir páginas da web em WebView.
 - A criação de APKs deve ocorrer localmente no telefone. Não usar GitHub Actions, tokens, Replit ou serviços de build na nuvem para compilar os projetos criados.
-- O código gerado pode ser exportado em ZIP para inspeção, mas ZIP não é APK.
+- Não gerar nem entregar ZIP. A entrega solicitada é o APK compilado diretamente no chat principal.
 - A tela principal é o chat único e deve privilegiar o APK compilado como resultado; não há alternância manual entre conversar e criar aplicativos.
 - Não fingir que recursos pendentes estão prontos.
 
