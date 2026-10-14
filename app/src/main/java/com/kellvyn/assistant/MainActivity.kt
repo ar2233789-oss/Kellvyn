@@ -130,7 +130,7 @@ fun KellvynApp() {
     val initialOnlineSettings = remember(onlineSettingsStore) { onlineSettingsStore.load() }
 
     var draft by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("Selecione um modelo local ou configure um provedor online") }
+    var status by remember { mutableStateOf("Kellvyn pronto. Converse pelo chat principal.") }
     var modelReady by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
     var isLoadingModel by remember { mutableStateOf(false) }
@@ -140,14 +140,14 @@ fun KellvynApp() {
     var onlineMode by remember { mutableStateOf(false) }
     var internetToolsEnabled by remember { mutableStateOf(false) }
     var onlineConfigured by remember { mutableStateOf(initialOnlineSettings.isConfigured) }
-    var showOnlineSettings by remember { mutableStateOf(false) }
+    var showOnlineSettings by remember { mutableStateOf(false) } // Disabled: Kellvyn has no external-provider setup UI.
     var showConsoleDialog by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
     var showModeMenu by remember { mutableStateOf(false) }
     var showNavigatorDialog by remember { mutableStateOf(false) }
     var showTabsDialog by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf("https://developer.android.com") }
-    var interactionMode by remember { mutableStateOf("Build") }
+    var interactionMode by remember { mutableStateOf("Conversa") }
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
     var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     var selectedNav by remember { mutableStateOf("AI") }
@@ -199,7 +199,7 @@ fun KellvynApp() {
             if (saved.isEmpty()) {
                 add(
                     ChatMessage(
-                        "Kellvyn IA está pronto. No modo local, selecione um modelo .litertlm compatível. No modo online opcional, configure seu próprio endpoint HTTPS. Nenhum dos modos finge estar ativo antes de ser configurado.",
+                        "Kellvyn IA está pronto. Este chat é o centro do agente; editor e terminal são ferramentas independentes.",
                         false
                     )
                 )
@@ -384,15 +384,14 @@ fun KellvynApp() {
     fun submitDraft() {
         val text = draft.trim()
         if (text.isEmpty() || isGenerating) return
-        val onlineSelected = onlineMode
+        val onlineSelected = false
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
-        if (onlineSelected && !onlineConfigured && !existingBuildOnly) {
-            status = "Configure o provedor online antes de enviar mensagens."
-            return
-        }
-        if (!onlineSelected && !modelReady && !existingBuildOnly) {
-            status = "Carregue um modelo .litertlm primeiro. A mensagem não foi enviada."
-            showQuickMenu = true
+        if (!modelReady && !existingBuildOnly) {
+            messages.add(ChatMessage(text, true))
+            messages.add(ChatMessage("O núcleo de IA local ainda não está inicializado neste aparelho. O chat não depende de provedor externo; para responder de verdade, a build precisa incluir um modelo local compatível.", false))
+            saveHistory()
+            draft = ""
+            status = "Núcleo local não inicializado."
             return
         }
 
@@ -767,9 +766,7 @@ fun KellvynApp() {
                         "MODELO LEVE"
                     }
                     Text(
-                        if (onlineMode) {
-                            "PROVEDOR ONLINE OPCIONAL"
-                        } else if (modelReady) {
+                        if (modelReady) {
                             "NÚCLEO LOCAL • $activeModelLabel" + if (internetToolsEnabled) " • WEB" else ""
                         } else if (internetToolsEnabled) {
                             "NÚCLEO LOCAL • INTERNET ATIVA"
@@ -790,193 +787,6 @@ fun KellvynApp() {
                     onDismissRequest = { showQuickMenu = false },
                     modifier = Modifier.background(Panel)
                 ) {
-                    DropdownMenuItem(
-                        text = { Text(if (onlineMode) "Mudar para IA local" else "Mudar para IA online") },
-                        onClick = {
-                            showQuickMenu = false
-                            onlineMode = !onlineMode
-                            status = if (onlineMode) {
-                                if (onlineConfigured) "Modo online selecionado; mensagens irão ao provedor configurado."
-                                else "Modo online selecionado. Configure um endpoint HTTPS antes de enviar mensagens."
-                            } else {
-                                if (modelReady) "Modo local ativo neste aparelho."
-                                else "Modo local selecionado. Instale ou carregue um modelo para conversar."
-                            }
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Instalar APK gerado") },
-                        enabled = latestBuiltApk?.isFile == true,
-                        onClick = { showQuickMenu = false; installLatestApk() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Pasta do APK gerado") },
-                        enabled = latestBuiltApk?.isFile == true,
-                        onClick = {
-                            showQuickMenu = false
-                            status = "APK salvo com segurança no armazenamento privado do Kellvyn. Use 'Instalar APK gerado' para abrir o instalador do Android."
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Carregar modelo local (.litertlm)") },
-                        onClick = { showQuickMenu = false; modelPicker.launch(arrayOf("*/*")) }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                if (localEngine.hasSavedConversationModel()) {
-                                    "Usar modelo leve de conversa (≈374 MB)"
-                                } else {
-                                    "Baixar modelo leve de conversa (≈374 MB)"
-                                }
-                            )
-                        },
-                        enabled = !isDownloadingModel && !isLoadingModel && !isGenerating,
-                        onClick = {
-                            showQuickMenu = false
-                            if (localEngine.hasSavedConversationModel()) {
-                                isLoadingModel = true
-                                status = "Ativando o modelo leve de conversa…"
-                                scope.launch {
-                                    try {
-                                        val result = localEngine.loadConversationModel()
-                                        updateModelResult(result)
-                                        if (result is AssistantResult.Success) {
-                                            status = "Modelo leve de conversa ativo. O modelo Qwen programador, se instalado, continua guardado."
-                                        }
-                                    } catch (e: Exception) {
-                                        status = "Falha ao ativar o modelo leve: " + (e.message ?: e.javaClass.simpleName)
-                                    } finally {
-                                        isLoadingModel = false
-                                    }
-                                }
-                            } else {
-                                isDownloadingModel = true
-                                modelDownloadPercent = 0
-                                status = "Baixando modelo leve de conversa…"
-                                scope.launch {
-                                    try {
-                                        val result = localEngine.downloadRecommendedModel { bytes, total ->
-                                            val percent = if (total > 0L) ((bytes * 100L) / total).toInt().coerceIn(0, 100) else 0
-                                            scope.launch {
-                                                modelDownloadPercent = percent
-                                                status = "Baixando modelo leve: " + percent + "% (" + (bytes / (1024L * 1024L)) + " MB)"
-                                            }
-                                        }
-                                        updateModelResult(result)
-                                        if (result is AssistantResult.Success) status = "Modelo leve baixado e inicializado."
-                                    } catch (e: Exception) {
-                                        status = "Falha ao baixar o modelo leve: " + (e.message ?: e.javaClass.simpleName)
-                                    } finally {
-                                        isDownloadingModel = false
-                                    }
-                                }
-                            }
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                if (localEngine.hasSavedCoderModel()) {
-                                    "Usar Qwen Coder local (≈1,12 GB)"
-                                } else {
-                                    "Baixar Qwen Coder local (≈1,12 GB)"
-                                }
-                            )
-                        },
-                        enabled = !isDownloadingModel && !isLoadingModel && !isGenerating,
-                        onClick = {
-                            showQuickMenu = false
-                            if (localEngine.hasSavedCoderModel()) {
-                                isLoadingModel = true
-                                status = "Ativando Qwen Coder local…"
-                                scope.launch {
-                                    try {
-                                        val result = localEngine.loadCoderModel()
-                                        updateModelResult(result)
-                                        if (result is AssistantResult.Success) {
-                                            status = "Qwen Coder ativo localmente. O modelo leve de conversa continua guardado para alternar depois."
-                                        }
-                                    } catch (e: Exception) {
-                                        status = "Falha ao ativar Qwen Coder: " + (e.message ?: e.javaClass.simpleName)
-                                    } finally {
-                                        isLoadingModel = false
-                                    }
-                                }
-                            } else {
-                                isDownloadingModel = true
-                                modelDownloadPercent = 0
-                                status = "Baixando Qwen Coder (arquivo ≈1,12 GB)…"
-                                scope.launch {
-                                    try {
-                                        val result = localEngine.downloadCoderModel { bytes, total ->
-                                            val percent = if (total > 0L) ((bytes * 100L) / total).toInt().coerceIn(0, 100) else 0
-                                            scope.launch {
-                                                modelDownloadPercent = percent
-                                                status = "Baixando Qwen Coder: " + percent + "% (" + (bytes / (1024L * 1024L)) + " MB)"
-                                            }
-                                        }
-                                        updateModelResult(result)
-                                        if (result is AssistantResult.Success) {
-                                            status = "Qwen Coder foi verificado por SHA-256, carregado e selecionado como modelo ativo."
-                                        }
-                                    } catch (e: Exception) {
-                                        status = "Falha ao baixar Qwen Coder: " + (e.message ?: e.javaClass.simpleName)
-                                    } finally {
-                                        isDownloadingModel = false
-                                    }
-                                }
-                            }
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Apagar modelo local ativo") },
-                        enabled = localEngine.hasSavedModel() && !isGenerating && !isDownloadingModel && !isLoadingModel && !isRemovingModel,
-                        onClick = {
-                            showQuickMenu = false
-                            isRemovingModel = true
-                            status = "Removendo o modelo local ativo…"
-                            scope.launch {
-                                try {
-                                    val removed = withContext(Dispatchers.IO) {
-                                        localEngine.removeSavedModel()
-                                    }
-                                    if (removed && localEngine.hasSavedModel()) {
-                                        val result = localEngine.loadSavedModel()
-                                        updateModelResult(result)
-                                        status = if (result is AssistantResult.Success) {
-                                            "Modelo ativo removido; o outro modelo local instalado foi reativado."
-                                        } else {
-                                            "O modelo ativo foi removido, mas o outro modelo instalado não pôde ser ativado: ${result.reasonOrText()}"
-                                        }
-                                    } else {
-                                        modelReady = false
-                                        status = if (removed) {
-                                            "Modelo local removido do aparelho e espaço liberado."
-                                        } else {
-                                            "Não foi possível apagar todos os arquivos do modelo ativo."
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    status = "Falha ao remover o modelo: " + (e.message ?: e.javaClass.simpleName)
-                                } finally {
-                                    isRemovingModel = false
-                                }
-                            }
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Configurar provedor online") },
-                        onClick = {
-                            showQuickMenu = false
-                            val saved = onlineSettingsStore.load()
-                            endpointInput = saved.endpoint
-                            modelInput = saved.model
-                            apiKeyInput = saved.apiKey
-                            settingsError = ""
-                            showOnlineSettings = true
-                        }
-                    )
                     DropdownMenuItem(
                         text = { Text("Memória do assistente") },
                         onClick = {
@@ -1206,10 +1016,7 @@ fun KellvynApp() {
                                     onClick = { showModeMenu = true },
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                                 ) {
-                                    val modelLabel = if (onlineMode) {
-                                        modelInput.trim().ifBlank { "IA online" }.take(20)
-                                    } else "IA local"
-                                    Text("$interactionMode · $modelLabel" + if (internetToolsEnabled) " · web ⌄" else " ⌄", color = Neon, fontSize = 10.sp, maxLines = 1)
+                                    Text("$interactionMode" + if (internetToolsEnabled) " · web ⌄" else " ⌄", color = Neon, fontSize = 10.sp, maxLines = 1)
                                 }
                             }
                             DropdownMenu(
@@ -1224,32 +1031,6 @@ fun KellvynApp() {
                                 DropdownMenuItem(
                                     text = { Text("Build · criar aplicativo") },
                                     onClick = { interactionMode = "Build"; showModeMenu = false }
-                                )
-                                Divider()
-                                DropdownMenuItem(
-                                    text = { Text("Núcleo local · offline") },
-                                    onClick = {
-                                        onlineMode = false
-                                        showModeMenu = false
-                                        status = if (modelReady) "Núcleo local selecionado." else "Núcleo local selecionado; carregue um modelo antes de conversar."
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(if (onlineConfigured) "Usar provedor online" else "Configurar provedor online") },
-                                    onClick = {
-                                        showModeMenu = false
-                                        if (onlineConfigured) {
-                                            onlineMode = true
-                                            status = "Modo online selecionado."
-                                        } else {
-                                            val saved = onlineSettingsStore.load()
-                                            endpointInput = saved.endpoint
-                                            modelInput = saved.model
-                                            apiKeyInput = saved.apiKey
-                                            settingsError = ""
-                                            showOnlineSettings = true
-                                        }
-                                    }
                                 )
                                 Divider()
                                 DropdownMenuItem(
@@ -1325,12 +1106,7 @@ fun KellvynApp() {
                             selectedNav = "Editor"
                             existingProjects.clear()
                             existingProjects.addAll(workspaceStore.listProjects())
-                            if (existingProjects.isEmpty()) {
-                                builderBrief = ""
-                                builderMessage = "Crie um projeto antes de abrir o editor."
-                                builtProject = null
-                                showBuilderDialog = true
-                            } else showProjectsDialog = true
+                            showProjectsDialog = true
                         },
                         contentPadding = PaddingValues(1.dp)
                     ) { Text("</>", color = if (selectedNav == "Editor") Neon else Muted, fontSize = 14.sp) }
@@ -1785,7 +1561,7 @@ fun KellvynApp() {
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            "Salve apenas fatos que você quer que o assistente lembre. Nada é extraído automaticamente. As memórias ficam neste aparelho; no modo ONLINE, o conteúdo relevante será enviado junto com a conversa ao provedor escolhido.",
+                            "Salve apenas fatos que você quer que o assistente lembre. As memórias ficam neste aparelho e são usadas pelo agente local.",
                             color = Muted,
                             fontSize = 12.sp
                         )
