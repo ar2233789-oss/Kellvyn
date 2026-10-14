@@ -1049,6 +1049,14 @@ fun KellvynApp() {
                                     horizontalArrangement = Arrangement.End,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    if (!message.apkPath.isNullOrBlank()) {
+                                        TextButton(
+                                            onClick = { downloadApkFile(File(message.apkPath)) },
+                                            contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)
+                                        ) {
+                                            Text("Baixar APK", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
                                     TextButton(
                                         onClick = {
                                             clipboard.setText(AnnotatedString(message.text))
