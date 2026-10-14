@@ -4,6 +4,8 @@ import android.app.Activity
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
@@ -265,6 +267,30 @@ fun KellvynApp() {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             startDiscordRuntimeNow(projectId)
+        }
+    }
+
+    val runtimeStateReceiver = remember(context, projectRuntimeStore) {
+        object : BroadcastReceiver() {
+            override fun onReceive(receivedContext: android.content.Context?, intent: Intent?) {
+                val ids = intent?.getStringArrayListExtra(DiscordBotRuntimeService.EXTRA_ACTIVE_PROJECT_IDS)
+                    ?: ArrayList(projectRuntimeStore.activeProjectIds())
+                activeRuntimeProjects.clear()
+                activeRuntimeProjects.addAll(ids)
+            }
+        }
+    }
+
+    DisposableEffect(context, runtimeStateReceiver) {
+        val filter = IntentFilter(DiscordBotRuntimeService.ACTION_RUNTIME_STATE_CHANGED)
+        ContextCompat.registerReceiver(context, runtimeStateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        onDispose { runCatching { context.unregisterReceiver(runtimeStateReceiver) } }
+    }
+
+    LaunchedEffect(showAppsDialog) {
+        if (showAppsDialog) {
+            activeRuntimeProjects.clear()
+            activeRuntimeProjects.addAll(projectRuntimeStore.activeProjectIds())
         }
     }
 
