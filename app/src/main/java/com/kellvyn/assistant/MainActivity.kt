@@ -664,14 +664,22 @@ fun KellvynApp() {
                                     )
                                 )
                                 status = "Bot Discord salvo em Apps; ainda precisa configurar as credenciais para conectar."
-                            } else if (appBuilderAgent.isBotProjectRequest(text)) {
+                            } else if (appBuilderAgent.isTelegramBotRequest(text)) {
                                 messages.add(
                                     ChatMessage(
-                                        "O projeto de bot \"" + project.name + "\" foi salvo em Apps. A geração do código não significa que ele esteja online. O runtime nativo nesta versão só oferece suporte a bots do Discord compatíveis; para outras plataformas, revise o código e os requisitos antes de executar.",
+                                        "O bot Telegram \"" + project.name + "\" foi salvo em Apps. Para ativá-lo, abra Apps, toque em Manter ativo e informe o token do BotFather na configuração protegida. O runtime nativo fica neste aparelho e processa os comandos declarados em kellvyn.telegram.json.",
                                         false
                                     )
                                 )
-                                status = "Código do bot salvo em Apps; runtime dessa plataforma ainda não está disponível."
+                                status = "Bot Telegram salvo em Apps; falta configurar o token para conectar."
+                            } else if (appBuilderAgent.isBotProjectRequest(text)) {
+                                messages.add(
+                                    ChatMessage(
+                                        "O projeto de bot \"" + project.name + "\" foi salvo em Apps. A geração do código não significa que ele esteja online. Nesta versão, a execução nativa está disponível para bots compatíveis do Discord e do Telegram; WhatsApp Business e outras plataformas permanecem como código-fonte e exigem o runtime ou serviço próprio da plataforma.",
+                                        false
+                                    )
+                                )
+                                status = "Código do bot salvo em Apps; runtime nativo não disponível para esta plataforma."
                             } else {
                                 messages.add(
                                     ChatMessage(
