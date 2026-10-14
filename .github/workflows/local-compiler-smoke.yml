@@ -63,22 +63,35 @@ jobs:
           emulator-boot-timeout: 1200
           script: |
             set +e
-            gradle --no-daemon testDebugUnitTest
-            unit_status=$?
-            gradle --no-daemon connectedDebugAndroidTest
-            android_status=$?
-            set -e
             mkdir -p app/build/qa
-            echo "Emulator disk state after tests:" > app/build/qa/emulator-diagnostics.txt
-            adb shell df -h /data >> app/build/qa/emulator-diagnostics.txt 2>&1 || true
+            gradle --no-daemon testDebugUnitTest assembleDebug assembleDebugAndroidTest
+            build_status=$?
+            install_status=99
+            android_status=99
+            echo "Emulator disk state before APK installation:" > app/build/qa/emulator-diagnostics.txt
+            adb shell df -h /data >> app/build/qa/emulator-diagnostics.txt 2>&1
+            if [ "$build_status" -eq 0 ]; then
+              adb install -r app/build/outputs/apk/debug/app-debug.apk >> app/build/qa/emulator-diagnostics.txt 2>&1
+              install_status=$?
+              if [ "$install_status" -eq 0 ]; then
+                gradle --no-daemon connectedDebugAndroidTest
+                android_status=$?
+              fi
+            fi
+            adb shell df -h /data >> app/build/qa/emulator-diagnostics.txt 2>&1
             adb shell pm list packages com.kellvyn.assistant >> app/build/qa/emulator-diagnostics.txt 2>&1 || true
             adb shell run-as com.kellvyn.assistant cat files/kellvyn_qa/model-acceptance-report.md > app/build/qa/model-acceptance-report.md 2> app/build/qa/report-pull-error.txt || true
+            adb pull /sdcard/kellvyn_game_screen.png app/build/qa/kellvyn_game_screen.png >> app/build/qa/emulator-diagnostics.txt 2>&1 || true
+            adb pull /sdcard/kellvyn_music_screen.png app/build/qa/kellvyn_music_screen.png >> app/build/qa/emulator-diagnostics.txt 2>&1 || true
+            adb pull /sdcard/Android/data/com.kellvyn.assistant/files/kellvyn_qa/generated-rain-game.apk app/build/qa/generated-rain-game.apk >> app/build/qa/emulator-diagnostics.txt 2>&1 || true
+            adb pull /sdcard/Android/data/com.kellvyn.assistant/files/kellvyn_qa/generated-music-player.apk app/build/qa/generated-music-player.apk >> app/build/qa/emulator-diagnostics.txt 2>&1 || true
             if [ -s app/build/qa/model-acceptance-report.md ]; then
               echo "Model acceptance report retrieved from emulator."
             else
               echo "No model acceptance report was produced or could be retrieved."
             fi
-            if [ "$unit_status" -ne 0 ] || [ "$android_status" -ne 0 ]; then exit 1; fi
+            set -e
+            if [ "$build_status" -ne 0 ] || [ "$install_status" -ne 0 ] || [ "$android_status" -ne 0 ]; then exit 1; fi
 
       - name: Upload emulator QA report and Android test results
         if: always()
