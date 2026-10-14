@@ -1371,8 +1371,8 @@ fun KellvynApp() {
                     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("APPS CRIADOS PELA IA", color = Neon, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                Text("Projetos criados pelo chat principal", color = Muted, fontSize = 11.sp)
+                                Text("APPS, BOTS E PROJETOS", color = Neon, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text("Catálogo permanente de tudo que o construtor gerou", color = Muted, fontSize = 11.sp)
                             }
                             TextButton(onClick = { showAppsDialog = false }) { Text("Fechar", color = Color.White) }
                         }
@@ -1381,6 +1381,11 @@ fun KellvynApp() {
                         } else {
                             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 existingProjects.forEach { project ->
+                                    val projectPaths = runCatching { workspaceStore.listFiles(project.id).toSet() }.getOrDefault(emptySet())
+                                    val packageText = if ("package.json" in projectPaths) runCatching { workspaceStore.readFile(project.id, "package.json") }.getOrDefault("") else ""
+                                    val projectKind = GeneratedProjectClassifier.classify(projectPaths, packageText, project.description, project.name)
+                                    val projectApk = File(context.filesDir, "kellvyn_builds/" + project.id + ".apk")
+                                    val isRuntimeActive = project.id in activeRuntimeProjects || projectRuntimeStore.isActive(project.id)
                                     Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))) {
                                         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Surface(Modifier.size(50.dp), color = Color(0xFF0A2D24), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Neon.copy(alpha = 0.5f))) {
@@ -1390,8 +1395,9 @@ fun KellvynApp() {
                                             }
                                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                                 Text(project.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                                                Text(projectKind.label + if (isRuntimeActive) " • ATIVO" else "", color = if (isRuntimeActive) Neon else Muted, fontSize = 10.sp, maxLines = 1)
                                                 Text(project.description.ifBlank { project.fileCount.toString() + " arquivos" }, color = Muted, fontSize = 10.sp, maxLines = 2)
-                                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                                                     TextButton(onClick = {
                                                         try {
                                                             val paths = workspaceStore.listFiles(project.id)
@@ -1405,6 +1411,42 @@ fun KellvynApp() {
                                                         } catch (e: Exception) { status = "Falha ao abrir o código: " + (e.message ?: e.javaClass.simpleName) }
                                                     }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) { Text("Código", color = Neon, fontSize = 10.sp) }
 
+                                                    when (projectKind) {
+                                                        GeneratedProjectKind.ANDROID_APP -> {
+                                                            TextButton(
+                                                                enabled = projectApk.isFile && projectApk.length() > 0L,
+                                                                onClick = { installApkFile(projectApk) },
+                                                                contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)
+                                                            ) { Text(if (projectApk.isFile) "Instalar APK" else "APK pendente", color = if (projectApk.isFile) Neon else Muted, fontSize = 10.sp) }
+                                                        }
+                                                        GeneratedProjectKind.DISCORD_BOT -> {
+                                                            TextButton(
+                                                                onClick = {
+                                                                    if (isRuntimeActive) {
+                                                                        projectRuntimeStore.setActive(project.id, false)
+                                                                        activeRuntimeProjects.remove(project.id)
+                                                                        DiscordBotRuntimeService.stopProject(context, project.id)
+                                                                        status = "Pedido para desativar o bot " + project.name + "."
+                                                                    } else {
+                                                                        val saved = discordCredentialsStore.get(project.id)
+                                                                        if (saved == null) {
+                                                                            discordConfigProject = project
+                                                                            discordTokenDraft = ""
+                                                                            discordApplicationIdDraft = ""
+                                                                            discordSetupError = ""
+                                                                            showDiscordConfigDialog = true
+                                                                        } else {
+                                                                            requestDiscordRuntimeStart(project.id)
+                                                                        }
+                                                                    }
+                                                                },
+                                                                contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)
+                                                            ) { Text(if (isRuntimeActive) "Parar bot" else "Manter ativo", color = if (isRuntimeActive) Warning else Neon, fontSize = 10.sp) }
+                                                        }
+                                                        else -> {
+                                                            Text("Sem runtime", color = Muted, fontSize = 9.sp)
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -1412,11 +1454,86 @@ fun KellvynApp() {
                                 }
                             }
                         }
-                        Text("A IA cria e compila os aplicativos pelo chat. Aqui você consulta o código ou exporta uma cópia.", color = Muted, fontSize = 10.sp)
+                        Text("Apps Android mostram o botão de instalação quando o APK existe. Bots compatíveis podem ficar ativos com notificação; outros projetos continuam salvos para editar e baixar arquivos individualmente.", color = Muted, fontSize = 10.sp)
                     }
                 }
             }
         }
+        if (showDiscordConfigDialog && discordConfigProject != null) {
+            val project = discordConfigProject!!
+            AlertDialog(
+                onDismissRequest = {
+                    showDiscordConfigDialog = false
+                    discordConfigProject = null
+                    discordTokenDraft = ""
+                    discordApplicationIdDraft = ""
+                    discordSetupError = ""
+                },
+                title = { Text("Ativar bot do Discord") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            "O runtime fica neste telefone e mostra uma notificação enquanto estiver ativo. O token é criptografado pelo Android Keystore e não é enviado ao modelo de IA. Você pode parar o bot pelo catálogo Apps ou pela notificação.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        OutlinedTextField(
+                            value = discordApplicationIdDraft,
+                            onValueChange = { discordApplicationIdDraft = it.filter(Char::isDigit).take(22) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("Application ID") },
+                            placeholder = { Text("ID do Discord Developer Portal") }
+                        )
+                        OutlinedTextField(
+                            value = discordTokenDraft,
+                            onValueChange = { discordTokenDraft = it.take(300) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            label = { Text("Bot Token") },
+                            placeholder = { Text("Token privado do bot") }
+                        )
+                        if (discordSetupError.isNotBlank()) {
+                            Text(discordSetupError, color = Warning, fontSize = 11.sp)
+                        }
+                        Text(
+                            "No Discord Developer Portal, habilite o bot, copie o Application ID e o token do BOT. Nunca cole esse token na conversa. O bot precisa ser convidado para o servidor com os escopos bot e applications.commands.",
+                            color = Muted,
+                            fontSize = 11.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        try {
+                            discordCredentialsStore.save(project.id, discordTokenDraft, discordApplicationIdDraft)
+                            showDiscordConfigDialog = false
+                            discordConfigProject = null
+                            discordTokenDraft = ""
+                            discordApplicationIdDraft = ""
+                            discordSetupError = ""
+                            requestDiscordRuntimeStart(project.id)
+                        } catch (e: Exception) {
+                            discordSetupError = e.message ?: "As credenciais não passaram na validação."
+                        }
+                    }) { Text("Salvar e ativar", color = Neon) }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showDiscordConfigDialog = false
+                        discordConfigProject = null
+                        discordTokenDraft = ""
+                        discordApplicationIdDraft = ""
+                        discordSetupError = ""
+                    }) { Text("Cancelar") }
+                }
+            )
+        }
+
         if (showMemoryDialog) {
             AlertDialog(
                 onDismissRequest = { showMemoryDialog = false },
