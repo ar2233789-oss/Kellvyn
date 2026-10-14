@@ -46,6 +46,11 @@ jobs:
             "https://huggingface.co/litert-community/SmolLM2-360M-Instruct/resolve/main/SmolLM2_360M_instruct.litertlm?download=true" \
             --output "$MODEL_FILE"
           printf "%s  %s\\n" "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e" "$MODEL_FILE" | sha256sum --check --strict
+          # Keep the 374 MB model available to the test, but omit it from the emulator APK.
+          # The exact same checksum-verified file is copied into app-private storage after installation.
+          cp "$MODEL_FILE" "$RUNNER_TEMP/kellvyn-model.litertlm"
+          echo "KELLVYN_QA_MODEL_PATH=$RUNNER_TEMP/kellvyn-model.litertlm" >> "$GITHUB_ENV"
+          rm "$MODEL_FILE"
 
       # The sample app itself is NOT built by Gradle. The instrumentation test
       # runs ECJ -> D8 -> BinaryAndroidManifest -> apksig inside the installed
@@ -58,7 +63,7 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -partition-size 8192
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           cores: 4
           emulator-boot-timeout: 1200
           script: |
@@ -67,6 +72,7 @@ jobs:
             gradle --no-daemon testDebugUnitTest assembleDebug assembleDebugAndroidTest
             build_status=$?
             install_status=99
+            push_status=99
             android_status=99
             echo "Emulator disk state before APK installation:" > app/build/qa/emulator-diagnostics.txt
             adb shell df -h /data >> app/build/qa/emulator-diagnostics.txt 2>&1
@@ -74,8 +80,16 @@ jobs:
               adb install -r app/build/outputs/apk/debug/app-debug.apk >> app/build/qa/emulator-diagnostics.txt 2>&1
               install_status=$?
               if [ "$install_status" -eq 0 ]; then
-                gradle --no-daemon connectedDebugAndroidTest
-                android_status=$?
+                adb shell mkdir -p /sdcard/Android/data/com.kellvyn.assistant/files/kellvyn_qa >> app/build/qa/emulator-diagnostics.txt 2>&1
+                adb push "$KELLVYN_QA_MODEL_PATH" /sdcard/Android/data/com.kellvyn.assistant/files/kellvyn_qa/kellvyn-model.litertlm >> app/build/qa/emulator-diagnostics.txt 2>&1
+                push_status=$?
+                if [ "$push_status" -eq 0 ]; then
+                  adb shell run-as com.kellvyn.assistant mkdir -p files/models >> app/build/qa/emulator-diagnostics.txt 2>&1
+                  adb shell run-as com.kellvyn.assistant cp /sdcard/Android/data/com.kellvyn.assistant/files/kellvyn_qa/kellvyn-model.litertlm files/models/kellvyn-model.litertlm >> app/build/qa/emulator-diagnostics.txt 2>&1
+                  adb shell run-as com.kellvyn.assistant ls -l files/models/kellvyn-model.litertlm >> app/build/qa/emulator-diagnostics.txt 2>&1
+                  gradle --no-daemon connectedDebugAndroidTest
+                  android_status=$?
+                fi
               fi
             fi
             adb shell df -h /data >> app/build/qa/emulator-diagnostics.txt 2>&1
@@ -91,7 +105,7 @@ jobs:
               echo "No model acceptance report was produced or could be retrieved."
             fi
             set -e
-            if [ "$build_status" -ne 0 ] || [ "$install_status" -ne 0 ] || [ "$android_status" -ne 0 ]; then exit 1; fi
+            if [ "$build_status" -ne 0 ] || [ "$install_status" -ne 0 ] || [ "$push_status" -ne 0 ] || [ "$android_status" -ne 0 ]; then exit 1; fi
 
       - name: Upload emulator QA report and Android test results
         if: always()
