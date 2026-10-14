@@ -60,9 +60,6 @@ import com.kellvyn.assistant.data.ChatConversationStore
 import com.kellvyn.assistant.data.SavedConversation
 import com.kellvyn.assistant.data.MemoryFact
 import com.kellvyn.assistant.data.UserMemoryStore
-import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
-import com.kellvyn.assistant.tools.WorkspaceGitDialog
-import com.kellvyn.assistant.tools.WorkspaceTerminal
 import com.kellvyn.assistant.workspace.AppBuilderAgent
 import com.kellvyn.assistant.workspace.EditorSyncPolicy
 import com.kellvyn.assistant.workspace.AppBuildResult
@@ -173,7 +170,6 @@ fun KellvynApp() {
     val memoryStore = remember(context) { UserMemoryStore(context) }
     val localEngine = remember(context) { LocalLiteRtAssistantEngine(context) }
     val workspaceStore = remember(context) { ProjectWorkspaceStore(context) }
-    val workspaceTerminal = remember(workspaceStore) { WorkspaceTerminal(workspaceStore) }
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
     val localAndroidCompiler = remember(context, workspaceStore) { LocalAndroidCompiler(context, workspaceStore) }
     val scope = rememberCoroutineScope()
@@ -184,16 +180,11 @@ fun KellvynApp() {
     var modelReady by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
     var isLoadingModel by remember { mutableStateOf(false) }
-    var showConsoleDialog by remember { mutableStateOf(false) }
-    var showGitDialog by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
-    var showNavigatorDialog by remember { mutableStateOf(false) }
     var showConversationsDialog by remember { mutableStateOf(false) }
     var showAppsDialog by remember { mutableStateOf(false) }
-    var browserUrl by remember { mutableStateOf("https://developer.android.com") }
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
     var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
-    var selectedNav by remember { mutableStateOf("AI") }
     var showMemoryDialog by remember { mutableStateOf(false) }
     var memoryDraft by remember { mutableStateOf("") }
     var memoryStatus by remember { mutableStateOf("") }
@@ -220,6 +211,7 @@ fun KellvynApp() {
     var pendingDiscordStartId by remember { mutableStateOf<String?>(null) }
     var pendingFileExportContent by remember { mutableStateOf<String?>(null) }
     var pendingFileExportName by remember { mutableStateOf("") }
+    var pendingApkExport by remember { mutableStateOf<File?>(null) }
     var latestBuiltApk by remember(localAndroidCompiler) { mutableStateOf(localAndroidCompiler.mostRecentApk()) }
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
     var showSdkLicenseDialog by remember { mutableStateOf(false) }
@@ -321,7 +313,7 @@ fun KellvynApp() {
             val saved = selectedConversation?.messages ?: if (conversations.isEmpty()) historyStore.load() else emptyList()
             if (saved.isEmpty()) {
                 add(ChatMessage(
-                    "Kellvyn IA está pronto. O chat principal conversa com o núcleo local; editor e terminal são ferramentas independentes.",
+                    "Kellvyn IA está pronto. Peça tarefas diretamente pelo chat principal; os códigos gerados ficam guardados na área de códigos.",
                     false
                 ))
             } else {
@@ -479,7 +471,7 @@ fun KellvynApp() {
                         (if (autoRepaired) "O agente corrigiu o código após o primeiro erro. " else "") +
                             "APK criado, assinado e verificado no próprio celular. Pacote: " + result.applicationId + ". " +
                             "Tempo: " + (result.durationMs / 1000.0) + "s. Arquivo: " + result.apk.name + ". " +
-                            "Use o menu superior para instalar o APK.",
+                            "Use o cartão de APK aqui no chat para salvar ou instalar o arquivo.",
                         false
                     )
                 )
@@ -857,6 +849,28 @@ fun KellvynApp() {
         }
     }
 
+    val apkExportPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")
+    ) { destination ->
+        val source = pendingApkExport
+        pendingApkExport = null
+        if (destination != null && source != null && source.isFile) {
+            val fileToCopy = source
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(destination, "w")?.use { output ->
+                            fileToCopy.inputStream().buffered().use { input -> input.copyTo(output) }
+                        } ?: throw IllegalStateException("O Android não abriu o destino para salvar o APK.")
+                    }
+                    status = "APK salvo: " + fileToCopy.name
+                } catch (e: Exception) {
+                    status = "Falha ao salvar o APK: " + (e.message ?: e.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
     LaunchedEffect(localEngine) {
         isLoadingModel = true
         try {
@@ -927,7 +941,39 @@ fun KellvynApp() {
                     onDismissRequest = { showQuickMenu = false },
                     modifier = Modifier.background(Panel)
                 ) {
-                    DropdownMenuItem(text = { Text("Conversas") }, onClick = { showQuickMenu = false; showConversationsDialog = true })
+                    DropdownMenuItem(
+                        text = { Text("Conversas") },
+                        onClick = { showQuickMenu = false; showConversationsDialog = true }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Códigos guardados") },
+                        onClick = {
+                            showQuickMenu = false
+                            existingProjects.clear()
+                            existingProjects.addAll(workspaceStore.listProjects())
+                            showProjectsDialog = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Apps e APKs") },
+                        onClick = {
+                            showQuickMenu = false
+                            existingProjects.clear()
+                            existingProjects.addAll(workspaceStore.listProjects())
+                            showAppsDialog = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Memória") },
+                        onClick = {
+                            showQuickMenu = false
+                            savedMemories.clear()
+                            savedMemories.addAll(memoryStore.list())
+                            memoryDraft = ""
+                            memoryStatus = ""
+                            showMemoryDialog = true
+                        }
+                    )
                 }
             }
 
@@ -1066,15 +1112,33 @@ fun KellvynApp() {
                     Text("APK pronto", color = Neon, fontSize = 9.sp)
                     Spacer(Modifier.weight(1f))
                     TextButton(
+                        onClick = {
+                            val apk = latestBuiltApk
+                            if (apk != null && apk.isFile) {
+                                pendingApkExport = apk
+                                apkExportPicker.launch(apk.name)
+                            } else {
+                                status = "O arquivo APK não está mais disponível."
+                            }
+                        },
+                        contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
+                    ) { Text("Salvar APK", color = Neon, fontSize = 10.sp) }
+                    TextButton(
                         onClick = { installLatestApk() },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
                     ) { Text("Instalar", color = Neon, fontSize = 10.sp) }
                 }
             }
 
             if (status.isNotBlank()) {
-                Text(status, color = Muted, fontSize = 9.sp, maxLines = 1,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp))
+                Text(
+                    status,
+                    color = Muted,
+                    fontSize = 10.sp,
+                    maxLines = 2,
+                    lineHeight = 13.sp,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)
+                )
             }
 
             Surface(
@@ -1132,46 +1196,6 @@ fun KellvynApp() {
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth().height(34.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    Modifier.weight(1f).fillMaxHeight().clickable { selectedNav = "AI" },
-                    contentAlignment = Alignment.Center
-                ) { Text("✧ IA", color = if (selectedNav == "AI") Neon else Muted, fontSize = 10.sp) }
-                Box(
-                    Modifier.weight(1f).fillMaxHeight().clickable { selectedNav = "Navegador"; showNavigatorDialog = true },
-                    contentAlignment = Alignment.Center
-                ) { Text("◎ Web", color = if (selectedNav == "Navegador") Neon else Muted, fontSize = 10.sp) }
-                Box(
-                    Modifier.weight(1f).fillMaxHeight().clickable {
-                        selectedNav = "Editor"
-                        existingProjects.clear()
-                        existingProjects.addAll(workspaceStore.listProjects())
-                        showProjectsDialog = true
-                    },
-                    contentAlignment = Alignment.Center
-                ) { Text("</> Edit.", color = if (selectedNav == "Editor") Neon else Muted, fontSize = 9.sp) }
-                Box(
-                    Modifier.weight(1f).fillMaxHeight().clickable {
-                        selectedNav = "Git"
-                        existingProjects.clear()
-                        existingProjects.addAll(workspaceStore.listProjects())
-                        showGitDialog = true
-                    },
-                    contentAlignment = Alignment.Center
-                ) { Text("⑂ Git", color = if (selectedNav == "Git") Neon else Muted, fontSize = 10.sp) }
-                Box(
-                    Modifier.weight(1f).fillMaxHeight().clickable {
-                        selectedNav = "Apps"
-                        existingProjects.clear()
-                        existingProjects.addAll(workspaceStore.listProjects())
-                        showAppsDialog = true
-                    },
-                    contentAlignment = Alignment.Center
-                ) { Text("▦ Apps", color = if (selectedNav == "Apps") Neon else Muted, fontSize = 10.sp) }
-            }
         }
 
         if (showEditorDialog) {
@@ -1255,14 +1279,14 @@ fun KellvynApp() {
         if (showProjectsDialog) {
             AlertDialog(
                 onDismissRequest = { showProjectsDialog = false },
-                title = { Text("Meus projetos") },
+                title = { Text("Códigos guardados") },
                 text = {
                     Column(
                         modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         if (existingProjects.isEmpty()) {
-                            Text("Nenhum projeto salvo para editar. Peça ao chat principal para criar o app; o editor só altera arquivos existentes.", color = Muted)
+                            Text("Os códigos criados pelo chat ficam guardados aqui. Para criar ou modificar um aplicativo, peça diretamente no chat principal.", color = Muted)
                         } else {
                             existingProjects.forEach { project ->
                                 Surface(color = Panel, shape = RoundedCornerShape(12.dp)) {
@@ -1345,48 +1369,6 @@ fun KellvynApp() {
             )
         }
 
-        if (showNavigatorDialog) {
-            AlertDialog(
-                onDismissRequest = { showNavigatorDialog = false },
-                title = { Text("Navegador e pesquisa") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Abre no navegador padrão do Android (Chrome, Brave ou outro instalado). Digite um endereço ou uma frase para pesquisar.", color = Muted, fontSize = 12.sp)
-                        OutlinedTextField(
-                            value = browserUrl,
-                            onValueChange = { browserUrl = it.take(2_000) },
-                            label = { Text("Endereço ou pesquisa") },
-                            placeholder = { Text("github.com ou como criar um app Android") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val typed = browserUrl.trim()
-                        if (typed.isBlank()) {
-                            status = "Digite um endereço ou uma pesquisa."
-                        } else {
-                            val isUrl = typed.startsWith("http://", true) || typed.startsWith("https://", true) || (typed.contains(".") && !typed.any { it.isWhitespace() })
-                            val target = if (isUrl) {
-                                if (typed.startsWith("http://", true) || typed.startsWith("https://", true)) typed else "https://" + typed
-                            } else {
-                                "https://www.google.com/search?q=" + Uri.encode(typed)
-                            }
-                            try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                                status = if (isUrl) "Site aberto no navegador padrão." else "Pesquisa aberta no navegador padrão."
-                                showNavigatorDialog = false
-                            } catch (e: Exception) {
-                                status = "Não consegui abrir o navegador: " + (e.message ?: e.javaClass.simpleName)
-                            }
-                        }
-                    }) { Text("Pesquisar / Abrir") }
-                },
-                dismissButton = { TextButton(onClick = { showNavigatorDialog = false }) { Text("Fechar") } }
-            )
-        }
         if (showConversationsDialog) {
             androidx.compose.ui.window.Dialog(
                 onDismissRequest = { showConversationsDialog = false },
@@ -1430,10 +1412,7 @@ fun KellvynApp() {
                                 Text("APPS, BOTS E PROJETOS", color = Neon, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 Text("Catálogo permanente de tudo que o construtor gerou", color = Muted, fontSize = 11.sp)
                             }
-                            TextButton(
-                                onClick = { showAppsDialog = false; showConsoleDialog = true },
-                                contentPadding = PaddingValues(horizontal = 5.dp)
-                            ) { Text(">_ Terminal", color = Neon, fontSize = 10.sp) }
+    
                             TextButton(onClick = { showAppsDialog = false }) { Text("Fechar", color = Color.White) }
                         }
                         if (existingProjects.isEmpty()) {
@@ -1666,21 +1645,6 @@ fun KellvynApp() {
                         TextButton(onClick = { showMemoryDialog = false }) { Text("Fechar") }
                     }
                 }
-            )
-        }
-
-        if (showConsoleDialog) {
-            WorkspaceConsoleDialog(
-                workspace = workspaceStore,
-                terminal = workspaceTerminal,
-                onDismiss = { showConsoleDialog = false }
-            )
-        }
-        if (showGitDialog) {
-            WorkspaceGitDialog(
-                workspace = workspaceStore,
-                projects = existingProjects.toList(),
-                onDismiss = { showGitDialog = false }
             )
         }
 
