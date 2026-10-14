@@ -47,15 +47,15 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         }
         val prompt = buildString {
             if (botProject) {
-                appendLine("TAREFA: criar código-fonte funcional e exportável de um bot para a plataforma do pedido, não um APK Android.")
-                appendLine("O projeto ficará guardado como arquivos editáveis e poderá ser exportado em ZIP; nunca diga que foi hospedado, conectado ou executado.")
+                appendLine("TAREFA: criar código-fonte funcional de um bot para a plataforma do pedido, não um APK Android.")
+                appendLine("O projeto fica guardado como arquivos editáveis no workspace privado e pode ser inspecionado e alterado no Kellvyn. Não gere nem prometa arquivos compactados, hospedagem, conexão ou execução.")
                 appendLine("""Retorne apenas JSON válido: {"name":"Nome curto","description":"Resumo","files":[{"path":"README.md","content":"conteúdo completo"}]}""")
                 appendLine("Use Node.js 24 LTS (ou 22 LTS) e JavaScript. Gere package.json, src/index.js, .env.example e README.md, além de no máximo outros arquivos realmente necessários.")
                 appendLine("Para Discord, use conta de BOT oficial e discord.js. Implemente pelo menos o comando slash /ping, tratamento básico de erro e instruções de registro/convite com permissões mínimas. Leia DISCORD_TOKEN apenas de variável de ambiente; nunca automatize conta pessoal/self-bot.")
                 appendLine("Para WhatsApp, use a WhatsApp Business Cloud API oficial da Meta, com webhook GET de verificação, POST para mensagens recebidas e resposta por /messages. Use META_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN, META_APP_SECRET e META_GRAPH_VERSION apenas por ambiente.")
                 appendLine("Para Telegram, use a Bot API oficial e TELEGRAM_BOT_TOKEN. Para outra plataforma, use a API oficial apropriada e documente os pré-requisitos.")
                 if (isDiscordBotRequest(idea)) {
-                    appendLine("""Além dos arquivos Node.js exportáveis, inclua kellvyn.bot.json com JSON válido: {"platform":"discord","name":"nome","commands":[{"name":"ping","description":"descrição curta","action":"ping","response":"opcional para action=response"}]} .""")
+                    appendLine("""Além dos arquivos Node.js salvos no workspace, inclua kellvyn.bot.json com JSON válido: {"platform":"discord","name":"nome","commands":[{"name":"ping","description":"descrição curta","action":"ping","response":"opcional para action=response"}]} .""")
                     appendLine("O runtime nativo do Kellvyn lê kellvyn.bot.json; ele suporta actions response, ping, current_time, roll_dice, coin_flip, user_name, server_id e echo. echo recebe uma opção de texto. Crie comandos úteis e criativos de acordo com o pedido, usando apenas essas actions suportadas; para funcionalidades que precisem executar JavaScript arbitrário ou permissões privilegiadas, explique a limitação no README.")
                 }
                 appendLine("Não invente credenciais e não inclua tokens reais. Forneça .env.example com valores vazios em linhas separadas, valide entradas e não registre tokens nos logs.")
@@ -293,7 +293,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 val json = JSONObject(raw.substring(start, end + 1))
                 val name = json.optString("name").trim().ifBlank { "Projeto Kellvyn" }
                 val modelDescription = json.optString("description").trim().ifBlank { idea.take(500) }
-                val description = if (botProject) "Código-fonte de bot exportável; configure credenciais oficiais e runtime conforme README. " + modelDescription else modelDescription
+                val description = if (botProject) "Código-fonte de bot salvo localmente; configure credenciais oficiais e runtime conforme README. " + modelDescription else modelDescription
                 val array = json.optJSONArray("files")
                     ?: return@withContext AppBuildResult.Failure("O plano não contém uma lista de arquivos.")
 

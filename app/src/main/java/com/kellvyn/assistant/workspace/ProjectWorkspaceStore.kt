@@ -1,14 +1,10 @@
 package com.kellvyn.assistant.workspace
 
 import android.content.Context
-import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedOutputStream
 import java.io.File
 import java.util.Locale
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 
 data class WorkspaceProject(
     val id: String,
@@ -43,7 +39,7 @@ class ProjectWorkspaceStore(context: Context) {
     fun getProject(projectId: String): WorkspaceProject? = readProject(projectId)
 
     /**
-     * Exposes only the app-private root folder for the confined local terminal.
+     * Exposes only the app-private root folder for confined local tools.
      * This path must never be passed to a shell or remote service.
      */
     fun workspaceDirectory(): File {
@@ -165,37 +161,6 @@ class ProjectWorkspaceStore(context: Context) {
         }
     }
 
-    fun exportZip(projectId: String, destination: Uri) {
-        validateProjectId(projectId)
-        val directory = File(root, projectId)
-        val project = readProject(projectId) ?: throw IllegalArgumentException("Projeto não encontrado.")
-        val files = listFiles(projectId)
-        require(files.isNotEmpty()) { "O projeto ainda não contém arquivos." }
-
-        val output = resolverContext.contentResolver.openOutputStream(destination, "w")
-            ?: throw IllegalStateException("O Android não conseguiu abrir o destino do ZIP.")
-        ZipOutputStream(BufferedOutputStream(output)).use { zip ->
-            val rootReadme = buildString {
-                appendLine("# ${project.name}")
-                appendLine()
-                if (project.description.isNotBlank()) appendLine(project.description)
-                appendLine()
-                appendLine("Gerado pelo Kellvyn IA. Revise e teste o código antes de executar.")
-            }
-            zip.putNextEntry(ZipEntry("KELLVYN_PROJECT.md"))
-            zip.write(rootReadme.toByteArray(Charsets.UTF_8))
-            zip.closeEntry()
-
-            for (relativePath in files) {
-                val file = safeFile(directory, relativePath)
-                if (!file.isFile) continue
-                zip.putNextEntry(ZipEntry(relativePath))
-                file.inputStream().use { input -> input.copyTo(zip) }
-                zip.closeEntry()
-            }
-        }
-    }
-
     private fun readProject(projectId: String): WorkspaceProject? {
         if (!isValidProjectId(projectId)) return null
         val directory = File(root, projectId)
@@ -288,9 +253,6 @@ class ProjectWorkspaceStore(context: Context) {
                 it.equals(PROJECT_METADATA, true)
         }) {
             "O construtor não pode gravar metadados internos do projeto, Git ou Gradle."
-        }
-        require(segments.size != 1 || !segments[0].equals("KELLVYN_PROJECT.md", true)) {
-            "O nome KELLVYN_PROJECT.md é reservado para o pacote de exportação."
         }
         require(path.toByteArray(Charsets.UTF_8).size <= MAX_PATH_BYTES) { "O caminho do arquivo é muito longo." }
         return segments.joinToString("/")

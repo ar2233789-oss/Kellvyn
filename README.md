@@ -4,12 +4,12 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 
 ## Código implementado até agora
 
-- Interface nativa preta/esmeralda: tela principal dedicada ao chat, cabeçalho compacto, mensagens organizadas e compositor próximo ao rodapé. Não há barra inferior de abas; conversas, códigos guardados, projetos/APKs e memória são acessados pelo menu superior. Pedidos de conversa, criação, correção e compilação começam no mesmo chat.
+- Interface nativa preta/esmeralda: tela principal dedicada ao chat, cabeçalho compacto, mensagens organizadas e compositor próximo ao rodapé. Não há barra inferior de abas; conversas ficam no botão ☰ e leitura de arquivos de texto/código, códigos guardados, Apps/APKs e memória ficam no menu superior. Pedidos de conversa, criação, correção e compilação começam no mesmo chat.
 - Botão de copiar (ícone de folhas/páginas) embaixo das respostas do assistente.
 - O compositor é compacto e contém somente campo de mensagem, estado real da IA e botão de envio; não mostra controles decorativos ou sem função.
 - Histórico local limitado e apagável.
 - Memória explícita controlada pelo usuário: guardar, visualizar e apagar fatos.
-- Adaptador LiteRT-LM com um único modelo local integrado ao APK, copiado para o armazenamento privado e verificado por SHA-256; não há seleção de modelos ou alternância de modos na interface. Compatibilidade, desempenho e estabilidade precisam ser avaliados no Poco F6.
+- Adaptador LiteRT-LM preparado para um único modelo local, copiado para armazenamento privado e verificado por SHA-256; não há seleção de modelos ou alternância de modos. O arquivo esperado `app/src/main/assets/models/kellvyn-model.litertlm` não está no checkout atual, então a distribuição não pode ser declarada pronta até que esse modelo seja obtido e verificado localmente.
 - O chat usa somente o motor local; não há provedor externo de IA ou tela de configuração de endpoint. As ferramentas de internet só são usadas quando a mensagem pede explicitamente uma pesquisa ou ação sobre um link.
 - O agente principal trabalha diretamente pelo chat: consulta e altera arquivos do workspace, planeja tarefas, cria projetos, compila e apresenta diagnósticos. Pesquisa web/GitHub só é acionada quando a mensagem pede explicitamente esse acesso; usa a conexão já ativa do Android sem etapas manuais de configuração.
 - Não existe aba ou ícone independente de terminal. Termux só pode entrar no fluxo após um pedido explícito do usuário no chat principal; nunca inicia automaticamente.
@@ -19,7 +19,7 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 
 - O app final deve ser Android nativo; não embutir páginas da web em WebView.
 - A criação de APKs deve ocorrer localmente no telefone. Não usar GitHub Actions, tokens, Replit ou serviços de build na nuvem para compilar os projetos criados.
-- Não gerar nem entregar ZIP. A entrega solicitada é o APK compilado diretamente no chat principal.
+- Não gerar, oferecer nem entregar arquivo compactado como alternativa. A entrega é o APK compilado diretamente no chat principal.
 - A tela principal é o chat único e deve privilegiar o APK compilado como resultado; não há alternância manual entre conversar e criar aplicativos.
 - Não fingir que recursos pendentes estão prontos.
 
@@ -39,4 +39,4 @@ A conversa usa o modelo local integrado. Pesquisa web/GitHub só ocorre quando a
 - [Arquitetura de compilação local estilo mini Android Studio](docs/LOCAL_BUILD_ARCHITECTURE.md)
 
 ## Build do próprio Kellvyn durante o desenvolvimento
-A compilação anterior do próprio app foi feita em ambiente de desenvolvimento e passou por verificações de pacote/assinatura. O fluxo de build em nuvem foi removido conforme o requisito de build local. Não há atualmente um APK novo validado para a revisão depois das últimas alterações.
+Os workflows de build e teste em nuvem foram removidos. O repositório não contém um APK novo validado para esta revisão. Não anunciar a distribuição como pronta até fornecer o modelo ausente, executar a compilação local do aplicativo anfitrião e verificar pacote/assinatura.
