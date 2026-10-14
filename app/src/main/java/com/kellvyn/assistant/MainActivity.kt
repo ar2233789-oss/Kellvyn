@@ -134,7 +134,6 @@ fun KellvynApp() {
     var isGenerating by remember { mutableStateOf(false) }
     var isLoadingModel by remember { mutableStateOf(false) }
     var isRemovingModel by remember { mutableStateOf(false) }
-    var internetToolsEnabled by remember { mutableStateOf(false) }
     var showConsoleDialog by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
     var showModeMenu by remember { mutableStateOf(false) }
@@ -535,7 +534,7 @@ fun KellvynApp() {
                     val agentResult = assistantAgent.respond(
                         engine = selectedEngine,
                         conversation = turns,
-                        internetAllowed = internetToolsEnabled,
+                        internetAllowed = false,
                         onToolStatus = { toolStatus -> status = toolStatus },
                         requestApproval = { summary -> requestAgentApproval(summary) }
                     )
@@ -618,7 +617,6 @@ fun KellvynApp() {
                         is AssistantResult.Success -> {
                             messages.add(ChatMessage(result.text, false))
                             status = when {
-                                internetToolsEnabled -> "Resposta local; pesquisa na internet ativada quando solicitada"
                                 else -> "Resposta gerada localmente • sem envio a provedores externos"
                             }
                         }
@@ -975,10 +973,6 @@ fun KellvynApp() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-                        TextButton(
-                            onClick = { showQuickMenu = true },
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                        ) { Text("+", color = Neon, fontSize = 20.sp) }
 
                         Box {
                             Surface(
@@ -990,7 +984,7 @@ fun KellvynApp() {
                                     onClick = { showModeMenu = true },
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                                 ) {
-                                    Text("$interactionMode" + if (internetToolsEnabled) " · web ⌄" else " ⌄", color = Neon, fontSize = 10.sp, maxLines = 1)
+                                    Text("$interactionMode ⌄", color = Neon, fontSize = 10.sp, maxLines = 1)
                                 }
                             }
                             DropdownMenu(
@@ -1006,19 +1000,7 @@ fun KellvynApp() {
                                     text = { Text("Build · criar aplicativo") },
                                     onClick = { interactionMode = "Build"; showModeMenu = false }
                                 )
-                                Divider()
-                                DropdownMenuItem(
-                                    text = { Text(if (internetToolsEnabled) "Desativar ferramentas de internet" else "Permitir pesquisa na internet") },
-                                    onClick = {
-                                        showModeMenu = false
-                                        internetToolsEnabled = !internetToolsEnabled
-                                        status = if (internetToolsEnabled) {
-                                            "Internet autorizada para ferramentas: buscas e páginas acessadas serão enviadas aos sites externos; o motor local continua local."
-                                        } else {
-                                            "Acesso externo das ferramentas desligado."
-                                        }
-                                    }
-                                )
+
                             }
                         }
 
@@ -1295,7 +1277,7 @@ fun KellvynApp() {
                 title = { Text("Navegador e pesquisa") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Abre no navegador padrão do Android (Chrome, Brave ou outro instalado). Informe um endereço ou uma frase para pesquisar.", color = Muted, fontSize = 12.sp)
+                        Text("Abre no navegador padrão do Android (Chrome, Brave ou outro instalado). Digite um endereço ou uma frase para pesquisar.", color = Muted, fontSize = 12.sp)
                         OutlinedTextField(
                             value = browserUrl,
                             onValueChange = { browserUrl = it.take(2_000) },
@@ -1523,7 +1505,7 @@ fun KellvynApp() {
                                 val result = assistantAgent.respond(
                                     engine = localEngine,
                                     conversation = turns,
-                                    internetAllowed = internetToolsEnabled,
+                                    internetAllowed = false,
                                     onToolStatus = { toolStatus -> status = toolStatus },
                                     requestApproval = requestApproval
                                 )
