@@ -1,0 +1,48 @@
+name: Local compiler smoke test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compiler-smoke:
+    name: Builder -> agent tool -> on-device APK pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out Kellvyn source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle (only to build the Kellvyn test harness)
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.9"
+
+      # The sample app itself is NOT built by Gradle. The instrumentation test
+      # runs ECJ -> D8 -> BinaryAndroidManifest -> apksig inside the installed
+      # Kellvyn process, the same local toolchain exposed to the chat agent.
+      - name: Run unit tests and local compiler integration test in Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: gradle --no-daemon testDebugUnitTest connectedDebugAndroidTest
