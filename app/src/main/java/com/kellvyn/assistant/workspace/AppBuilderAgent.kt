@@ -47,7 +47,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         }
         val prompt = buildString {
             if (botProject) {
-                appendLine("TAREFA: criar código-fonte funcional e exportável de um bot para a plataforma do pedido, não um APK Android.")
+                appendLine("TAREFA: criar código-fonte funcional de um bot para a plataforma do pedido, não um APK Android.")
                 appendLine("O projeto fica guardado como arquivos editáveis no workspace privado e pode ser inspecionado e alterado no Kellvyn. Não gere nem prometa arquivos compactados, hospedagem, conexão ou execução.")
                 appendLine("""Retorne apenas JSON válido: {"name":"Nome curto","description":"Resumo","files":[{"path":"README.md","content":"conteúdo completo"}]}""")
                 appendLine("Use Node.js 24 LTS (ou 22 LTS) e JavaScript. Gere package.json, src/index.js, .env.example e README.md, além de no máximo outros arquivos realmente necessários.")
