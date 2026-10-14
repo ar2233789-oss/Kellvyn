@@ -75,6 +75,7 @@ import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
 import com.kellvyn.assistant.ai.AssistantAttachmentExtractor
 import com.kellvyn.assistant.ai.isExplicitImageGenerationRequest
 import com.kellvyn.assistant.ai.LocalArtworkGenerator
+import com.kellvyn.assistant.security.ApkSafetyAnalyzer
 import com.kellvyn.assistant.data.ChatHistoryStore
 import com.kellvyn.assistant.data.ChatConversationStore
 import com.kellvyn.assistant.data.SavedConversation
@@ -279,6 +280,7 @@ fun KellvynApp() {
     var pendingApkExportFile by remember { mutableStateOf<String?>(null) }
     var pendingImageExportFile by remember { mutableStateOf<String?>(null) }
     var attachmentBusy by remember { mutableStateOf(false) }
+    var apkAnalysisBusy by remember { mutableStateOf(false) }
     var textToSpeechReady by remember { mutableStateOf(false) }
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
     var showSdkLicenseDialog by remember { mutableStateOf(false) }
@@ -980,6 +982,39 @@ fun KellvynApp() {
         }
     }
 
+    val apkAnalysisPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                apkAnalysisBusy = true
+                try {
+                    val name = withContext(Dispatchers.IO) {
+                        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+                            ?: "aplicativo.apk"
+                    }
+                    val report = withContext(Dispatchers.IO) { ApkSafetyAnalyzer(context).analyze(uri, name) }
+                    messages.add(ChatMessage(report.asPortugueseText(), false))
+                    saveHistory()
+                    status = when {
+                        !proactiveSafety -> "Análise estática concluída por solicitação."
+                        report.riskLevel == com.kellvyn.assistant.security.ApkRiskLevel.HIGH -> "Aviso: sinais de risco elevado; não recomendo instalar sem investigação."
+                        report.riskLevel == com.kellvyn.assistant.security.ApkRiskLevel.REVIEW -> "Análise concluída; confira as permissões e os indicadores."
+                        else -> "Análise estática concluída; isso não garante ausência de malware."
+                    }
+                } catch (e: Exception) {
+                    val error = "Não consegui analisar o APK: " + (e.message ?: e.javaClass.simpleName)
+                    messages.add(ChatMessage(error, false))
+                    saveHistory()
+                    status = error
+                } finally {
+                    apkAnalysisBusy = false
+                }
+            }
+        }
+    }
+
     val attachmentPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -1420,6 +1455,12 @@ fun KellvynApp() {
                             fontSize = 10.sp,
                             maxLines = 1
                         )
+
+                        TextButton(
+                            enabled = !isGenerating && !attachmentBusy && !apkAnalysisBusy,
+                            onClick = { apkAnalysisPicker.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream")) },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                        ) { Text(if (apkAnalysisBusy) "…" else "🛡", color = Neon, fontSize = 16.sp) }
 
                         TextButton(
                             enabled = !isGenerating && !attachmentBusy,
