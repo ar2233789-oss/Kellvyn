@@ -1,14 +1,11 @@
 package com.kellvyn.assistant
 
 import android.app.Activity
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
 import android.provider.Settings
-import android.speech.RecognizerIntent
-import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -185,19 +182,6 @@ fun KellvynApp() {
     val localAndroidCompiler = remember(context, workspaceStore) { LocalAndroidCompiler(context, workspaceStore) }
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
-    var speechOutputReady by remember { mutableStateOf(false) }
-    val speechOutputHolder = remember(context) { arrayOfNulls<TextToSpeech>(1) }
-    val speechOutput = remember(context) {
-        TextToSpeech(context) { result ->
-            if (result == TextToSpeech.SUCCESS) {
-                val languageResult = speechOutputHolder[0]?.setLanguage(Locale("pt", "BR"))
-                    ?: TextToSpeech.LANG_NOT_SUPPORTED
-                speechOutputReady = languageResult >= TextToSpeech.LANG_AVAILABLE
-            } else {
-                speechOutputReady = false
-            }
-        }.also { speechOutputHolder[0] = it }
-    }
     var draft by remember { mutableStateOf("") }
     var streamingReply by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("Kellvyn pronto. Converse pelo chat principal.") }
@@ -513,7 +497,7 @@ fun KellvynApp() {
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsExistingBuild &&
             ChatRequestRouter.shouldBuild(text, buildModeSelected = false)
-        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseTerminal(text)
+        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseTerminal(text) || ChatRequestRouter.shouldUseOnlineTools(text)
         isGenerating = true
         streamingReply = ""
         status = if (wantsBuild) {
@@ -615,7 +599,7 @@ fun KellvynApp() {
                         assistantAgent.respond(
                             engine = selectedEngine,
                             conversation = turns,
-                            internetAllowed = false,
+                            internetAllowed = ChatRequestRouter.shouldUseOnlineTools(text),
                             onToolStatus = { toolStatus -> status = toolStatus },
                             requestApproval = { summary -> requestAgentApproval(summary) },
                             terminalAllowed = ChatRequestRouter.shouldUseTerminal(text)
@@ -748,23 +732,6 @@ fun KellvynApp() {
         }
     }
 
-    val speechLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val spoken = result.data
-                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                ?.firstOrNull()
-                .orEmpty()
-            if (spoken.isNotBlank()) {
-                draft = (draft + " " + spoken).trim().take(MAX_INPUT_CHARS)
-                status = "Texto reconhecido. Revise antes de enviar."
-            } else {
-                status = "Nenhuma fala foi reconhecida."
-            }
-        }
-    }
-
     val zipExportPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip")
     ) { destination ->
@@ -810,12 +777,8 @@ fun KellvynApp() {
         }
     }
 
-    DisposableEffect(localEngine, speechOutput) {
-        onDispose {
-            localEngine.close()
-            speechOutput.stop()
-            speechOutput.shutdown()
-        }
+    DisposableEffect(localEngine) {
+        onDispose { localEngine.close() }
     }
 
     MaterialTheme(
@@ -975,6 +938,7 @@ fun KellvynApp() {
                     }
                 }
 
+            }
             if (latestBuiltApk?.isFile == true) {
                 Row(
                     modifier = Modifier.fillMaxWidth().height(28.dp).padding(horizontal = 4.dp),
