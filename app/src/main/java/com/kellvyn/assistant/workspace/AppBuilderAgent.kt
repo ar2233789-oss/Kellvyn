@@ -81,6 +81,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             appendLine("- Cada item de files deve conter path e content como strings. Escape corretamente quebras de linha, aspas e barras para formar JSON válido.")
             appendLine("- Prefira no máximo 8 arquivos e aprox. 12.000 caracteres; nunca ultrapasse 12 arquivos e 18.000 caracteres.")
             appendLine("- Em um pedido grande, implemente uma primeira versão útil e documente as funções no README.")
+            projectSpecificGuidance(idea).forEach { appendLine(it) }
             }
             appendLine()
             appendLine("PEDIDO DO USUÁRIO:")
@@ -396,7 +397,36 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             }
         }
 
-    private companion object {
+    internal companion object {
+        /**
+         * Adds implementation-level acceptance criteria for projects that need real mechanics.
+         * These remain constraints for the generated source, not claims that the app has been tested.
+         */
+        internal fun projectSpecificGuidance(idea: String): List<String> {
+            val value = idea.lowercase(Locale.ROOT)
+            val rules = mutableListOf<String>()
+            val isGame = listOf("jogo", "game", "gachi", "genshin", "rpg", "jogável", "jogavel").any { it in value }
+            if (isGame) {
+                rules += "PERFIL JOGO JOGÁVEL: não entregue só uma tela bonita. Implemente um loop jogável real em View personalizada com onDraw(Canvas), estado de jogo explícito e atualização de animação limitada (por exemplo postInvalidateDelayed(33)); cancele a atualização quando a Activity for encerrada."
+                rules += "CONTROLES: todos os botões têm setOnClickListener e alteram estado visível. Inclua iniciar/pausar/reiniciar, feedback de vida/pontuação e controle de movimento/ação apropriado ao jogo. Não deixe botões decorativos sem comportamento."
+                if (listOf("chuva", "rain", "tempestade", "clima").any { it in value }) {
+                    rules += "MECÂNICA DE CHUVA: desenhe gotas como partículas com posição e velocidade, atualize-as por quadro e redesenhe o Canvas; o controle de chuva liga/desliga a simulação e o seletor de intensidade muda a quantidade/velocidade. Mostre no HUD o estado real da chuva."
+                }
+                rules += "Sem arquivos gráficos binários: produza uma identidade visual original com Canvas, gradientes e formas nativas. Não afirme que criou ou importou imagens de referência."
+            }
+            val isMusic = listOf("música", "musica", "player musical", "reprodutor de música", "reprodutor musical", "music player", "áudio local", "audio local").any { it in value }
+            if (isMusic) {
+                rules += "PERFIL PLAYER MUSICAL: use ACTION_OPEN_DOCUMENT com CATEGORY_OPENABLE para selecionar áudio do aparelho sem pedir acesso geral ao armazenamento; mantenha a URI escolhida e trate cancelamento/arquivo inválido."
+                rules += "Implemente reprodução local real com android.media.MediaPlayer, Play/Pause, parada/limpeza no ciclo de vida, SeekBar de posição e nome/duração da faixa. Botões anterior/próxima precisam alterar a faixa selecionada ou ficar desativados quando não houver fila; não finja que está tocando quando não há áudio."
+                rules += "Estilo visual pesado e original: fundo quase preto, acentos verde ácido e azul elétrico, tipografia de alto contraste, barras de nível e controles grandes. Não use bibliotecas externas nem faixas protegidas embutidas."
+            }
+            val requestsImage = listOf("imagem", "imagens", "referência visual", "referencia visual", "foto de referência", "foto de referencia", "gerar imagem", "gere uma imagem").any { it in value }
+            if (requestsImage) {
+                rules += "LIMITAÇÃO VISUAL: o núcleo atual só produz texto e não pode anexar PNG/JPEG nem inspecionar a imagem de referência. Não invente um arquivo bitmap. Se necessário, descreva/implemente arte vetorial por Canvas como código e escreva essa limitação no README."
+            }
+            return rules
+        }
+
         const val MAX_BRIEF_CHARS = 3_000
         const val MAX_FILES = 12
         const val MAX_PROJECT_CHARS = 18_000
