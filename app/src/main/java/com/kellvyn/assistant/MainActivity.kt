@@ -130,6 +130,55 @@ private const val MAX_AUTOMATIC_BUILD_REPAIRS = 3
 private const val MAX_EDITOR_CHARS = 80_000
 
 /** Only compiler diagnostics tied to Java/D8 source are eligible for the automatic code-repair pass. */
+private suspend fun extractAttachmentText(context: Context, uri: Uri): Pair<String, String> =
+    withContext(Dispatchers.IO) {
+        val resolver = context.contentResolver
+        val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        }?.takeIf { it.isNotBlank() } ?: uri.lastPathSegment?.substringAfterLast('/') ?: "arquivo"
+        val mimeType = resolver.getType(uri).orEmpty().lowercase(Locale.ROOT)
+        val byteCount = runCatching {
+            resolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
+        }.getOrNull() ?: -1L
+        require(byteCount <= 25L * 1024 * 1024 || byteCount < 0L) {
+            "O arquivo excede 25 MB. Reduza o tamanho e tente novamente."
+        }
+
+        val extracted = when {
+            mimeType == "application/pdf" || name.endsWith(".pdf", ignoreCase = true) -> {
+                PDFBoxResourceLoader.init(context)
+                resolver.openInputStream(uri)?.use { input ->
+                    PDDocument.load(input).use { document ->
+                        require(document.numberOfPages > 0) { "O PDF não contém páginas." }
+                        val stripper = PDFTextStripper().apply {
+                            setStartPage(1)
+                            setEndPage(minOf(document.numberOfPages, 80))
+                        }
+                        stripper.getText(document).take(MAX_ATTACHMENT_TEXT_CHARS)
+                    }
+                } ?: throw IllegalStateException("Não consegui abrir o PDF escolhido.")
+            }
+            mimeType.startsWith("image/") || listOf(".png", ".jpg", ".jpeg", ".webp", ".bmp").any { name.endsWith(it, true) } -> {
+                val image = InputImage.fromFilePath(context, uri)
+                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                try {
+                    Tasks.await(recognizer.process(image), 45, TimeUnit.SECONDS).text.take(MAX_ATTACHMENT_TEXT_CHARS)
+                } finally {
+                    recognizer.close()
+                }
+            }
+            else -> throw IllegalArgumentException("Formato não suportado. Escolha um PDF ou uma imagem.")
+        }
+        if (extracted.isBlank()) {
+            throw IllegalStateException(
+                if (mimeType == "application/pdf" || name.endsWith(".pdf", true))
+                    "Não encontrei texto selecionável no PDF. Esta versão ainda não faz OCR de páginas digitalizadas."
+                else "Não foi possível reconhecer texto na imagem. A análise visual completa ainda não está disponível neste núcleo."
+            )
+        }
+        name to extracted
+    }
+
 private fun hasInternetConnection(context: Context): Boolean {
     return try {
         val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
