@@ -7,7 +7,6 @@ import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
 import com.kellvyn.assistant.workspace.WorkspaceGitService
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
 import com.kellvyn.assistant.workspace.LocalApkBuildResult
-import com.kellvyn.assistant.tools.WorkspaceTerminal
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -23,14 +22,13 @@ import java.util.Locale
 
 /**
  * Tool router for the chat agent. The model proposes a JSON tool call; this class validates
- * its arguments and invokes local/network capabilities. Shell access is exposed only after an explicit
- * user request in the current main-chat message.
+ * its arguments and invokes workspace/network capabilities. The user's manual terminal is never
+ * exposed to the agent; the main chat prepares commands for the user to run themselves.
  */
 class AgentToolRouter(
     private val workspace: ProjectWorkspaceStore,
     private val localCompiler: LocalAndroidCompiler? = null,
-    private val onLicenseRequired: (String) -> Unit = {},
-    private val terminal: WorkspaceTerminal? = null
+    private val onLicenseRequired: (String) -> Unit = {}
 ) {
     private val git = WorkspaceGitService(workspace)
     fun explicitGitReadRequest(text: String): Pair<String, JSONObject>? {
@@ -177,8 +175,7 @@ class AgentToolRouter(
         name: String,
         args: JSONObject,
         internetAllowed: Boolean,
-        onStatus: (String) -> Unit = {},
-        terminalAllowed: Boolean = false
+        onStatus: (String) -> Unit = {}
     ): String = withContext(Dispatchers.IO) {
             when (name) {
                 "build_project_apk" -> {
@@ -208,29 +205,6 @@ class AgentToolRouter(
                                 .toString()
                         }
                     }
-                }
-                "terminal_execute" -> {
-                    require(terminalAllowed) { "O usuário não pediu uso do terminal nesta mensagem." }
-                    val command = required(args, "command").trim()
-                    require(command.isNotBlank()) { "Informe um comando para o terminal." }
-                    require(command.length <= MAX_TERMINAL_COMMAND_CHARS) { "O comando ultrapassa o limite de " + MAX_TERMINAL_COMMAND_CHARS + " caracteres." }
-                    require(command.none { it.code == 0 }) { "O comando contém um caractere inválido." }
-                    require(listOf(";", "&&", "||", "|", ">", "<").none { it in command } && command.none { it.code == 36 || it.code == 96 }) {
-                        "Envie um comando simples; encadeamento, redirecionamento e expansão de shell são bloqueados para o agente."
-                    }
-                    val lowerCommand = command.lowercase(Locale.ROOT)
-                    require(listOf("sudo ", "su ", "reboot", "poweroff", "mkfs", "dd if=", "pm clear", "am force-stop", "rm -rf /", "rm -r ").none { it in lowerCommand }) {
-                        "Este comando administrativo ou de exclusão recursiva está bloqueado para o agente."
-                    }
-                    require(!command.contains("..")) {
-                        "O agente não pode usar caminhos que saiam da pasta de trabalho; use caminhos relativos seguros."
-                    }
-                    require(!Regex("""(^|[\s>])["']?/""").containsMatchIn(command) && !command.contains("~")) {
-                        "O agente só pode usar caminhos relativos no workspace."
-                    }
-                    val activeTerminal = requireNotNull(terminal) { "O terminal não foi conectado ao agente desta sessão." }
-                    onStatus("Executando o comando explicitamente solicitado no terminal local…")
-                    activeTerminal.executeInteractive(command)
                 }
                 "workspace_status" -> workspaceStatus()
                 "list_projects" -> listProjects()
@@ -915,8 +889,7 @@ class AssistantAgent(
         conversation: List<AssistantTurn>,
         internetAllowed: Boolean,
         onToolStatus: (String) -> Unit = {},
-        requestApproval: suspend (String) -> Boolean,
-        terminalAllowed: Boolean = false
+        requestApproval: suspend (String) -> Boolean
     ): AssistantResult {
         val turns = conversation.toMutableList()
         val systemIndex = turns.indexOfFirst { it.role == AssistantTurn.Role.SYSTEM }
@@ -937,7 +910,7 @@ class AssistantAgent(
             appendLine("- git_init {project_id}: inicializa Git local; precisa de aprovação")
             appendLine("- git_stage_all {project_id}: prepara arquivos locais para commit; precisa de aprovação")
             appendLine("- git_commit {project_id,message}: cria commit local; precisa de aprovação")
-            appendLine("O terminal é uma ferramenta manual opcional do usuário, não tem agente próprio nem é um meio para você executar comandos. Quando o usuário pedir ajuda com Termux/terminal no chat principal, responda como assistente: organize comandos e arquivos completos para copiar, explique a pasta correta e a ordem de execução, antecipe erros comuns e forneça correções. Não afirme que você executou os comandos e não use uma ferramenta terminal_execute. Ajudar a preparar comandos não exige que o usuário mude de tela ou de modo.")
+            appendLine("O terminal é uma ferramenta manual opcional do usuário, não tem agente próprio nem é um meio para você executar comandos. Quando o usuário pedir ajuda com Termux/terminal no chat principal, responda como assistente: organize comandos e arquivos completos para copiar, explique a pasta correta e a ordem de execução, antecipe erros comuns e forneça correções. Não afirme que você executou os comandos. Ajudar a preparar comandos não exige que o usuário mude de tela ou de modo.")
             appendLine("- write_file {project_id,path,content}: grava ou substitui um arquivo automaticamente quando isso atende ao pedido claro do usuário")
             appendLine("- patch_file {project_id,path,old_text,new_text}: aplica uma edição pontual automaticamente após pedido claro; falha sem gravar se o trecho não for único")
             appendLine("Ao editar código, prefira patch_file para mudanças pontuais; old_text precisa identificar uma única ocorrência. Use write_file para substituição completa somente quando for necessário. Depois de uma escrita, leia novamente o trecho ou arquivo para conferir quando possível.")
@@ -1220,7 +1193,7 @@ class AssistantAgent(
                         }
                     }
                     onToolStatus(toolStatus(name))
-                    val result = runCatching { tools.execute(name, args, internetAllowed, onToolStatus, terminalAllowed) }
+                    val result = runCatching { tools.execute(name, args, internetAllowed, onToolStatus) }
                         .fold(
                             onSuccess = { resultText -> resultText.take(if (name == "build_project_apk") maxBuildToolResultChars else maxToolResultChars) },
                             onFailure = { "A ferramenta falhou: ${it.message ?: it.javaClass.simpleName}" }
