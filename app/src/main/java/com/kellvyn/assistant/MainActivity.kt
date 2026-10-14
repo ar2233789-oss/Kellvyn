@@ -10,6 +10,8 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Build
 import android.provider.Settings
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -124,13 +126,13 @@ private fun projectIconGlyph(project: WorkspaceProject): String {
 }
 
 @Composable
-private fun KellvynMark(diameter: androidx.compose.ui.unit.Dp = 28.dp) {
+private fun KellvynMark(diameter: androidx.compose.ui.unit.Dp = 28.dp, accent: Color = accent) {
     Canvas(modifier = Modifier.size(diameter)) {
         val d = this.size.minDimension
         val r = d * 0.46f
         val center = Offset(this.size.width / 2f, this.size.height / 2f)
         drawCircle(color = Color(0xFF04110D), radius = r, center = center)
-        drawCircle(color = Neon.copy(alpha = 0.72f), radius = r * 0.94f, center = center, style = Stroke(width = 1.2.dp.toPx()))
+        drawCircle(color = accent.copy(alpha = 0.72f), radius = r * 0.94f, center = center, style = Stroke(width = 1.2.dp.toPx()))
 
         val hood = Path().apply {
             moveTo(center.x, center.y - r * 0.78f)
@@ -149,9 +151,9 @@ private fun KellvynMark(diameter: androidx.compose.ui.unit.Dp = 28.dp) {
             close()
         }
         drawPath(path = face, color = Night)
-        drawLine(color = Neon, start = Offset(center.x - r * 0.19f, center.y + r * 0.02f), end = Offset(center.x - r * 0.055f, center.y + r * 0.06f), strokeWidth = 1.3.dp.toPx())
-        drawLine(color = Neon, start = Offset(center.x + r * 0.055f, center.y + r * 0.06f), end = Offset(center.x + r * 0.19f, center.y + r * 0.02f), strokeWidth = 1.3.dp.toPx())
-        drawCircle(color = Neon.copy(alpha = 0.12f), radius = r * 0.12f, center = Offset(center.x, center.y + r * 0.30f))
+        drawLine(color = accent, start = Offset(center.x - r * 0.19f, center.y + r * 0.02f), end = Offset(center.x - r * 0.055f, center.y + r * 0.06f), strokeWidth = 1.3.dp.toPx())
+        drawLine(color = accent, start = Offset(center.x + r * 0.055f, center.y + r * 0.06f), end = Offset(center.x + r * 0.19f, center.y + r * 0.02f), strokeWidth = 1.3.dp.toPx())
+        drawCircle(color = accent.copy(alpha = 0.12f), radius = r * 0.12f, center = Offset(center.x, center.y + r * 0.30f))
     }
 }
 
@@ -182,6 +184,10 @@ fun KellvynApp() {
     var isLoadingModel by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
     var showConversationsDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    val uiPreferences = remember(context) { context.getSharedPreferences("kellvyn_ui", Context.MODE_PRIVATE) }
+    var accentHex by remember(uiPreferences) { mutableStateOf(uiPreferences.getString("accent_hex", "#38E6BC") ?: "#38E6BC") }
+    val accentColor = remember(accentHex) { Color(android.graphics.Color.parseColor(accentHex)) }
     var showAppsDialog by remember { mutableStateOf(false) }
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
     var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
@@ -660,7 +666,7 @@ fun KellvynApp() {
                             "package.json" in paths && "src/index.js" in paths
                         }
                     ) {
-                        val answer = "Este projeto é um bot Node.js, não um app Android. O compilador local de APK não executa package.json. Abra Apps, exporte o ZIP e rode o projeto em um ambiente com Node.js e as credenciais oficiais; o Kellvyn não vai fingir que o bot está online."
+                        val answer = "Este projeto é um bot Node.js, não um app Android. O compilador local de APK não executa package.json. Abra Apps, o runtime para essa plataforma ainda não está integrado; o código permanece salvo no catálogo e não vou fingir que o bot está online."
                         messages.add(ChatMessage(answer, false))
                         status = "Projeto de bot identificado; APK Android não se aplica a esse código-fonte."
                     } else {
@@ -871,6 +877,18 @@ fun KellvynApp() {
         }
     }
 
+    val speechInputLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty()
+        if (result.resultCode == Activity.RESULT_OK && spokenText.isNotBlank()) {
+            draft = listOf(draft.trim(), spokenText).filter { it.isNotBlank() }.joinToString(" ")
+            status = "Ditado em português adicionado ao campo de mensagem."
+        } else {
+            status = "Ditado cancelado ou sem resultado."
+        }
+    }
+
     LaunchedEffect(localEngine) {
         isLoadingModel = true
         try {
@@ -906,8 +924,8 @@ fun KellvynApp() {
         colorScheme = darkColorScheme(
             background = Night,
             surface = Panel,
-            primary = Neon,
-            secondary = Neon,
+            primary = accentColor,
+            secondary = accentColor,
             onPrimary = Night,
             onBackground = Color.White,
             onSurface = Color.White
@@ -920,14 +938,14 @@ fun KellvynApp() {
                 modifier = Modifier.fillMaxWidth().height(44.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 7.dp)) {
-                    Text("☰", color = Neon, fontSize = 19.sp)
+                TextButton(onClick = { showConversationsDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                    Text("☰", color = accentColor, fontSize = 19.sp)
                 }
-                Spacer(Modifier.width(3.dp))
-                KellvynMark(26.dp)
+                Spacer(Modifier.width(2.dp))
+                KellvynMark(26.dp, accentColor)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Kellvyn Assistente", color = Neon, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text("Kellvyn Assistente", color = accentColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Text(
                         if (modelReady) "KELLVYN IA • LOCAL" else "KELLVYN IA • INICIALIZANDO",
                         color = Muted,
@@ -935,6 +953,12 @@ fun KellvynApp() {
                         letterSpacing = 1.sp,
                         maxLines = 1
                     )
+                }
+                TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 5.dp)) {
+                    Text("▦", color = accentColor, fontSize = 18.sp)
+                }
+                TextButton(onClick = { showSettingsDialog = true }, contentPadding = PaddingValues(horizontal = 5.dp)) {
+                    Text("⋮", color = accentColor, fontSize = 22.sp)
                 }
                 DropdownMenu(
                     expanded = showQuickMenu,
@@ -1010,7 +1034,7 @@ fun KellvynApp() {
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.Top
                         ) {
-                            KellvynMark(26.dp)
+                            KellvynMark(26.dp, accentColor)
                             Spacer(Modifier.width(7.dp))
                             Column(Modifier.weight(1f)) {
                                 Surface(
@@ -1043,14 +1067,14 @@ fun KellvynApp() {
                                         Canvas(modifier = Modifier.size(14.dp)) {
                                             val stroke = Stroke(width = 1.3.dp.toPx())
                                             drawRoundRect(
-                                                color = Neon.copy(alpha = 0.65f),
+                                                color = accentColor.copy(alpha = 0.65f),
                                                 topLeft = Offset(size.width * 0.27f, size.height * 0.08f),
                                                 size = Size(size.width * 0.58f, size.height * 0.68f),
                                                 cornerRadius = CornerRadius(2.dp.toPx()),
                                                 style = stroke
                                             )
                                             drawRoundRect(
-                                                color = Neon,
+                                                color = accentColor,
                                                 topLeft = Offset(size.width * 0.12f, size.height * 0.27f),
                                                 size = Size(size.width * 0.58f, size.height * 0.65f),
                                                 cornerRadius = CornerRadius(2.dp.toPx()),
@@ -1058,7 +1082,7 @@ fun KellvynApp() {
                                             )
                                         }
                                         Spacer(Modifier.width(4.dp))
-                                        Text("Copiar", color = Neon, fontSize = 10.sp)
+                                        Text("Copiar", color = accentColor, fontSize = 10.sp)
                                     }
                                     TextButton(
                                         onClick = {
@@ -1071,7 +1095,7 @@ fun KellvynApp() {
                                     TextButton(
                                         onClick = { shareAssistantDocument(message.text) },
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                    ) { Text("Enviar", color = Neon, fontSize = 10.sp) }
+                                    ) { Text("Enviar", color = accentColor, fontSize = 10.sp) }
                                 }
                             }
                         }
@@ -1083,7 +1107,7 @@ fun KellvynApp() {
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.Top
                         ) {
-                            KellvynMark(26.dp)
+                            KellvynMark(26.dp, accentColor)
                             Spacer(Modifier.width(7.dp))
                             Surface(
                                 color = Night,
@@ -1109,7 +1133,7 @@ fun KellvynApp() {
                     modifier = Modifier.fillMaxWidth().height(28.dp).padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("APK pronto", color = Neon, fontSize = 9.sp)
+                    Text("APK pronto", color = accentColor, fontSize = 9.sp)
                     Spacer(Modifier.weight(1f))
                     TextButton(
                         onClick = {
@@ -1122,11 +1146,11 @@ fun KellvynApp() {
                             }
                         },
                         contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
-                    ) { Text("Salvar APK", color = Neon, fontSize = 10.sp) }
+                    ) { Text("Salvar APK", color = accentColor, fontSize = 10.sp) }
                     TextButton(
                         onClick = { installLatestApk() },
                         contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
-                    ) { Text("Instalar", color = Neon, fontSize = 10.sp) }
+                    ) { Text("Instalar", color = accentColor, fontSize = 10.sp) }
                 }
             }
 
@@ -1167,7 +1191,7 @@ fun KellvynApp() {
                             unfocusedBorderColor = Color.Transparent,
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            cursorColor = Neon
+                            cursorColor = accentColor
                         )
                     )
                     Row(
@@ -1177,10 +1201,31 @@ fun KellvynApp() {
                     ) {
                         Text(
                             if (modelReady) "● IA local" else if (isLoadingModel) "◌ Preparando IA" else "IA local indisponível",
-                            color = if (modelReady) Neon else Muted,
+                            color = if (modelReady) accentColor else Muted,
                             fontSize = 10.sp,
                             maxLines = 1
                         )
+
+                        IconButton(
+                            enabled = !isGenerating,
+                            onClick = {
+                                if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                                    status = "O reconhecimento de voz não está disponível neste aparelho."
+                                } else {
+                                    val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+                                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale em português")
+                                    }
+                                    try {
+                                        speechInputLauncher.launch(speechIntent)
+                                    } catch (e: Exception) {
+                                        status = "Não consegui iniciar o ditado: " + (e.message ?: e.javaClass.simpleName)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.size(34.dp)
+                        ) { Text("🎙", fontSize = 15.sp) }
 
                         Spacer(Modifier.weight(1f))
 
@@ -1190,7 +1235,7 @@ fun KellvynApp() {
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.height(34.dp),
                             contentPadding = PaddingValues(horizontal = 11.dp, vertical = 3.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Neon, contentColor = Night)
+                            colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Night)
                         ) { Text(if (isGenerating) "…" else "↑", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
                     }
                 }
@@ -1207,7 +1252,7 @@ fun KellvynApp() {
                     Column(Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("EDITOR DE CÓDIGO", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("EDITOR DE CÓDIGO", color = accentColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 Text(activeEditProject?.name ?: "Projeto", color = Muted, fontSize = 10.sp, maxLines = 1)
                             }
                             TextButton(enabled = !isSavingFile, onClick = { showEditorDialog = false }) { Text("Fechar", color = Color.White) }
@@ -1221,12 +1266,12 @@ fun KellvynApp() {
                                         if (project != null) {
                                             try {
                                                 val fileText = workspaceStore.readFile(project.id, path)
-                                                if (fileText.length > MAX_EDITOR_CHARS) editorStatus = "Arquivo muito grande para editar aqui. Exporte o ZIP."
+                                                if (fileText.length > MAX_EDITOR_CHARS) editorStatus = "Arquivo muito grande para editar aqui. O arquivo permanece salvo; use o chat para pedir alterações específicas."
                                                 else { activeFilePath = path; editorContent = fileText; editorStatus = "" }
                                             } catch (e: Exception) { editorStatus = "Falha ao abrir: " + (e.message ?: e.javaClass.simpleName) }
                                         }
                                     }, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
-                                        Text((if (path == activeFilePath) "▸ " else "") + path, color = if (path == activeFilePath) Neon else Color.White, fontSize = 10.sp, maxLines = 1)
+                                        Text((if (path == activeFilePath) "▸ " else "") + path, color = if (path == activeFilePath) accentColor else Color.White, fontSize = 10.sp, maxLines = 1)
                                     }
                                 }
                             }
@@ -1234,7 +1279,7 @@ fun KellvynApp() {
                         if (activeFilePath.isBlank()) {
                             Text("Escolha um arquivo na lista.", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                         } else {
-                            Text(activeFilePath, color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(activeFilePath, color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                             OutlinedTextField(
                                 value = editorContent,
                                 onValueChange = { if (it.length <= MAX_EDITOR_CHARS) editorContent = it },
@@ -1246,7 +1291,7 @@ fun KellvynApp() {
                                 placeholder = { Text("Conteúdo do arquivo…") }
                             )
                         }
-                        if (editorStatus.isNotBlank()) Text(editorStatus, color = if (editorStatus.startsWith("Arquivo salvo")) Neon else Warning, fontSize = 10.sp, maxLines = 3)
+                        if (editorStatus.isNotBlank()) Text(editorStatus, color = if (editorStatus.startsWith("Arquivo salvo")) accentColor else Warning, fontSize = 10.sp, maxLines = 3)
                         if (isSavingFile) LinearProgressIndicator(Modifier.fillMaxWidth())
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                             TextButton(enabled = !isSavingFile && activeEditProject != null && activeFilePath.isNotBlank(), onClick = {
@@ -1270,7 +1315,7 @@ fun KellvynApp() {
                                         finally { isSavingFile = false }
                                     }
                                 }
-                            }, colors = ButtonDefaults.buttonColors(containerColor = Neon, contentColor = Night)) { Text("Salvar", fontSize = 11.sp) }
+                            }, colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Night)) { Text("Salvar", fontSize = 11.sp) }
                         }
                     }
                 }
@@ -1377,10 +1422,10 @@ fun KellvynApp() {
                 Surface(Modifier.fillMaxSize().padding(8.dp), color = Night, shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("CONVERSAS", color = Neon, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("CONVERSAS", color = accentColor, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             TextButton(onClick = { showConversationsDialog = false }) { Text("Fechar", color = Color.White) }
                         }
-                        Button(onClick = { createNewConversation() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Neon, contentColor = Night)) { Text("＋ Nova conversa") }
+                        Button(onClick = { createNewConversation() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Night)) { Text("＋ Nova conversa") }
                         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (conversations.isEmpty()) Text("Nenhuma conversa salva ainda.", color = Muted, fontSize = 12.sp)
                             else conversations.sortedByDescending { it.updatedAt }.forEach { conversation ->
@@ -1390,16 +1435,67 @@ fun KellvynApp() {
                                             Text(conversation.title, color = Color.White, fontSize = 12.sp, maxLines = 2)
                                             Text(conversation.messages.count { it.fromUser }.toString() + " mensagens suas", color = Muted, fontSize = 10.sp)
                                         }
-                                        TextButton(onClick = { openConversation(conversation.id) }) { Text(if (conversation.id == activeConversationId) "Atual" else "Abrir", color = Neon) }
+                                        TextButton(onClick = { openConversation(conversation.id) }) { Text(if (conversation.id == activeConversationId) "Atual" else "Abrir", color = accentColor) }
                                     }
                                 }
                             }
                         }
-                        TextButton(onClick = { showConversationsDialog = false; savedMemories.clear(); savedMemories.addAll(memoryStore.list()); memoryDraft = ""; memoryStatus = ""; showMemoryDialog = true }, modifier = Modifier.fillMaxWidth()) { Text("Memória", color = Muted) }
                     }
                 }
             }
         }
+        if (showSettingsDialog) {
+            AlertDialog(
+                onDismissRequest = { showSettingsDialog = false },
+                title = { Text("Configurações do Kellvyn") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("COR DA INTERFACE", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            listOf(
+                                "#38E6BC" to "Esmeralda",
+                                "#5CB8FF" to "Azul",
+                                "#C59BFF" to "Violeta",
+                                "#FF8A8A" to "Vermelho"
+                            ).forEach { (hex, label) ->
+                                TextButton(
+                                    onClick = {
+                                        accentHex = hex
+                                        uiPreferences.edit().putString("accent_hex", hex).apply()
+                                        status = "Cor da interface alterada para " + label + "."
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 4.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(label, color = Color(android.graphics.Color.parseColor(hex)), fontSize = 10.sp, maxLines = 1)
+                                }
+                            }
+                        }
+                        Divider(color = Color(0xFF143D33))
+                        Text("SEGURANÇA", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Ações destrutivas e operações Git que alteram dados continuam exigindo confirmação. A IA local não envia suas mensagens a um provedor externo.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        Divider(color = Color(0xFF143D33))
+                        Text("CHUVA DO MODELO", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "O efeito original de chuva do modelo não está presente no código atual que consegui verificar. Não coloquei uma animação diferente no lugar nem um controle falso.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showSettingsDialog = false }) { Text("Fechar", color = accentColor) }
+                }
+            )
+        }
+
         if (showAppsDialog) {
             androidx.compose.ui.window.Dialog(
                 onDismissRequest = { showAppsDialog = false },
@@ -1409,7 +1505,7 @@ fun KellvynApp() {
                     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("APPS, BOTS E PROJETOS", color = Neon, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text("APPS, BOTS E PROJETOS", color = accentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 Text("Catálogo permanente de tudo que o construtor gerou", color = Muted, fontSize = 11.sp)
                             }
     
@@ -1427,14 +1523,14 @@ fun KellvynApp() {
                                     val isRuntimeActive = project.id in activeRuntimeProjects || projectRuntimeStore.isActive(project.id)
                                     Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))) {
                                         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Surface(Modifier.size(50.dp), color = Color(0xFF0A2D24), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Neon.copy(alpha = 0.5f))) {
+                                            Surface(Modifier.size(50.dp), color = Color(0xFF0A2D24), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.5f))) {
                                                 Box(contentAlignment = Alignment.Center) {
-                                                    Text(projectIconGlyph(project), color = Neon, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                                                    Text(projectIconGlyph(project), color = accentColor, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                                 Text(project.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
-                                                Text(projectKind.label + if (isRuntimeActive) " • ATIVO" else "", color = if (isRuntimeActive) Neon else Muted, fontSize = 10.sp, maxLines = 1)
+                                                Text(projectKind.label + if (isRuntimeActive) " • ATIVO" else "", color = if (isRuntimeActive) accentColor else Muted, fontSize = 10.sp, maxLines = 1)
                                                 Text(project.description.ifBlank { project.fileCount.toString() + " arquivos" }, color = Muted, fontSize = 10.sp, maxLines = 2)
                                                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                                                     TextButton(onClick = {
@@ -1448,7 +1544,7 @@ fun KellvynApp() {
                                                             showAppsDialog = false
                                                             showEditorDialog = true
                                                         } catch (e: Exception) { status = "Falha ao abrir o código: " + (e.message ?: e.javaClass.simpleName) }
-                                                    }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) { Text("Código", color = Neon, fontSize = 10.sp) }
+                                                    }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) { Text("Código", color = accentColor, fontSize = 10.sp) }
 
                                                     when (projectKind) {
                                                         GeneratedProjectKind.ANDROID_APP -> {
@@ -1456,7 +1552,7 @@ fun KellvynApp() {
                                                                 enabled = projectApk.isFile && projectApk.length() > 0L,
                                                                 onClick = { installApkFile(projectApk) },
                                                                 contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)
-                                                            ) { Text(if (projectApk.isFile) "Instalar APK" else "APK pendente", color = if (projectApk.isFile) Neon else Muted, fontSize = 10.sp) }
+                                                            ) { Text(if (projectApk.isFile) "Instalar APK" else "APK pendente", color = if (projectApk.isFile) accentColor else Muted, fontSize = 10.sp) }
                                                         }
                                                         GeneratedProjectKind.DISCORD_BOT -> {
                                                             TextButton(
@@ -1480,7 +1576,7 @@ fun KellvynApp() {
                                                                     }
                                                                 },
                                                                 contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)
-                                                            ) { Text(if (isRuntimeActive) "Parar bot" else "Manter ativo", color = if (isRuntimeActive) Warning else Neon, fontSize = 10.sp) }
+                                                            ) { Text(if (isRuntimeActive) "Parar bot" else "Manter ativo", color = if (isRuntimeActive) Warning else accentColor, fontSize = 10.sp) }
                                                         }
                                                         else -> {
                                                             Text("Sem runtime", color = Muted, fontSize = 9.sp)
@@ -1559,7 +1655,7 @@ fun KellvynApp() {
                         } catch (e: Exception) {
                             discordSetupError = e.message ?: "As credenciais não passaram na validação."
                         }
-                    }) { Text("Salvar e ativar", color = Neon) }
+                    }) { Text("Salvar e ativar", color = accentColor) }
                 },
                 dismissButton = {
                     TextButton(onClick = {
@@ -1597,7 +1693,7 @@ fun KellvynApp() {
                             maxLines = 4
                         )
                         if (memoryStatus.isNotBlank()) {
-                            Text(memoryStatus, color = Neon, fontSize = 12.sp)
+                            Text(memoryStatus, color = accentColor, fontSize = 12.sp)
                         }
                         Text("MEMÓRIAS SALVAS (${savedMemories.size}/80)", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         if (savedMemories.isEmpty()) {
@@ -1700,7 +1796,7 @@ fun KellvynApp() {
                                 }
                             }
                         }
-                    ) { Text("Li e aceito", color = Neon) }
+                    ) { Text("Li e aceito", color = accentColor) }
                 },
                 dismissButton = {
                     TextButton(
@@ -1746,7 +1842,7 @@ fun KellvynApp() {
                 confirmButton = {
                     TextButton(onClick = {
                         agentApprovalGate?.complete(true)
-                    }) { Text("Autorizar", color = Neon) }
+                    }) { Text("Autorizar", color = accentColor) }
                 },
                 dismissButton = {
                     TextButton(onClick = {
