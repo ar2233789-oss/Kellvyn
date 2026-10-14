@@ -327,7 +327,7 @@ class LocalCompilerAgentIntegrationTest {
             assertTrue("O terminal deve explicar que não executou Gradle nem compilou esse comando.",
                 terminal.execute("gradle assembleDebug").contains("nenhum build foi executado por este comando"))
 
-            assertTrue(terminal.execute("mkdir $smokeDirectoryName").contains("Criada"))
+            assertTrue(terminal.execute("mkdir $smokeDirectoryName").contains("criada", ignoreCase = true))
             terminal.execute("write $smokeDirectoryName/roundtrip.txt KELLVYN_FILE_ACCESS_ROUNDTRIP")
             assertTrue(
                 "O terminal não conseguiu reler um arquivo criado no workspace.",
