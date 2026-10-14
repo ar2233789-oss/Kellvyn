@@ -58,7 +58,6 @@ import com.kellvyn.assistant.data.MemoryFact
 import com.kellvyn.assistant.data.UserMemoryStore
 import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
 import com.kellvyn.assistant.tools.WorkspaceTerminal
-import com.kellvyn.assistant.tools.ManualShellExecutor
 import com.kellvyn.assistant.workspace.AppBuilderAgent
 import com.kellvyn.assistant.workspace.EditorSyncPolicy
 import com.kellvyn.assistant.workspace.AppBuildResult
@@ -472,12 +471,7 @@ fun KellvynApp() {
                 val answer = withContext(Dispatchers.IO) {
                     runCatching {
                         val command = explicitTerminalRequest
-                        val result = if (command == "cd" || command.startsWith("cd ")) {
-                            workspaceTerminal.execute(command)
-                        } else {
-                            ManualShellExecutor(workspaceStore.workspaceDirectory())
-                                .execute(command, workspaceTerminal.currentDirectoryFile())
-                        }
+                        val result = workspaceTerminal.executeInteractive(command)
                         workspaceTerminal.saveOutput((workspaceTerminal.storedOutput() + "\n\n$ " + command + "\n" + result).takeLast(48_000))
                         result
                     }.getOrElse { "Falha no terminal: " + (it.message ?: it.javaClass.simpleName) }
@@ -569,6 +563,15 @@ fun KellvynApp() {
                         }
                         messages.add(ChatMessage(reply, false))
                         status = reply
+                    } else if (
+                        withContext(Dispatchers.IO) {
+                            val paths = workspaceStore.listFiles(selectedProject.id).toSet()
+                            "package.json" in paths && "src/index.js" in paths
+                        }
+                    ) {
+                        val answer = "Este projeto é um bot Node.js, não um app Android. O compilador local de APK não executa package.json. Abra Apps, exporte o ZIP e rode o projeto em um ambiente com Node.js e as credenciais oficiais; o Kellvyn não vai fingir que o bot está online."
+                        messages.add(ChatMessage(answer, false))
+                        status = "Projeto de bot identificado; APK Android não se aplica a esse código-fonte."
                     } else {
                         messages.add(ChatMessage("Encontrei o projeto \"" + selectedProject.name + "\". Iniciando o build local em segundo plano.", false))
                         val repairEngineForBuild = if (
