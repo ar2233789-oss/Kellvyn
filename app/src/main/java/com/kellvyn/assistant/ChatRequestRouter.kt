@@ -70,7 +70,7 @@ object ChatRequestRouter {
                 "arquivo", "código", "codigo", "função", "funcao", "classe", "método", "metodo",
                 "bug", "compilar", "compilação", "compilacao", "apk", "kotlin", "java",
                 "git status", "git diff", "histórico de commits", "historico de commits",
-                "projeto existente", "meu projeto", "meu app", "minha ia", "app que você criou",
+                "projeto existente", "meu projeto", "meu app", "minha ia", "essa ia", "a ia", "app que você criou",
                 "app que voce criou", "projeto que você criou", "projeto que voce criou"
             ).any { it in t }
         return explicitWorkAction && codeTarget
