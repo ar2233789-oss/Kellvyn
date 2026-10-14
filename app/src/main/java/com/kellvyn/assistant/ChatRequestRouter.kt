@@ -183,7 +183,7 @@ object ChatRequestRouter {
         if (isExistingProjectModification(text)) return false
         if (t.length < 30 || '?' in t) return false
         if (listOf(
-                "terminal", "console", "problema", "erro", "ajuda", "me ajuda",
+                "problema", "erro", "ajuda", "me ajuda",
                 "não consigo", "nao consigo", "estou com", "preciso de ajuda", "explique",
                 "me explica", "o que é", "o que e", "quem é", "quem e", "por que",
                 "como funciona", "olá", "ola", "bom dia", "boa tarde", "boa noite"
