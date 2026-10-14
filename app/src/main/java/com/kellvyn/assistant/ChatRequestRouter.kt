@@ -13,6 +13,20 @@ object ChatRequestRouter {
     fun shouldBuild(text: String, buildModeSelected: Boolean): Boolean =
         isExplicitAppBuildRequest(text) || (buildModeSelected && isBuildBrief(text))
 
+    /**
+     * Expose the manual shell tool to the chat agent only when the user's current message
+     * explicitly asks to execute something through the terminal.
+     */
+    fun shouldUseTerminal(text: String): Boolean {
+        val value = text.trim().lowercase(Locale.ROOT)
+        return value.startsWith("terminal:") || listOf(
+            "use o terminal", "use terminal", "pelo terminal execute", "pelo terminal rode",
+            "execute no terminal", "executa no terminal", "executar no terminal",
+            "rode no terminal", "roda no terminal", "rodar no terminal",
+            "no terminal execute", "no terminal executa", "no terminal rode", "no terminal roda"
+        ).any { value.startsWith(it) }
+    }
+
     fun shouldCompileExistingProject(text: String): Boolean {
         val t = text.trim().lowercase(Locale.ROOT)
         if (listOf(
