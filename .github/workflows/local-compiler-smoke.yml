@@ -2,7 +2,7 @@ name: Local compiler smoke test
 
 on:
   push:
-    branches: [main]
+    branches: [main, qa/constructor-complete]
   workflow_dispatch:
 
 permissions:
