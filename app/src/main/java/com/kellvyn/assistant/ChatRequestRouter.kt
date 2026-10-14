@@ -54,7 +54,7 @@ object ChatRequestRouter {
 
         val explicitWorkAction = listOf(
             "corrija", "corrigir", "corrige", "conserte", "consertar", "arrume", "arrumar",
-            "termina", "terminar", "termine", "conclui", "concluir",
+            "termina", "terminar", "termine", "conclui", "concluir", "conclua", "complete", "completar",
             "altere", "alterar", "modifique", "modificar", "edite", "editar", "atualize",
             "atualizar", "melhore", "melhorar", "adicione", "adicionar", "inclua", "incluir",
             "implemente", "implementar", "depure", "depurar", "analise ", "analisar ", "analisa ",
