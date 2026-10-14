@@ -38,7 +38,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kellvyn.assistant.ai.AssistantEngine
@@ -48,9 +50,9 @@ import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.reasonOrText
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
-import com.kellvyn.assistant.ai.OpenAiCompatibleAssistantEngine
 import com.kellvyn.assistant.data.ChatHistoryStore
-import com.kellvyn.assistant.data.OnlineProviderSettingsStore
+import com.kellvyn.assistant.data.ChatConversationStore
+import com.kellvyn.assistant.data.SavedConversation
 import com.kellvyn.assistant.data.MemoryFact
 import com.kellvyn.assistant.data.UserMemoryStore
 import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
@@ -104,10 +106,9 @@ class MainActivity : ComponentActivity() {
 fun KellvynApp() {
     val context = LocalContext.current.applicationContext
     val historyStore = remember(context) { ChatHistoryStore(context) }
+    val conversationStore = remember(context) { ChatConversationStore(context) }
     val memoryStore = remember(context) { UserMemoryStore(context) }
-    val onlineSettingsStore = remember(context) { OnlineProviderSettingsStore(context) }
     val localEngine = remember(context) { LocalLiteRtAssistantEngine(context) }
-    val onlineEngine = remember(onlineSettingsStore) { OpenAiCompatibleAssistantEngine(onlineSettingsStore) }
     val workspaceStore = remember(context) { ProjectWorkspaceStore(context) }
     val workspaceTerminal = remember(workspaceStore) { WorkspaceTerminal(workspaceStore) }
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
@@ -127,8 +128,6 @@ fun KellvynApp() {
             }
         }.also { speechOutputHolder[0] = it }
     }
-    val initialOnlineSettings = remember(onlineSettingsStore) { onlineSettingsStore.load() }
-
     var draft by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("Kellvyn pronto. Converse pelo chat principal.") }
     var modelReady by remember { mutableStateOf(false) }
@@ -137,25 +136,17 @@ fun KellvynApp() {
     var isRemovingModel by remember { mutableStateOf(false) }
     var isDownloadingModel by remember { mutableStateOf(false) }
     var modelDownloadPercent by remember { mutableStateOf(0) }
-    var onlineMode by remember { mutableStateOf(false) }
     var internetToolsEnabled by remember { mutableStateOf(false) }
-    var onlineConfigured by remember { mutableStateOf(initialOnlineSettings.isConfigured) }
-    var showOnlineSettings by remember { mutableStateOf(false) } // Disabled: Kellvyn has no external-provider setup UI.
     var showConsoleDialog by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
     var showModeMenu by remember { mutableStateOf(false) }
     var showNavigatorDialog by remember { mutableStateOf(false) }
-    var showTabsDialog by remember { mutableStateOf(false) }
+    var showConversationsDialog by remember { mutableStateOf(false) }
     var browserUrl by remember { mutableStateOf("https://developer.android.com") }
     var interactionMode by remember { mutableStateOf("Conversa") }
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
     var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     var selectedNav by remember { mutableStateOf("AI") }
-    var openTabs by remember { mutableStateOf(emptyList<String>()) }
-    var endpointInput by remember { mutableStateOf(initialOnlineSettings.endpoint) }
-    var modelInput by remember { mutableStateOf(initialOnlineSettings.model) }
-    var apiKeyInput by remember { mutableStateOf(initialOnlineSettings.apiKey) }
-    var settingsError by remember { mutableStateOf("") }
     var showMemoryDialog by remember { mutableStateOf(false) }
     var memoryDraft by remember { mutableStateOf("") }
     var memoryStatus by remember { mutableStateOf("") }
@@ -179,7 +170,6 @@ fun KellvynApp() {
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
     var showSdkLicenseDialog by remember { mutableStateOf(false) }
     var pendingLicenseRepairBrief by remember { mutableStateOf<String?>(null) }
-    var pendingLicenseRepairOnline by remember { mutableStateOf(false) }
     val loadedSdkLicense = remember(context) {
         runCatching {
             context.resources.openRawResource(com.kellvyn.assistant.R.raw.android_sdk_license)
@@ -193,16 +183,36 @@ fun KellvynApp() {
         mutableStateListOf<WorkspaceProject>().apply { addAll(workspaceStore.listProjects()) }
     }
 
-    val messages = remember(historyStore) {
-        mutableStateListOf<ChatMessage>().apply {
-            val saved = historyStore.load()
-            if (saved.isEmpty()) {
-                add(
-                    ChatMessage(
-                        "Kellvyn IA está pronto. Este chat é o centro do agente; editor e terminal são ferramentas independentes.",
-                        false
-                    )
+    val conversations = remember(conversationStore, historyStore) {
+        val stored = conversationStore.load()
+        val legacy = historyStore.load()
+        val initial = if (stored.isNotEmpty()) {
+            stored
+        } else if (legacy.isNotEmpty()) {
+            val firstPrompt = legacy.firstOrNull { it.fromUser }?.text
+            listOf(
+                SavedConversation(
+                    id = UUID.randomUUID().toString(),
+                    title = firstPrompt?.replace('\n', ' ')?.take(48)?.ifBlank { "Conversa anterior" } ?: "Conversa anterior",
+                    updatedAt = System.currentTimeMillis(),
+                    messages = legacy
                 )
+            )
+        } else emptyList()
+        mutableStateListOf<SavedConversation>().apply { addAll(initial) }
+    }
+    var activeConversationId by remember(conversations) {
+        mutableStateOf(conversations.firstOrNull()?.id ?: UUID.randomUUID().toString())
+    }
+    val messages = remember(activeConversationId) {
+        mutableStateListOf<ChatMessage>().apply {
+            val selectedConversation = conversations.firstOrNull { it.id == activeConversationId }
+            val saved = selectedConversation?.messages ?: if (conversations.isEmpty()) historyStore.load() else emptyList()
+            if (saved.isEmpty()) {
+                add(ChatMessage(
+                    "Kellvyn IA está pronto. O chat principal conversa com o núcleo local; editor e terminal são ferramentas independentes.",
+                    false
+                ))
             } else {
                 addAll(saved.map { ChatMessage(it.text, it.fromUser) })
             }
@@ -222,7 +232,46 @@ fun KellvynApp() {
     }
 
     fun saveHistory() {
-        historyStore.save(messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) })
+        val savedMessages = messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) }
+        historyStore.save(savedMessages)
+        val previous = conversations.firstOrNull { it.id == activeConversationId }
+        val firstPrompt = savedMessages.firstOrNull { it.fromUser }?.text
+        val title = firstPrompt?.replace('\n', ' ')?.trim()?.take(48)?.ifBlank { null }
+            ?: previous?.title ?: "Nova conversa"
+        val savedConversation = SavedConversation(
+            id = activeConversationId,
+            title = title,
+            updatedAt = System.currentTimeMillis(),
+            messages = savedMessages
+        )
+        conversationStore.save(savedConversation)
+        conversations.removeAll { it.id == activeConversationId }
+        conversations.add(0, savedConversation)
+        while (conversations.size > 30) conversations.removeAt(conversations.lastIndex)
+    }
+
+    fun createNewConversation() {
+        saveHistory()
+        val conversation = SavedConversation(
+            id = UUID.randomUUID().toString(),
+            title = "Nova conversa",
+            updatedAt = System.currentTimeMillis(),
+            messages = emptyList()
+        )
+        conversationStore.save(conversation)
+        conversations.removeAll { it.id == conversation.id }
+        conversations.add(0, conversation)
+        activeConversationId = conversation.id
+        showConversationsDialog = false
+        status = "Nova conversa criada. As conversas ficam guardadas neste aparelho."
+    }
+
+    fun openConversation(id: String) {
+        if (id != activeConversationId) saveHistory()
+        if (conversations.none { it.id == id }) return
+        activeConversationId = id
+        showConversationsDialog = false
+        status = "Conversa aberta."
     }
 
     fun buildConversationTurns(): List<AssistantTurn> {
