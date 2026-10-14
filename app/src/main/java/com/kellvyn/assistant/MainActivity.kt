@@ -92,6 +92,7 @@ private val Warning = Color(0xFFFFC857)
 private const val MAX_CONTEXT_MESSAGES = 8
 private const val MAX_HISTORY_MESSAGE_CHARS = 800
 private const val MAX_INPUT_CHARS = 12_000
+private const val MAX_AUTOMATIC_BUILD_REPAIRS = 3
 private const val MAX_EDITOR_CHARS = 80_000
 
 /** Only compiler diagnostics tied to Java/D8 source are eligible for the automatic code-repair pass. */
@@ -438,37 +439,49 @@ fun KellvynApp() {
             status = progress
         }
         var autoRepaired = false
-        if (result is LocalApkBuildResult.Failure &&
+        var repairAttempts = 0
+        val repairDiagnostics = mutableListOf<String>()
+        while (
+            result is LocalApkBuildResult.Failure &&
             isRepairableSourceBuildFailure(result.reason) &&
-            !repairBrief.isNullOrBlank() && repairEngine != null
+            !repairBrief.isNullOrBlank() &&
+            repairEngine != null &&
+            repairAttempts < MAX_AUTOMATIC_BUILD_REPAIRS
         ) {
-            val firstError = result.reason
-            status = "O agente está corrigindo o código a partir dos diagnósticos reais e fará uma única nova build…"
-            messages.add(ChatMessage("A primeira compilação falhou. O agente vai analisar os erros e tentar uma correção automática limitada.", false))
+            val buildError = result.reason
+            repairDiagnostics += "Falha de compilação ${repairAttempts + 1}:\n" + buildError.take(8_000)
+            status = "O construtor está lendo os erros reais e corrigindo o código (tentativa ${repairAttempts + 1}/$MAX_AUTOMATIC_BUILD_REPAIRS)…"
+            if (repairAttempts == 0) {
+                messages.add(ChatMessage("A primeira compilação falhou. O construtor vai analisar os diagnósticos e tentar corrigir o código automaticamente.", false))
+            } else {
+                messages.add(ChatMessage("A compilação ainda falhou após a correção anterior. Vou analisar o novo erro e tentar outra correção automática.", false))
+            }
             saveHistory()
             val repairFailure = appBuilderAgent.repairJavaProject(
                 engine = repairEngine,
                 projectId = project.id,
                 originalBrief = repairBrief,
-                buildError = firstError
+                buildError = buildError
             )
-            if (repairFailure == null) {
-                autoRepaired = true
-                result = localAndroidCompiler.build(project.id) { progress ->
-                    status = progress
-                }
-                if (result is LocalApkBuildResult.Failure) {
-                    result = LocalApkBuildResult.Failure(
-                        "Primeira tentativa:\n" + firstError.take(4_000) +
-                            "\n\nApós a correção automática, a nova compilação também falhou:\n" + result.reason.take(8_000)
-                    )
-                }
-            } else {
-                result = LocalApkBuildResult.Failure(
-                    "Primeira tentativa:\n" + firstError.take(4_000) +
-                        "\n\nNão consegui aplicar uma correção segura: " + repairFailure
-                )
+            if (repairFailure != null) {
+                repairDiagnostics += "Correção não aplicada: " + repairFailure.take(4_000)
+                break
             }
+            repairAttempts++
+            autoRepaired = true
+            result = localAndroidCompiler.build(project.id) { progress ->
+                status = progress
+            }
+        }
+        if (result is LocalApkBuildResult.Failure && repairDiagnostics.isNotEmpty()) {
+            result = LocalApkBuildResult.Failure(
+                "O construtor tentou $repairAttempts correção(ões) automática(s), sem ocultar os erros reais.\n\n" +
+                    repairDiagnostics.joinToString("\n\n") +
+                    "\n\nResultado final da compilação:\n" + result.reason.take(8_000) +
+                    if (repairAttempts >= MAX_AUTOMATIC_BUILD_REPAIRS) {
+                        "\n\nLimite de segurança: $MAX_AUTOMATIC_BUILD_REPAIRS correções por build atingido."
+                    } else ""
+            )
         }
 
         when (result) {
