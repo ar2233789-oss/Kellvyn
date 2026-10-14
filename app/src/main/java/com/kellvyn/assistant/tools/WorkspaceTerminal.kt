@@ -57,7 +57,7 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
             "projects" -> listProjects()
             "git" -> gitCommand(args)
             "gradle", "./gradlew", "gradlew", "kotlinc", "java", "aapt2", "d8", "r8", "zipalign", "apksigner" ->
-                "FERRAMENTA INDISPONÍVEL: $command ainda não está integrada ao compilador local do Kellvyn. Nenhum build foi executado."
+                "$command não é executado pelo terminal interno. O compilador Android local está integrado ao modo Build e ao agente de chat; usa ECJ → D8 → manifesto binário → APK assinado/verificado e aceita Java com APIs do Android, sem Gradle, Kotlin/Compose ou bibliotecas externas. Nenhum build foi executado por este comando."
             else -> "Comando não reconhecido: $command. Digite help. Os comandos não são executados por um shell do sistema."
         }
     }
@@ -89,7 +89,7 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
        
         Segurança: operações confinadas à pasta privada de projetos; sem shell arbitrário,
         sem comandos encadeados, sem acesso a caminhos fora do workspace.
-        O compilador Android local ainda precisa ser integrado: gradle/gradlew não compila APKs neste momento.
+        O compilador Android local já está integrado ao modo Build e ao agente de chat: ECJ → D8 → manifesto binário → APK assinado/verificado. Este terminal não executa Gradle/Gradle Wrapper; o perfil atual aceita Java nativo com APIs Android, sem Kotlin/Compose, recursos externos ou bibliotecas externas.
     """.trimIndent()
 
     private fun changeDirectory(args: List<String>): String {
