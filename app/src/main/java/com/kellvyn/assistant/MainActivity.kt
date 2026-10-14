@@ -1119,121 +1119,79 @@ fun KellvynApp() {
         }
 
         if (showEditorDialog) {
-            AlertDialog(
+            androidx.compose.ui.window.Dialog(
                 onDismissRequest = { if (!isSavingFile) showEditorDialog = false },
-                title = { Text(activeEditProject?.name ?: "Editor de código") },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            "Editor local de arquivos. Salvar não executa nem compila o código.",
-                            color = Muted,
-                            fontSize = 12.sp
-                        )
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = true)
+            ) {
+                Surface(Modifier.fillMaxSize().padding(6.dp), color = Night, shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))) {
+                    Column(Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("EDITOR DE CÓDIGO", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text(activeEditProject?.name ?: "Projeto", color = Muted, fontSize = 10.sp, maxLines = 1)
+                            }
+                            TextButton(enabled = !isSavingFile, onClick = { showEditorDialog = false }) { Text("Fechar", color = Color.White) }
+                        }
                         Text("ARQUIVOS", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        editablePaths.forEach { path ->
-                            TextButton(
-                                onClick = {
-                                    val project = activeEditProject
-                                    if (project != null) {
-                                        try {
-                                            val fileText = workspaceStore.readFile(project.id, path)
-                                            if (fileText.length > MAX_EDITOR_CHARS) {
-                                                editorStatus = "Arquivo grande demais para editar nesta tela. Exporte o ZIP para editá-lo fora do app."
-                                            } else {
-                                                activeFilePath = path
-                                                editorContent = fileText
-                                                editorStatus = ""
-                                            }
-                                        } catch (e: Exception) {
-                                            editorStatus = "Falha ao abrir arquivo: " + (e.message ?: e.javaClass.simpleName)
+                        Surface(Modifier.fillMaxWidth().heightIn(max = 100.dp), color = Panel, shape = RoundedCornerShape(10.dp)) {
+                            Column(Modifier.verticalScroll(rememberScrollState()).padding(3.dp)) {
+                                editablePaths.forEach { path ->
+                                    TextButton(onClick = {
+                                        val project = activeEditProject
+                                        if (project != null) {
+                                            try {
+                                                val fileText = workspaceStore.readFile(project.id, path)
+                                                if (fileText.length > MAX_EDITOR_CHARS) editorStatus = "Arquivo muito grande para editar aqui. Exporte o ZIP."
+                                                else { activeFilePath = path; editorContent = fileText; editorStatus = "" }
+                                            } catch (e: Exception) { editorStatus = "Falha ao abrir: " + (e.message ?: e.javaClass.simpleName) }
                                         }
+                                    }, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                                        Text((if (path == activeFilePath) "▸ " else "") + path, color = if (path == activeFilePath) Neon else Color.White, fontSize = 10.sp, maxLines = 1)
                                     }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    (if (path == activeFilePath) "▸ " else "") + path,
-                                    color = if (path == activeFilePath) Neon else Color.White,
-                                    fontSize = 11.sp
-                                )
+                                }
                             }
                         }
-                        if (activeFilePath.isNotBlank()) {
-                            Text(activeFilePath, color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        if (activeFilePath.isBlank()) {
+                            Text("Escolha um arquivo na lista.", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        } else {
+                            Text(activeFilePath, color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                             OutlinedTextField(
                                 value = editorContent,
                                 onValueChange = { if (it.length <= MAX_EDITOR_CHARS) editorContent = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                minLines = 8,
-                                maxLines = 16,
-                                label = { Text("Conteúdo do arquivo") },
-                                placeholder = { Text("Código do arquivo…") }
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                textStyle = androidx.compose.ui.text.TextStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 12.sp, lineHeight = 16.sp),
+                                minLines = 1,
+                                maxLines = 50,
+                                label = { Text("Código") },
+                                placeholder = { Text("Conteúdo do arquivo…") }
                             )
                         }
-                        if (editorStatus.isNotBlank()) {
-                            Text(editorStatus, color = if (editorStatus.startsWith("Salvo")) Neon else Warning, fontSize = 12.sp)
-                        }
-                        if (isSavingFile) {
-                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                            Text("Salvando arquivo…", color = Muted, fontSize = 11.sp)
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        enabled = !isSavingFile && activeEditProject != null && activeFilePath.isNotBlank(),
-                        onClick = {
-                            val project = activeEditProject
-                            if (project != null) {
-                                isSavingFile = true
-                                editorStatus = "Salvando…"
-                                scope.launch {
-                                    try {
-                                        withContext(Dispatchers.IO) {
-                                            workspaceStore.addOrReplaceFiles(
-                                                project.id,
-                                                listOf(ProjectFileInput(activeFilePath, editorContent))
-                                            )
-                                        }
-                                        existingProjects.clear()
-                                        existingProjects.addAll(workspaceStore.listProjects())
-                                        activeEditProject = workspaceStore.getProject(project.id)
-                                        editorStatus = "Salvo no workspace local. O compilador local ainda não está integrado, então este arquivo não foi compilado."
-                                    } catch (e: Exception) {
-                                        editorStatus = "Falha ao salvar: " + (e.message ?: e.javaClass.simpleName)
-                                    } finally {
-                                        isSavingFile = false
-                                    }
-                                }
-                            }
-                        }
-                    ) { Text("Salvar arquivo") }
-                },
-                dismissButton = {
-                    Row {
-                        TextButton(
-                            enabled = !isSavingFile,
-                            onClick = {
+                        if (editorStatus.isNotBlank()) Text(editorStatus, color = if (editorStatus.startsWith("Arquivo salvo")) Neon else Warning, fontSize = 10.sp, maxLines = 3)
+                        if (isSavingFile) LinearProgressIndicator(Modifier.fillMaxWidth())
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(enabled = !isSavingFile && activeEditProject != null, onClick = { activeEditProject?.let { project -> pendingExportProject = project; zipExportPicker.launch(project.id + ".zip") } }) { Text("Exportar ZIP", color = Muted, fontSize = 10.sp) }
+                            Spacer(Modifier.weight(1f))
+                            Button(enabled = !isSavingFile && activeEditProject != null && activeFilePath.isNotBlank(), onClick = {
                                 val project = activeEditProject
                                 if (project != null) {
-                                    pendingExportProject = project
-                                    zipExportPicker.launch("${project.id}.zip")
+                                    isSavingFile = true
+                                    editorStatus = "Salvando…"
+                                    scope.launch {
+                                        try {
+                                            withContext(Dispatchers.IO) { workspaceStore.addOrReplaceFiles(project.id, listOf(ProjectFileInput(activeFilePath, editorContent))) }
+                                            existingProjects.clear(); existingProjects.addAll(workspaceStore.listProjects())
+                                            activeEditProject = workspaceStore.getProject(project.id)
+                                            editorStatus = "Arquivo salvo. Para compilar, peça ao chat principal para gerar ou corrigir o APK."
+                                        } catch (e: Exception) { editorStatus = "Falha ao salvar: " + (e.message ?: e.javaClass.simpleName) }
+                                        finally { isSavingFile = false }
+                                    }
                                 }
-                            }
-                        ) { Text("Exportar ZIP") }
-                        TextButton(
-                            enabled = !isSavingFile,
-                            onClick = { showEditorDialog = false }
-                        ) { Text("Fechar") }
+                            }, colors = ButtonDefaults.buttonColors(containerColor = Neon, contentColor = Night)) { Text("Salvar", fontSize = 11.sp) }
+                        }
                     }
                 }
-            )
+            }
         }
-
         if (showProjectsDialog) {
             AlertDialog(
                 onDismissRequest = { showProjectsDialog = false },
@@ -1244,7 +1202,7 @@ fun KellvynApp() {
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         if (existingProjects.isEmpty()) {
-                            Text("Ainda não existem projetos. Use CONSTRUTOR para criar o primeiro.", color = Muted)
+                            Text("Nenhum projeto salvo para editar. Peça ao chat principal para criar o app; o editor só altera arquivos existentes.", color = Muted)
                         } else {
                             existingProjects.forEach { project ->
                                 Surface(color = Panel, shape = RoundedCornerShape(12.dp)) {
