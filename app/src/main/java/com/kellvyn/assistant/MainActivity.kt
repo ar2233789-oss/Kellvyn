@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Build
 import android.provider.Settings
+import android.provider.OpenableColumns
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
@@ -77,6 +78,7 @@ import com.kellvyn.assistant.runtime.DiscordBotRuntimeService
 import com.kellvyn.assistant.runtime.GeneratedProjectClassifier
 import com.kellvyn.assistant.runtime.GeneratedProjectKind
 import com.kellvyn.assistant.runtime.GeneratedProjectRuntimeStore
+import java.io.ByteArrayOutputStream
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -93,6 +95,7 @@ private val Warning = Color(0xFFFFC857)
 private const val MAX_CONTEXT_MESSAGES = 8
 private const val MAX_HISTORY_MESSAGE_CHARS = 800
 private const val MAX_INPUT_CHARS = 12_000
+private const val MAX_IMPORTED_FILE_BYTES = 256 * 1024
 private const val MAX_EDITOR_CHARS = 80_000
 
 /** Only compiler diagnostics tied to Java/D8 source are eligible for the automatic code-repair pass. */
@@ -859,6 +862,92 @@ fun KellvynApp() {
         }
     }
 
+    val readFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val (fileName, fileContent) = withContext(Dispatchers.IO) {
+                        val name = context.contentResolver.query(
+                            uri,
+                            arrayOf(OpenableColumns.DISPLAY_NAME),
+                            null,
+                            null,
+                            null
+                        )?.use { cursor ->
+                            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (cursor.moveToFirst() && index >= 0) cursor.getString(index) else null
+                        }?.takeIf { it.isNotBlank() } ?: "arquivo.txt"
+
+                        val mime = context.contentResolver.getType(uri)?.lowercase(Locale.ROOT).orEmpty()
+                        val extension = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+                        val textExtensions = setOf(
+                            "txt", "md", "markdown", "json", "xml", "csv", "log",
+                            "kt", "kts", "java", "js", "mjs", "ts", "tsx", "jsx",
+                            "py", "html", "css", "sh", "yml", "yaml", "toml",
+                            "gradle", "properties", "sql", "c", "h", "cpp", "hpp",
+                            "go", "rs", "rb", "php", "dart", "swift", "ini", "conf"
+                        )
+                        val recognizedText = mime.startsWith("text/") ||
+                            mime in setOf(
+                                "application/json",
+                                "application/xml",
+                                "application/javascript",
+                                "application/x-yaml"
+                            ) ||
+                            extension in textExtensions
+                        require(recognizedText) {
+                            "Selecione um arquivo de texto ou código (por exemplo TXT, MD, JSON, KT ou JAVA)."
+                        }
+
+                        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+                            val output = ByteArrayOutputStream()
+                            val buffer = ByteArray(8192)
+                            var totalBytes = 0
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                if (count == 0) continue
+                                totalBytes += count
+                                require(totalBytes <= MAX_IMPORTED_FILE_BYTES) {
+                                    "O arquivo ultrapassa o limite de 256 KB para leitura no chat."
+                                }
+                                output.write(buffer, 0, count)
+                            }
+                            output.toByteArray()
+                        } ?: throw IllegalStateException("O Android não conseguiu abrir o arquivo escolhido.")
+
+                        require(bytes.none { it == 0.toByte() }) {
+                            "O arquivo parece binário; escolha um arquivo de texto ou código."
+                        }
+                        val text = String(bytes, Charsets.UTF_8)
+                        require(text.isNotBlank()) { "O arquivo está vazio." }
+                        name to text
+                    }
+
+                    val currentDraft = draft.trim()
+                    val prefix = "Leia e analise o arquivo \"$fileName\":\n\n"
+                    val base = if (currentDraft.isBlank()) "" else "$currentDraft\n\n"
+                    val room = MAX_INPUT_CHARS - base.length - prefix.length
+                    if (room <= 0) {
+                        status = "O campo de mensagem está cheio. Envie ou limpe o texto atual antes de ler o arquivo."
+                    } else {
+                        val excerpt = fileContent.take(room)
+                        draft = base + prefix + excerpt
+                        status = if (excerpt.length < fileContent.length) {
+                            "Arquivo $fileName lido; inseri um trecho dentro do limite de mensagem. Revise antes de enviar."
+                        } else {
+                            "Arquivo $fileName lido e adicionado ao rascunho. Revise antes de enviar."
+                        }
+                    }
+                } catch (e: Exception) {
+                    status = "Não consegui ler o arquivo: " + (e.message ?: e.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
     val apkExportPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")
     ) { destination ->
@@ -991,6 +1080,13 @@ fun KellvynApp() {
                     onDismissRequest = { showQuickMenu = false },
                     modifier = Modifier.background(Panel)
                 ) {
+                    DropdownMenuItem(
+                        text = { Text("Ler arquivo de texto/código") },
+                        onClick = {
+                            showQuickMenu = false
+                            readFileLauncher.launch(arrayOf("*/*"))
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text("Códigos guardados") },
                         onClick = {
