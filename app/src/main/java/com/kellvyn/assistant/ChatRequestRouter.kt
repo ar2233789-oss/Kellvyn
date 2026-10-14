@@ -10,8 +10,14 @@ import java.util.Locale
  */
 object ChatRequestRouter {
 
+    /**
+     * The builder is an internal tool of the chat agent, not a user-facing mode.
+     * Route concrete app briefs automatically; questions and modifications to an
+     * existing project remain in the regular chat agent.
+     */
+    @Suppress("UNUSED_PARAMETER")
     fun shouldBuild(text: String, buildModeSelected: Boolean): Boolean =
-        isExplicitAppBuildRequest(text) || (buildModeSelected && isBuildBrief(text))
+        isExplicitAppBuildRequest(text) || isBuildBrief(text)
 
     /**
      * Expose the manual shell tool to the chat agent only when the user's current message
