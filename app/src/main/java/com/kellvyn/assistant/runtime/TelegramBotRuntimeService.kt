@@ -294,7 +294,7 @@ private class TelegramBotPollingClient(
         val text = message.optString("text").trim()
         if (!text.startsWith("/")) return
 
-        val firstToken = text.substringBefore(Regex("\\s").toString()).trim()
+        val firstToken = text.takeWhile { !it.isWhitespace() }.trim()
         val commandName = firstToken.substringBefore('@').removePrefix("/").lowercase(Locale.ROOT)
         val command = definition.commands.firstOrNull { it.name == commandName } ?: return
         val from = message.optJSONObject("from")
