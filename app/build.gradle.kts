@@ -65,6 +65,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.7.1.202607240634-r")
     implementation("org.eclipse.jdt:ecj:3.38.0")
     implementation("com.android.tools:r8:9.3.19")
