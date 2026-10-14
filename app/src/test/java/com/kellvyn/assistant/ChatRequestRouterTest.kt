@@ -25,6 +25,22 @@ class ChatRequestRouterTest {
     }
 
     @Test
+    fun botCreationRoutesToBuilderButCapabilityQuestionsStayInChat() {
+        assertTrue(ChatRequestRouter.shouldBuild("Crie um bot do Discord com comando ping", buildModeSelected = false))
+        assertTrue(ChatRequestRouter.shouldBuild("Quero um bot para WhatsApp", buildModeSelected = false))
+        assertFalse(ChatRequestRouter.shouldBuild("Ela gera bots no Discord? Consegue gerar bot de WhatsApp?", buildModeSelected = false))
+    }
+
+    @Test
+    fun terminalRunsOnlyAfterAnExplicitRequestInTheCurrentMessage() {
+        assertTrue(ChatRequestRouter.shouldUseTerminal("terminal: ls"))
+        assertTrue(ChatRequestRouter.shouldUseTerminal("Execute no terminal pwd"))
+        assertTrue(ChatRequestRouter.shouldUseTerminal("Use o terminal para executar git status"))
+        assertFalse(ChatRequestRouter.shouldUseTerminal("Como funciona um terminal Android?"))
+        assertFalse(ChatRequestRouter.shouldUseTerminal("Bom dia"))
+    }
+
+    @Test
     fun modifyingAnExistingProjectDoesNotCreateAnotherProject() {
         assertFalse(ChatRequestRouter.shouldBuild("Corrija meu app existente", buildModeSelected = false))
         assertFalse(ChatRequestRouter.shouldBuild("Adicione login ao projeto que você criou", buildModeSelected = true))
