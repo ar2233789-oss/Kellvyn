@@ -30,6 +30,7 @@ import com.kellvyn.assistant.runtime.DiscordBotDefinition
 import com.kellvyn.assistant.runtime.GeneratedProjectClassifier
 import com.kellvyn.assistant.runtime.GeneratedProjectKind
 import com.kellvyn.assistant.runtime.GeneratedProjectRuntimeStore
+import com.kellvyn.assistant.security.ApkSafetyAnalyzer
 import com.kellvyn.assistant.tools.WorkspaceTerminal
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -119,6 +120,11 @@ class LocalCompilerAgentIntegrationTest {
                 assertNotNull("O APK não contém AndroidManifest.xml.", zip.getEntry("AndroidManifest.xml"))
                 assertNotNull("O APK não contém classes.dex.", zip.getEntry("classes.dex"))
             }
+
+            val safetyReport = ApkSafetyAnalyzer(context).analyze(apk, "fixture-app.apk")
+            assertEquals("O analisador local não reconheceu o pacote do APK recém-compilado.", "com.example.app", safetyReport.packageName)
+            assertEquals("O SHA-256 do APK não tem 64 caracteres.", 64, safetyReport.sha256.length)
+            assertTrue("O relatório de segurança deve explicar os limites da análise heurística.", safetyReport.asPortugueseText().contains("não garante"))
 
             val parsedPackage = context.packageManager.getPackageArchiveInfo(
                 apk.absolutePath,
