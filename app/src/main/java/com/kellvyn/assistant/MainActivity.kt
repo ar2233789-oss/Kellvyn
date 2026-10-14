@@ -31,6 +31,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -129,6 +130,38 @@ private fun projectIconGlyph(project: WorkspaceProject): String {
         listOf("saúde", "saude", "treino", "fitness", "exercício", "exercicio").any { it in description } -> "💠"
         listOf("bot", "discord", "whatsapp", "telegram", "wpp").any { it in description } -> "🤖"
         else -> "▣"
+    }
+}
+
+@Composable
+private fun KellvynMark(diameter: androidx.compose.ui.unit.Dp = 28.dp) {
+    Canvas(modifier = Modifier.size(diameter)) {
+        val d = this.size.minDimension
+        val r = d * 0.46f
+        val center = Offset(this.size.width / 2f, this.size.height / 2f)
+        drawCircle(color = Color(0xFF04110D), radius = r, center = center)
+        drawCircle(color = Neon.copy(alpha = 0.72f), radius = r * 0.94f, center = center, style = Stroke(width = 1.2.dp.toPx()))
+
+        val hood = Path().apply {
+            moveTo(center.x, center.y - r * 0.78f)
+            cubicTo(center.x - r * 0.67f, center.y - r * 0.45f, center.x - r * 0.58f, center.y + r * 0.33f, center.x - r * 0.25f, center.y + r * 0.58f)
+            quadraticTo(center.x, center.y + r * 0.76f, center.x + r * 0.25f, center.y + r * 0.58f)
+            cubicTo(center.x + r * 0.58f, center.y + r * 0.33f, center.x + r * 0.67f, center.y - r * 0.45f, center.x, center.y - r * 0.78f)
+            close()
+        }
+        drawPath(path = hood, color = Color(0xFF0D4939))
+        val face = Path().apply {
+            moveTo(center.x, center.y - r * 0.37f)
+            lineTo(center.x - r * 0.28f, center.y - r * 0.03f)
+            lineTo(center.x - r * 0.19f, center.y + r * 0.28f)
+            quadraticTo(center.x, center.y + r * 0.40f, center.x + r * 0.19f, center.y + r * 0.28f)
+            lineTo(center.x + r * 0.28f, center.y - r * 0.03f)
+            close()
+        }
+        drawPath(path = face, color = Night)
+        drawLine(color = Neon, start = Offset(center.x - r * 0.19f, center.y + r * 0.02f), end = Offset(center.x - r * 0.055f, center.y + r * 0.06f), strokeWidth = 1.3.dp.toPx())
+        drawLine(color = Neon, start = Offset(center.x + r * 0.055f, center.y + r * 0.06f), end = Offset(center.x + r * 0.19f, center.y + r * 0.02f), strokeWidth = 1.3.dp.toPx())
+        drawCircle(color = Neon.copy(alpha = 0.12f), radius = r * 0.12f, center = Offset(center.x, center.y + r * 0.30f))
     }
 }
 
@@ -806,6 +839,9 @@ fun KellvynApp() {
                 TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 7.dp)) {
                     Text("☰", color = Neon, fontSize = 22.sp)
                 }
+                Spacer(Modifier.width(3.dp))
+                KellvynMark(30.dp)
+                Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Kellvyn Assistente", color = Neon, fontSize = 17.sp, fontWeight = FontWeight.Medium)
                     Text(
@@ -833,54 +869,81 @@ fun KellvynApp() {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(messages) { message ->
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Surface(
-                            color = if (message.fromUser) Color(0xFF0A2D24) else Night,
-                            shape = RoundedCornerShape(14.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (message.fromUser) Color(0xFF14634D) else Color(0xFF0B3329)),
-                            modifier = Modifier.fillMaxWidth()
+                    if (message.fromUser) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
                         ) {
-                            Text(
-                                message.text,
-                                modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
-                                color = if (message.fromUser) Color(0xFFE1FFF5) else Color(0xFF9ED7C8),
-                                fontSize = 14.sp,
-                                lineHeight = 20.sp
-                            )
-                        }
-                        if (!message.fromUser) {
-                            val clipboard = LocalClipboardManager.current
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(start = 3.dp, end = 3.dp),
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
+                            Surface(
+                                color = Color(0xFF0A2D24),
+                                shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 5.dp, bottomStart = 18.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF14634D)),
+                                modifier = Modifier.fillMaxWidth(0.88f)
                             ) {
-                                TextButton(
-                                    onClick = {
-                                        clipboard.setText(AnnotatedString(message.text))
-                                        status = "Resposta copiada para a área de transferência."
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                Text(
+                                    message.text,
+                                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+                                    color = Color(0xFFE1FFF5),
+                                    fontSize = 14.sp,
+                                    lineHeight = 20.sp
+                                )
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            KellvynMark(26.dp)
+                            Spacer(Modifier.width(7.dp))
+                            Column(Modifier.weight(1f)) {
+                                Surface(
+                                    color = Night,
+                                    shape = RoundedCornerShape(topStart = 5.dp, topEnd = 17.dp, bottomEnd = 17.dp, bottomStart = 17.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0B3329)),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Canvas(modifier = Modifier.size(15.dp)) {
-                                        val stroke = Stroke(width = 1.4.dp.toPx())
-                                        drawRoundRect(
-                                            color = Neon.copy(alpha = 0.65f),
-                                            topLeft = Offset(size.width * 0.27f, size.height * 0.08f),
-                                            size = Size(size.width * 0.58f, size.height * 0.68f),
-                                            cornerRadius = CornerRadius(2.dp.toPx()),
-                                            style = stroke
-                                        )
-                                        drawRoundRect(
-                                            color = Neon,
-                                            topLeft = Offset(size.width * 0.12f, size.height * 0.27f),
-                                            size = Size(size.width * 0.58f, size.height * 0.65f),
-                                            cornerRadius = CornerRadius(2.dp.toPx()),
-                                            style = stroke
-                                        )
+                                    Text(
+                                        message.text,
+                                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+                                        color = Color(0xFF9ED7C8),
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp
+                                    )
+                                }
+                                val clipboard = LocalClipboardManager.current
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(start = 3.dp, end = 3.dp),
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            clipboard.setText(AnnotatedString(message.text))
+                                            status = "Resposta copiada para a área de transferência."
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                    ) {
+                                        Canvas(modifier = Modifier.size(14.dp)) {
+                                            val stroke = Stroke(width = 1.3.dp.toPx())
+                                            drawRoundRect(
+                                                color = Neon.copy(alpha = 0.65f),
+                                                topLeft = Offset(size.width * 0.27f, size.height * 0.08f),
+                                                size = Size(size.width * 0.58f, size.height * 0.68f),
+                                                cornerRadius = CornerRadius(2.dp.toPx()),
+                                                style = stroke
+                                            )
+                                            drawRoundRect(
+                                                color = Neon,
+                                                topLeft = Offset(size.width * 0.12f, size.height * 0.27f),
+                                                size = Size(size.width * 0.58f, size.height * 0.65f),
+                                                cornerRadius = CornerRadius(2.dp.toPx()),
+                                                style = stroke
+                                            )
+                                        }
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Copiar", color = Neon, fontSize = 10.sp)
                                     }
-                                    Spacer(Modifier.width(5.dp))
-                                    Text("Copiar", color = Neon, fontSize = 10.sp)
                                 }
                             }
                         }
@@ -888,23 +951,29 @@ fun KellvynApp() {
                 }
                 if (streamingReply.isNotBlank()) {
                     item(key = "kellvyn_streaming_reply") {
-                        Surface(
-                            color = Night,
-                            shape = RoundedCornerShape(14.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0B3329)),
-                            modifier = Modifier.fillMaxWidth()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top
                         ) {
-                            Text(
-                                streamingReply + " ▍",
-                                modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
-                                color = Color(0xFF9ED7C8),
-                                fontSize = 14.sp,
-                                lineHeight = 20.sp
-                            )
+                            KellvynMark(26.dp)
+                            Spacer(Modifier.width(7.dp))
+                            Surface(
+                                color = Night,
+                                shape = RoundedCornerShape(topStart = 5.dp, topEnd = 17.dp, bottomEnd = 17.dp, bottomStart = 17.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0B3329)),
+                                modifier = Modifier.weight(1f).fillMaxWidth()
+                            ) {
+                                Text(
+                                    streamingReply + " ▍",
+                                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+                                    color = Color(0xFF9ED7C8),
+                                    fontSize = 14.sp,
+                                    lineHeight = 20.sp
+                                )
+                            }
                         }
                     }
                 }
-            }
 
             if (latestBuiltApk?.isFile == true) {
                 Row(
@@ -921,7 +990,7 @@ fun KellvynApp() {
             }
 
             if (status.isNotBlank()) {
-                Text(status, color = Muted, fontSize = 9.sp, maxLines = 2,
+                Text(status, color = Muted, fontSize = 9.sp, maxLines = 1,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp))
             }
 
