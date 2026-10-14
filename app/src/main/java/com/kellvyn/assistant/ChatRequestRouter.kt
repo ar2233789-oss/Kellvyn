@@ -54,6 +54,7 @@ object ChatRequestRouter {
 
         val explicitWorkAction = listOf(
             "corrija", "corrigir", "corrige", "conserte", "consertar", "arrume", "arrumar",
+            "termina", "terminar", "termine", "conclui", "concluir",
             "altere", "alterar", "modifique", "modificar", "edite", "editar", "atualize",
             "atualizar", "melhore", "melhorar", "adicione", "adicionar", "inclua", "incluir",
             "implemente", "implementar", "depure", "depurar", "analise ", "analisar ", "analisa ",
@@ -70,7 +71,8 @@ object ChatRequestRouter {
                 "arquivo", "código", "codigo", "função", "funcao", "classe", "método", "metodo",
                 "bug", "compilar", "compilação", "compilacao", "apk", "kotlin", "java",
                 "git status", "git diff", "histórico de commits", "historico de commits",
-                "projeto existente", "meu projeto", "meu app", "minha ia", "essa ia", "a ia", "app que você criou",
+                "projeto existente", "meu projeto", "meu app", "minha ia", "essa ia", "a ia",
+                "tudo que falta", "tudo que tem que fazer", "tudo que tem fazer", "o que falta no projeto", "app que você criou",
                 "app que voce criou", "projeto que você criou", "projeto que voce criou"
             ).any { it in t }
         return explicitWorkAction && codeTarget
