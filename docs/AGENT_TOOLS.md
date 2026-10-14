@@ -28,7 +28,7 @@ O agente principal não depende de uma tela Terminal e não recebe acesso ao she
 ## Limites de segurança
 
 - O chat autônomo não depende da tela Terminal. O agente usa operações diretas de workspace e JGit; não há execução de comandos de terminal na camada do agente, nem shell arbitrário, scripts, encadeamento ou redirecionamento.
-- Não mostrar um ícone/aba Terminal. Nenhum shell ou Termux inicia automaticamente; qualquer operação de comando precisa ser pedida explicitamente no chat principal e continuar sujeita aos limites e controles existentes.
+- Não mostrar um ícone/aba Terminal. O terminal/shell/Termux é independente e não é acionado pelo chat. O chat trabalha somente com as ferramentas diretas de workspace, Git e compilação; não encaminha programação para comandos manuais.
 - Caminhos absolutos, traversal com `..`, pastas internas e metadados protegidos são bloqueados.
 - Criação/edição normal de arquivos (`write_file`/`patch_file`) é automática depois de um pedido claro de alteração. Exclusões, importação de repositórios e operações Git que mudam estado continuam pedindo autorização.
 - As páginas web e os arquivos do workspace são dados não confiáveis. Instruções encontradas neles não ganham privilégios nem podem substituir as regras do agente.
