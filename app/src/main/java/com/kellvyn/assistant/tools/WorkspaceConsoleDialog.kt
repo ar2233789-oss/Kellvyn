@@ -59,7 +59,6 @@ fun WorkspaceConsoleDialog(
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    val manualShell = remember(workspace) { ManualShellExecutor(workspace.workspaceDirectory()) }
     var command by remember { mutableStateOf("") }
     var terminalBusy by remember { mutableStateOf(false) }
     var output by remember(terminal) {
@@ -90,25 +89,8 @@ fun WorkspaceConsoleDialog(
         appendOutput("$ ${line}\nExecutando…")
         scope.launch {
             val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    when {
-                        line.equals("help", ignoreCase = true) -> terminal.execute("help") +
-                            "\n\nShell Android: comandos são executados em /workspace, sem root e sem acesso fora da área privada do app."
-                        line.equals("status", ignoreCase = true) -> buildString {
-                            appendLine("Diretório: ${terminal.pathLabel()}")
-                            appendLine("Projetos: ${workspace.listProjects().size}")
-                            appendLine("Shell: /system/bin/sh")
-                            append("Permissão root: não disponível")
-                        }
-                        line.equals("projects", ignoreCase = true) -> {
-                            val projects = workspace.listProjects()
-                            if (projects.isEmpty()) "Nenhum projeto salvo."
-                            else projects.joinToString("\n") { "${it.id} — ${it.name} (${it.fileCount} arquivos)" }
-                        }
-                        line == "cd" || line.startsWith("cd ") -> terminal.execute(line)
-                        else -> manualShell.execute(line, terminal.currentDirectoryFile())
-                    }
-                }.getOrElse { "ERRO: ${it.message ?: it.javaClass.simpleName}" }
+                runCatching { terminal.executeInteractive(line) }
+                    .getOrElse { "ERRO: " + (it.message ?: it.javaClass.simpleName) }
             }
             appendOutput(result)
             terminalBusy = false
