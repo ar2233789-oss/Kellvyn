@@ -8,6 +8,7 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collect
@@ -21,8 +22,8 @@ import java.security.MessageDigest
 import java.util.Locale
 
 /**
- * On-device inference engine. The APK packages a compatible .litertlm model
- * and seeds it into private app storage. Ordinary conversation is processed locally.
+ * On-device inference engine. It prefers a checksum-verified .litertlm asset in the APK
+ * and otherwise downloads the pinned public model into private storage once. Inference is local.
  */
 class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoCloseable {
     private companion object {
@@ -62,7 +63,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
     /** Clears the private model cache; the bundled model is copied again at next initialization. */
     fun removeSavedModel(): Boolean {
         close()
-        val files = listOf(modelFile, File(modelDirectory, "kellvyn-model.previous"), File(modelDirectory, "kellvyn-model.bundled"))
+        val files = listOf(modelFile, File(modelDirectory, "kellvyn-model.previous"), File(modelDirectory, "kellvyn-model.bundled"), File(modelDirectory, "kellvyn-model.download.part"))
         var allRemoved = true
         files.forEach { file -> if (file.exists() && !file.delete()) allRemoved = false }
         return allRemoved
@@ -119,6 +120,10 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             }
             bundlePrefs.edit().putBoolean(BUNDLE_VERIFIED_KEY, true).apply()
             reportModelProgress(onProgress, "Modelo local verificado e guardado no aparelho.")
+        } catch (e: CancellationException) {
+            temporary.delete()
+            bundledInput?.let { runCatching { it.close() } }
+            throw e
         } catch (e: Exception) {
             temporary.delete()
             bundledInput?.let { runCatching { it.close() } }
@@ -197,6 +202,9 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             require(actualHash.equals(BUNDLED_MODEL_SHA256, ignoreCase = true)) {
                 "A verificação SHA-256 do modelo falhou. O arquivo não será usado."
             }
+        } catch (e: CancellationException) {
+            destination.delete()
+            throw e
         } catch (e: Exception) {
             destination.delete()
             throw e
