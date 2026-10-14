@@ -891,21 +891,22 @@ fun KellvynApp() {
                     }
                 }
             }
-            if (streamingReply.isNotBlank()) {
-                item(key = "kellvyn_streaming_reply") {
-                    Surface(
-                        color = Night,
-                        shape = RoundedCornerShape(14.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0B3329)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            streamingReply + " ▍",
-                            modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
-                            color = Color(0xFF9ED7C8),
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp
-                        )
+                if (streamingReply.isNotBlank()) {
+                    item(key = "kellvyn_streaming_reply") {
+                        Surface(
+                            color = Night,
+                            shape = RoundedCornerShape(14.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0B3329)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                streamingReply + " ▍",
+                                modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
+                                color = Color(0xFF9ED7C8),
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp
+                            )
+                        }
                     }
                 }
             }
@@ -1461,62 +1462,7 @@ fun KellvynApp() {
             WorkspaceConsoleDialog(
                 workspace = workspaceStore,
                 terminal = workspaceTerminal,
-                memories = memoryStore,
-                localModelReady = modelReady,
-                onDismiss = { showConsoleDialog = false },
-                onAskAgent = { request, requestApproval ->
-                    if (isGenerating) {
-                        "O agente principal já está processando outra solicitação. Aguarde terminar antes de pedir ajuda pelo terminal."
-                    } else if (!modelReady) {
-                        "O núcleo local ainda não foi inicializado; o agente auxiliar precisa do modelo local."
-                    } else {
-                        messages.add(ChatMessage(request, true))
-                        saveHistory()
-                        isGenerating = true
-                        status = "O agente está analisando o terminal sem fechar esta tela…"
-                        try {
-                            val turns = buildConversationTurns()
-                            when (
-                                val result = assistantAgent.respond(
-                                    engine = localEngine,
-                                    conversation = turns,
-                                    internetAllowed = false,
-                                    onToolStatus = { toolStatus -> status = toolStatus },
-                                    requestApproval = requestApproval
-                                )
-                            ) {
-                                is AssistantResult.Success -> {
-                                    messages.add(ChatMessage(result.text, false))
-                                    saveHistory()
-                                    status = "O agente respondeu na tela Terminal."
-                                    result.text
-                                }
-                                is AssistantResult.Unavailable -> {
-                                    val answer = "IA indisponível: ${result.reason}"
-                                    messages.add(ChatMessage(answer, false))
-                                    saveHistory()
-                                    status = result.reason
-                                    answer
-                                }
-                                is AssistantResult.Failure -> {
-                                    val answer = "Falha do agente: ${result.reason}"
-                                    messages.add(ChatMessage(answer, false))
-                                    saveHistory()
-                                    status = result.reason
-                                    answer
-                                }
-                            }
-                        } catch (e: Exception) {
-                            val answer = "Falha inesperada do agente: ${e.message ?: e.javaClass.simpleName}"
-                            messages.add(ChatMessage(answer, false))
-                            saveHistory()
-                            status = answer
-                            answer
-                        } finally {
-                            isGenerating = false
-                        }
-                    }
-                }
+                onDismiss = { showConsoleDialog = false }
             )
         }
 
