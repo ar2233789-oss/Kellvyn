@@ -459,11 +459,12 @@ class LocalCompilerAgentIntegrationTest {
         source.writeBytes(expected)
         var uri: android.net.Uri? = null
         try {
-            uri = ApkDownloadStore(context).saveToDownloads(source)
-            val actual = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            val savedUri = ApkDownloadStore(context).saveToDownloads(source)
+            uri = savedUri
+            val actual = context.contentResolver.openInputStream(savedUri)?.use { it.readBytes() }
             assertTrue("O download não entregou os mesmos bytes do APK compilado.", expected.contentEquals(actual))
             context.contentResolver.query(
-                uri,
+                savedUri,
                 arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.MIME_TYPE, MediaStore.MediaColumns.RELATIVE_PATH),
                 null,
                 null,
