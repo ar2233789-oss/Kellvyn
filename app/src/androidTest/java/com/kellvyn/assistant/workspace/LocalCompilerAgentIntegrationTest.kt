@@ -55,7 +55,6 @@ class LocalCompilerAgentIntegrationTest {
         val preferences = context.getSharedPreferences("kellvyn_local_builder", Context.MODE_PRIVATE)
         val licenseWasAccepted = compiler.hasAcceptedSdkLicense()
         try {
-            compiler.acceptSdkLicense()
             preferences.edit().putBoolean("android_sdk_license_accepted", false).commit()
 
             val result = compiler.build(project.id)
