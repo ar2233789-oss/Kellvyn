@@ -26,7 +26,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         const val BUNDLE_VERIFIED_KEY = "bundled_model_verified"
         const val BUNDLED_MODEL_BYTES = 373_719_040L
         const val BUNDLED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
-        const val MAX_CHAT_OUTPUT_TOKENS = 1024
+        const val MAX_CHAT_OUTPUT_TOKENS = 4096
         const val MAX_PROJECT_OUTPUT_TOKENS = 8192
     }
 
