@@ -226,7 +226,8 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         }
     }
 
-    private fun validateDiscordBotManifest(content: String): String? = try {
+    private fun validateDiscordBotManifest(content: String): String? {
+        return try {
         val json = JSONObject(content)
         if (!json.optString("platform").equals("discord", ignoreCase = true)) {
             return "platform precisa ser discord."
@@ -254,6 +255,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         "JSON inválido (" + (e.message ?: e.javaClass.simpleName) + ")."
     }
 
+    }
     private fun isRecoverableGenerationFailure(reason: String): Boolean {
         val text = reason.lowercase()
         return listOf(
@@ -369,7 +371,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 }
 
                 if (isDiscordBotRequest(idea)) {
-                    val manifestContent = files.firstOrNull { it.path.replace('\\\\', '/') == "kellvyn.bot.json" }?.content.orEmpty()
+                    val manifestContent = files.firstOrNull { it.path.replace('\\', '/') == "kellvyn.bot.json" }?.content.orEmpty()
                     val manifestError = validateDiscordBotManifest(manifestContent)
                     if (manifestError != null) {
                         return@withContext AppBuildResult.Failure("Manifesto de bot inválido: " + manifestError)
