@@ -27,6 +27,8 @@ jobs:
 
       - name: Set up Android SDK tools
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Set up Gradle (only to build the Kellvyn test harness)
         uses: gradle/actions/setup-gradle@v6
