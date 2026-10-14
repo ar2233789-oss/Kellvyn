@@ -84,7 +84,7 @@ Pipeline local implementado no código: ECJ compila Java, D8 gera DEX, o empacot
 - O app não deve enviar código-fonte para um serviço remoto para compilação.
 
 ## Estado técnico conhecido (13 de outubro de 2026)
-Implementado no código: Kotlin/Compose, chat, histórico local limitado e apagável, botão Copiar, voz condicionada aos serviços do Android, motor local LiteRT-LM inicial, importação/download de modelo, memória explícita, modo online opcional para respostas, gerador de arquivos, workspace local, editor, ZIP secundário e console limitado de workspace.
+Implementado no código: Kotlin/Compose, chat com histórico local limitado, botão Copiar, um modelo LiteRT-LM empacotado no APK, memória explícita, ferramentas web/GitHub por pedido explícito, construtor interno acionado pelo chat, workspace local, editor, exportação ZIP secundária, compilador Android local e painéis separados de Terminal e Git. O usuário não escolhe um provedor de IA nem opera um modo Build manualmente. Voz e segundo modelo não estão expostos nesta revisão.
 
 Ainda não concluído/validado: compilação local de projetos gerados; resposta real no Poco F6; instalação e desempenho no aparelho; depuração/build/teste automático local; aprendizagem de jogos; overlay/mascote; terminal real seguro; entrega de APKs dos projetos criados. A build anterior do próprio Kellvyn não comprova essas capacidades.
 
