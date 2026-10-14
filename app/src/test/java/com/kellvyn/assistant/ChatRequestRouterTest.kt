@@ -57,6 +57,16 @@ class ChatRequestRouterTest {
     }
 
     @Test
+    fun explicitOnlineRequestsUseWebToolsWithoutMakingOrdinaryChatOnline() {
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Pesquise na internet sobre Kotlin coroutines"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Pesquise no GitHub o projeto"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Resuma este link https://developer.android.com"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Qual é a previsão do tempo?"))
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("Explique o que é Kotlin"))
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("Bom dia"))
+    }
+
+    @Test
     fun installedCoderIsPreferredForCodeWorkButNotOrdinaryQuestions() {
         assertTrue(ChatRequestRouter.shouldPreferCoder("Corrija o arquivo MainActivity.kt"))
         assertTrue(ChatRequestRouter.shouldPreferCoder("Adicione login ao meu app existente"))
