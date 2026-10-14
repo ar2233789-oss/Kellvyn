@@ -1369,52 +1369,69 @@ fun KellvynApp() {
             )
         }
 
-        if (showTabsDialog) {
-            AlertDialog(
-                onDismissRequest = { showTabsDialog = false },
-                title = { Text("Abas abertas") },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        if (openTabs.isEmpty()) {
-                            Text("Nenhuma aba de arquivo aberta ainda. Entre em Editor e abra um arquivo de projeto.", color = Muted, fontSize = 12.sp)
+        if (showAppsDialog) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { showAppsDialog = false },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = true)
+            ) {
+                Surface(Modifier.fillMaxSize().padding(8.dp), color = Night, shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("MEUS APPS", color = Neon, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text("Projetos criados pelo chat principal", color = Muted, fontSize = 11.sp)
+                            }
+                            TextButton(onClick = { showAppsDialog = false }) { Text("Fechar", color = Color.White) }
+                        }
+                        if (existingProjects.isEmpty()) {
+                            Text("Ainda não há aplicativos criados. Peça ao chat principal para criar um; o editor serve só para editar arquivos.", color = Muted, fontSize = 13.sp)
                         } else {
-                            openTabs.forEach { entry ->
-                                val parts = entry.split("::", limit = 2)
-                                val projectId = parts.firstOrNull().orEmpty()
-                                val filePath = parts.getOrNull(1).orEmpty()
-                                val project = workspaceStore.getProject(projectId)
-                                if (project != null && filePath.isNotBlank()) {
-                                    TextButton(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        onClick = {
-                                            try {
-                                                activeEditProject = project
-                                                editablePaths = workspaceStore.listFiles(project.id)
-                                                activeFilePath = filePath
-                                                editorContent = workspaceStore.readFile(project.id, filePath).take(MAX_EDITOR_CHARS)
-                                                editorStatus = ""
-                                                showTabsDialog = false
-                                                showEditorDialog = true
-                                            } catch (e: Exception) {
-                                                status = "Não foi possível reabrir a aba: " + (e.message ?: e.javaClass.simpleName)
+                            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                existingProjects.forEach { project ->
+                                    Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))) {
+                                        Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Surface(Modifier.size(50.dp), color = Color(0xFF0A2D24), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Neon.copy(alpha = 0.5f))) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Text(project.name.take(1).uppercase(Locale.ROOT), color = Neon, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                                }
                                             }
+                                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                Text(project.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                                                Text(project.description.ifBlank { project.fileCount.toString() + " arquivos" }, color = Muted, fontSize = 10.sp, maxLines = 2)
+                                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    TextButton(onClick = {
+                                                        try {
+                                                            val paths = workspaceStore.listFiles(project.id)
+                                                            activeEditProject = project
+                                                            editablePaths = paths
+                                                            activeFilePath = paths.firstOrNull().orEmpty()
+                                                            editorContent = if (activeFilePath.isNotBlank()) workspaceStore.readFile(project.id, activeFilePath).take(MAX_EDITOR_CHARS) else ""
+                                                            editorStatus = if (activeFilePath.isBlank()) "Projeto sem arquivos editáveis." else ""
+                                                            showAppsDialog = false
+                                                            showEditorDialog = true
+                                                        } catch (e: Exception) { status = "Falha ao abrir o código: " + (e.message ?: e.javaClass.simpleName) }
+                                                    }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) { Text("Código", color = Neon, fontSize = 10.sp) }
+                                                    TextButton(onClick = { pendingExportProject = project; zipExportPicker.launch(project.id + ".zip") }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) { Text("ZIP", color = Muted, fontSize = 10.sp) }
+                                                }
+                                            }
+                                            TextButton(enabled = !isGenerating, onClick = {
+                                                showAppsDialog = false
+                                                scope.launch {
+                                                    isGenerating = true
+                                                    status = "Compilando " + project.name + " localmente…"
+                                                    try { buildProjectAndReport(project) } finally { isGenerating = false }
+                                                }
+                                            }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) { Text("APK", color = Neon, fontSize = 10.sp) }
                                         }
-                                    ) {
-                                        Text("${project.name} / ${filePath}", color = if (activeEditProject?.id == projectId && activeFilePath == filePath) Neon else Color.White, fontSize = 11.sp)
                                     }
                                 }
                             }
                         }
+                        Text("Os cartões mostram os projetos salvos; a compilação do APK é feita no aparelho.", color = Muted, fontSize = 10.sp)
                     }
-                },
-                confirmButton = { TextButton(onClick = { openTabs = emptyList(); status = "Lista de abas limpa."; showTabsDialog = false }) { Text("Fechar todas") } },
-                dismissButton = { TextButton(onClick = { showTabsDialog = false }) { Text("Fechar") } }
-            )
+                }
+            }
         }
-
         if (showMemoryDialog) {
             AlertDialog(
                 onDismissRequest = { showMemoryDialog = false },
