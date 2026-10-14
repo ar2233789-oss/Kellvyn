@@ -98,6 +98,7 @@ object ChatRequestRouter {
             "minha ia", "ia local"
         ).any { it in t } ||
             t.split(Regex("[^a-z0-9]+")).contains("app") ||
+            t.split(Regex("[^a-z0-9]+")).contains("bot") ||
             Regex("(^|[^a-z0-9])ia([^a-z0-9]|$)").containsMatchIn(t)
 
         val directCreationIntent = listOf(
@@ -108,7 +109,9 @@ object ChatRequestRouter {
             "preciso de um assistente", "quero um chatbot", "preciso de um chatbot",
             "quero um jogo", "preciso de um jogo", "quero um sistema", "preciso de um sistema",
             "quero um software", "quero um programa", "quero uma ferramenta",
-            "quero um jogo android", "preciso de um app android"
+            "quero um jogo android", "preciso de um app android",
+            "quero um bot", "quero criar um bot", "quero meu bot", "preciso de um bot",
+            "preciso criar um bot", "crie um bot", "criar um bot", "faça um bot", "faca um bot"
         ).any { it in t }
         val instructionalQuestion = listOf(
             "como criar", "como faço", "como faco", "me explique", "explique como",
