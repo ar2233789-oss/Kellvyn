@@ -192,7 +192,7 @@ class TelegramBotRuntimeService : Service() {
         const val ACTION_START_TELEGRAM = "com.kellvyn.assistant.runtime.START_TELEGRAM"
         const val ACTION_STOP_PROJECT = "com.kellvyn.assistant.runtime.STOP_TELEGRAM_PROJECT"
         const val ACTION_STOP_ALL = "com.kellvyn.assistant.runtime.STOP_ALL_TELEGRAM"
-        const val ACTION_RUNTIME_STATE_CHANGED = "com.kellvyn.assistant.runtime.TELEGRAM_STATE_CHANGED"
+        const val ACTION_RUNTIME_STATE_CHANGED = "com.kellvyn.assistant.runtime.STATE_CHANGED"
         const val EXTRA_ACTIVE_PROJECT_IDS = "active_project_ids"
         const val EXTRA_PROJECT_ID = "project_id"
         private const val CHANNEL_ID = "kellvyn_active_telegram_bots"
