@@ -139,8 +139,12 @@ class DiscordBotRuntimeService : Service() {
             if (it.isEmpty()) "Nenhum bot conectado. Preparando o runtime." else it.joinToString(" • ").take(180)
         }
         mainHandler.post {
-            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .notify(NOTIFICATION_ID, buildNotification(text))
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (runtimeStore.activeProjectIds().isEmpty() && clients.isEmpty()) {
+                manager.cancel(NOTIFICATION_ID)
+            } else {
+                manager.notify(NOTIFICATION_ID, buildNotification(text))
+            }
         }
     }
 
@@ -327,7 +331,7 @@ private class DiscordBotGatewayClient(
                 JSONObject().put("op", 2).put("d", JSONObject()
                     .put("token", credentials.token)
                     .put("intents", 1)
-                    .put("properties", JSONObject().put("\\$os", "android").put("\\$browser", "Kellvyn IA").put("\\$device", "Kellvyn IA"))
+                    .put("properties", JSONObject().put("\$os", "android").put("\$browser", "Kellvyn IA").put("\$device", "Kellvyn IA"))
                 ).toString()
             )
         } else if (op == 7 || op == 9) {
