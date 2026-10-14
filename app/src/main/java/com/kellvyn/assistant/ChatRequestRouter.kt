@@ -19,20 +19,6 @@ object ChatRequestRouter {
         isExplicitAppBuildRequest(text) || isBuildBrief(text)
 
     /**
-     * Expose the manual shell tool to the chat agent only when the user's current message
-     * explicitly asks to execute something through the terminal.
-     */
-    fun shouldUseTerminal(text: String): Boolean {
-        val value = text.trim().lowercase(Locale.ROOT)
-        return value.startsWith("terminal:") || listOf(
-            "use o terminal", "use terminal", "pelo terminal execute", "pelo terminal rode",
-            "execute no terminal", "executa no terminal", "executar no terminal",
-            "rode no terminal", "roda no terminal", "rodar no terminal",
-            "no terminal execute", "no terminal executa", "no terminal rode", "no terminal roda"
-        ).any { value.startsWith(it) }
-    }
-
-    /**
      * Web/GitHub tools are offered only when this message explicitly asks for online research
      * or supplies a link and requests an action on it. Ordinary chat stays on the local model.
      */
