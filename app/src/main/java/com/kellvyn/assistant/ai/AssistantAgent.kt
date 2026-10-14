@@ -1220,7 +1220,7 @@ class AssistantAgent(
                         }
                     }
                     onToolStatus(toolStatus(name))
-                    val result = runCatching { tools.execute(name, args, internetAllowed, onToolStatus) }
+                    val result = runCatching { tools.execute(name, args, internetAllowed, onToolStatus, terminalAllowed) }
                         .fold(
                             onSuccess = { resultText -> resultText.take(if (name == "build_project_apk") maxBuildToolResultChars else maxToolResultChars) },
                             onFailure = { "A ferramenta falhou: ${it.message ?: it.javaClass.simpleName}" }
