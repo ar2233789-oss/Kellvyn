@@ -5,6 +5,10 @@ plugins {
 }
 
 android {
+    androidResources {
+        noCompress += "litertlm"
+    }
+
     packaging {
         resources {
             // Keep dependency notices in the distributed APK; merge colliding file names.
