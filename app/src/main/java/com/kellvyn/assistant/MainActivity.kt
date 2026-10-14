@@ -591,7 +591,7 @@ fun KellvynApp() {
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsExistingBuild &&
             ChatRequestRouter.shouldBuild(text)
-        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseTerminal(text) || ChatRequestRouter.shouldUseOnlineTools(text)
+        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseOnlineTools(text)
         isGenerating = true
         streamingReply = ""
         status = if (wantsBuild) {
@@ -704,7 +704,7 @@ fun KellvynApp() {
                             internetAllowed = ChatRequestRouter.shouldUseOnlineTools(text),
                             onToolStatus = { toolStatus -> status = toolStatus },
                             requestApproval = { summary -> requestAgentApproval(summary) },
-                            terminalAllowed = ChatRequestRouter.shouldUseTerminal(text)
+                            terminalAllowed = false
                         )
                     } else {
                         // Everyday conversation skips the agent JSON/tool loop and calls the local model directly.
