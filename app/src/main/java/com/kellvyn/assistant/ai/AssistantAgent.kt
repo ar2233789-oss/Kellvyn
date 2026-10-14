@@ -860,7 +860,6 @@ class AgentToolRouter(
         const val MAX_WRITE_CHARS = 40_000
         const val MAX_PATCH_CHARS = 20_000
         const val MAX_PATCH_FILE_CHARS = 512 * 1024
-        const val MAX_TERMINAL_COMMAND_CHARS = 800
         const val MAX_WEB_RESULTS = 8
         const val MAX_GITHUB_RESULTS = 8
         const val MAX_GITHUB_FILE_CHARS = 12_000
