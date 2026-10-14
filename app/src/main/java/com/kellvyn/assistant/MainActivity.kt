@@ -198,6 +198,7 @@ fun KellvynApp() {
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
     var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     var selectedNav by remember { mutableStateOf("AI") }
+    var buildModeSelected by remember { mutableStateOf(false) }
     var showMemoryDialog by remember { mutableStateOf(false) }
     var memoryDraft by remember { mutableStateOf("") }
     var memoryStatus by remember { mutableStateOf("") }
@@ -496,7 +497,7 @@ fun KellvynApp() {
         draft = ""
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsExistingBuild &&
-            ChatRequestRouter.shouldBuild(text, buildModeSelected = false)
+            ChatRequestRouter.shouldBuild(text, buildModeSelected = buildModeSelected)
         val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseTerminal(text) || ChatRequestRouter.shouldUseOnlineTools(text)
         isGenerating = true
         streamingReply = ""
@@ -793,20 +794,20 @@ fun KellvynApp() {
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().background(Night).padding(horizontal = 12.dp, vertical = 7.dp)
+            modifier = Modifier.fillMaxSize().background(Night).padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.fillMaxWidth().height(44.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 7.dp)) {
-                    Text("☰", color = Neon, fontSize = 22.sp)
+                    Text("☰", color = Neon, fontSize = 19.sp)
                 }
                 Spacer(Modifier.width(3.dp))
-                KellvynMark(30.dp)
+                KellvynMark(26.dp)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Kellvyn Assistente", color = Neon, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+                    Text("Kellvyn Assistente", color = Neon, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Text(
                         if (modelReady) "KELLVYN IA • LOCAL" else "KELLVYN IA • INICIALIZANDO",
                         color = Muted,
@@ -828,8 +829,8 @@ fun KellvynApp() {
             LazyColumn(
                 state = chatListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(top = 11.dp, bottom = 8.dp, start = 2.dp, end = 2.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                contentPadding = PaddingValues(top = 8.dp, bottom = 6.dp, start = 2.dp, end = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(messages) { message ->
                     if (message.fromUser) {
@@ -845,7 +846,7 @@ fun KellvynApp() {
                             ) {
                                 Text(
                                     message.text,
-                                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                                     color = Color(0xFFE1FFF5),
                                     fontSize = 14.sp,
                                     lineHeight = 20.sp
@@ -868,7 +869,7 @@ fun KellvynApp() {
                                 ) {
                                     Text(
                                         message.text,
-                                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                                         color = Color(0xFF9ED7C8),
                                         fontSize = 14.sp,
                                         lineHeight = 20.sp
@@ -928,7 +929,7 @@ fun KellvynApp() {
                             ) {
                                 Text(
                                     streamingReply + " ▍",
-                                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                                     color = Color(0xFF9ED7C8),
                                     fontSize = 14.sp,
                                     lineHeight = 20.sp
@@ -971,13 +972,13 @@ fun KellvynApp() {
                     OutlinedTextField(
                         value = draft,
                         onValueChange = { if (it.length <= MAX_INPUT_CHARS) draft = it },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp, max = 88.dp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = { submitDraft() }),
                         placeholder = { Text("Converse ou peça para criar um aplicativo…", color = Muted, fontSize = 13.sp) },
                         shape = RoundedCornerShape(12.dp),
                         minLines = 1,
-                        maxLines = 4,
+                        maxLines = 3,
                         enabled = !isGenerating,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color.Transparent,
@@ -992,7 +993,20 @@ fun KellvynApp() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-
+                        TextButton(
+                            onClick = { buildModeSelected = false },
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
+                        ) {
+                            Text("Conversa", color = if (!buildModeSelected) Neon else Muted, fontSize = 10.sp, maxLines = 1)
+                        }
+                        TextButton(
+                            onClick = { buildModeSelected = true },
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
+                        ) {
+                            Text("Build", color = if (buildModeSelected) Neon else Muted, fontSize = 10.sp, maxLines = 1)
+                        }
 
                         Spacer(Modifier.weight(1f))
 
@@ -1000,7 +1014,8 @@ fun KellvynApp() {
                             enabled = !isGenerating,
                             onClick = { submitDraft() },
                             shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 13.dp, vertical = 5.dp),
+                            modifier = Modifier.height(34.dp),
+                            contentPadding = PaddingValues(horizontal = 11.dp, vertical = 3.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Neon, contentColor = Night)
                         ) { Text(if (isGenerating) "…" else "↑", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
                     }
@@ -1008,7 +1023,7 @@ fun KellvynApp() {
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth().height(36.dp),
+                modifier = Modifier.fillMaxWidth().height(34.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
