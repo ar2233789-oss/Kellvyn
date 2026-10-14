@@ -10,7 +10,8 @@ permissions:
 
 concurrency:
   group: package-kellvyn-apk-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep a running package job alive; rapid source updates must not cancel the latest APK build.
+  cancel-in-progress: false
 
 jobs:
   package:
