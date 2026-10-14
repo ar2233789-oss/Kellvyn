@@ -36,6 +36,17 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Bundle the real offline model for end-to-end AI generation test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets/models
+          MODEL_FILE="app/src/main/assets/models/kellvyn-model.litertlm"
+          curl --fail --location --retry 4 --retry-delay 2 --connect-timeout 20 --max-time 900 \
+            "https://huggingface.co/litert-community/SmolLM2-360M-Instruct/resolve/main/SmolLM2_360M_instruct.litertlm?download=true" \
+            --output "$MODEL_FILE"
+          printf "%s  %s\\n" "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e" "$MODEL_FILE" | sha256sum --check --strict
+
       # The sample app itself is NOT built by Gradle. The instrumentation test
       # runs ECJ -> D8 -> BinaryAndroidManifest -> apksig inside the installed
       # Kellvyn process, the same local toolchain exposed to the chat agent.
