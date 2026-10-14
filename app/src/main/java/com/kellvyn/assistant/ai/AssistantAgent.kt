@@ -1083,7 +1083,7 @@ class AssistantAgent(
             githubRepositoryRequest != null -> {
                 onToolStatus("Explorando a estrutura do repositório público do GitHub…")
                 runCatching {
-                    inspectGithubRepository(githubRepositoryRequest, lastUser, internetAllowed)
+                    inspectGithubRepository(githubRepositoryRequest, lastUser, internetAllowed, onToolStatus)
                 }.getOrElse { "Falha ao inspecionar o repositório: ${it.message}" }
             }
             localFileListRequest != null -> {
@@ -1219,7 +1219,8 @@ class AssistantAgent(
     private suspend fun inspectGithubRepository(
         request: JSONObject,
         userRequest: String,
-        internetAllowed: Boolean
+        internetAllowed: Boolean,
+        onToolStatus: (String) -> Unit
     ): String {
         val repository = request.optString("repository")
         val treeText = tools.execute("github_tree", request, internetAllowed)
