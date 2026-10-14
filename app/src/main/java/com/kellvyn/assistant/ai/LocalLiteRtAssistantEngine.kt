@@ -561,7 +561,14 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         engine != null
     }
 
-    override suspend fun reply(conversation: List<AssistantTurn>): AssistantResult = withContext(Dispatchers.IO) {
+    override suspend fun reply(conversation: List<AssistantTurn>): AssistantResult =
+        replyStreaming(conversation)
+
+    /** Emits partial text while local inference is running, so the chat never looks frozen. */
+    suspend fun replyStreaming(
+        conversation: List<AssistantTurn>,
+        onPartial: suspend (String) -> Unit = {}
+    ): AssistantResult = withContext(Dispatchers.IO) {
         val activeEngine = engine
             ?: return@withContext AssistantResult.Unavailable("Carregue um modelo local antes de enviar mensagens.")
 
@@ -580,6 +587,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
 
         try {
             val answer = StringBuilder()
+            var lastPublishedLength = 0
             val config = ConversationConfig(
                 systemInstruction = Contents.of(
                     buildString {
@@ -600,8 +608,13 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             activeEngine.createConversation(config).use { chat ->
                 chat.sendMessageAsync(conversation[lastUserIndex].content).collect { part ->
                     answer.append(part.contents.toString())
+                    if (answer.length - lastPublishedLength >= 24) {
+                        onPartial(answer.toString())
+                        lastPublishedLength = answer.length
+                    }
                 }
             }
+            onPartial(answer.toString())
             val text = answer.toString().trim()
             if (text.isBlank()) {
                 AssistantResult.Failure("O modelo terminou sem produzir texto.")
