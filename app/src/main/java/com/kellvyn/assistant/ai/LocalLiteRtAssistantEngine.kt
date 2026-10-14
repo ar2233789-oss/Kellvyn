@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
+import java.util.Locale
 
 /**
  * On-device inference engine. The APK packages a compatible .litertlm model
@@ -26,7 +27,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         const val BUNDLED_MODEL_BYTES = 373_719_040L
         const val BUNDLED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
         const val MAX_CHAT_OUTPUT_TOKENS = 1024
-        const val MAX_PROJECT_OUTPUT_TOKENS = 4096
+        const val MAX_PROJECT_OUTPUT_TOKENS = 8192
     }
 
     private val appContext = context.applicationContext
@@ -206,6 +207,11 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 requestedText.contains("TAREFA: criar código-fonte funcional", ignoreCase = true) ||
                 requestedText.contains("REGRAS TÉCNICAS E ESQUEMA:", ignoreCase = true) ||
                 requestedText.contains("Esquema obrigatório:", ignoreCase = true)
+            if (!projectGeneration && isExplicitImageGenerationRequest(requestedText)) {
+                val capabilityNotice = "Esta versão do Kellvyn IA usa um modelo local somente de texto. Não consigo criar ou anexar uma imagem PNG/JPEG nem verificar uma referência visual nesta conversa. Posso ajudar a gerar código de arte vetorial/Canvas dentro de um app, mas isso não é um arquivo de imagem gerado."
+                onPartial(capabilityNotice)
+                return@withContext AssistantResult.Success(capabilityNotice)
+            }
             val config = ConversationConfig(
                 systemInstruction = Contents.of(
                     buildString {
@@ -261,4 +267,18 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         engine = null
     }
 
+}
+
+
+/** True only for direct requests to create an image, not for discussion or image analysis. */
+internal fun isExplicitImageGenerationRequest(prompt: String): Boolean {
+    val value = prompt.lowercase(Locale.ROOT)
+    return listOf(
+        "gere uma imagem", "gerar uma imagem", "crie uma imagem", "criar uma imagem",
+        "desenhe uma imagem", "desenhar uma imagem", "faça uma imagem", "faca uma imagem",
+        "gere imagem", "gerar imagem", "crie imagem", "criar imagem",
+        "gere uma foto", "gerar uma foto", "crie uma foto", "gere uma ilustração",
+        "gere uma ilustracao", "crie uma ilustração", "crie uma ilustracao",
+        "generate an image", "create an image", "draw an image"
+    ).any { it in value }
 }
