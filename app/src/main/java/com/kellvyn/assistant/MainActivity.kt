@@ -17,6 +17,7 @@ import android.provider.Settings
 import android.provider.OpenableColumns
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,6 +28,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -47,6 +49,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -70,6 +75,8 @@ import com.kellvyn.assistant.ai.reasonOrText
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
 import com.kellvyn.assistant.ai.AssistantAttachmentExtractor
+import com.kellvyn.assistant.ai.isExplicitImageGenerationRequest
+import com.kellvyn.assistant.ai.LocalArtworkGenerator
 import com.kellvyn.assistant.data.ChatHistoryStore
 import com.kellvyn.assistant.data.ChatConversationStore
 import com.kellvyn.assistant.data.SavedConversation
@@ -87,6 +94,7 @@ import com.kellvyn.assistant.workspace.WorkspaceProject
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
 import com.kellvyn.assistant.workspace.LocalApkBuildResult
 import com.kellvyn.assistant.workspace.ApkDownloadStore
+import com.kellvyn.assistant.workspace.ImageDownloadStore
 import com.kellvyn.assistant.runtime.DiscordBotCredentialsStore
 import com.kellvyn.assistant.runtime.DiscordBotRuntimeService
 import com.kellvyn.assistant.runtime.GeneratedProjectClassifier
@@ -198,7 +206,7 @@ private fun isRepairableSourceBuildFailure(reason: String): Boolean {
         value.contains("cannot fit requested classes in a single dex file")
 }
 
-data class ChatMessage(val text: String, val fromUser: Boolean, val apkPath: String? = null)
+data class ChatMessage(val text: String, val fromUser: Boolean, val apkPath: String? = null, val imagePath: String? = null)
 
 private fun projectIconGlyph(project: WorkspaceProject): String {
     val description = (project.name + " " + project.description).lowercase(Locale.ROOT)
@@ -331,6 +339,7 @@ fun KellvynApp() {
     var pendingFileExportName by remember { mutableStateOf("") }
     var latestBuiltApk by remember(localAndroidCompiler) { mutableStateOf(localAndroidCompiler.mostRecentApk()) }
     var pendingApkExportFile by remember { mutableStateOf<String?>(null) }
+    var pendingImageExportFile by remember { mutableStateOf<String?>(null) }
     var attachmentBusy by remember { mutableStateOf(false) }
     var textToSpeechReady by remember { mutableStateOf(false) }
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
@@ -707,6 +716,36 @@ fun KellvynApp() {
             draft = ""
             saveHistory()
             status = "Kellvyn IA — identidade do assistente"
+            return
+        }
+        if (isExplicitImageGenerationRequest(text)) {
+            messages.add(ChatMessage(text, true))
+            draft = ""
+            isGenerating = true
+            status = "Desenhando uma ilustração procedural local…"
+            scope.launch {
+                try {
+                    val imageFile = withContext(Dispatchers.IO) {
+                        LocalArtworkGenerator(context).generate(text)
+                    }
+                    messages.add(
+                        ChatMessage(
+                            "Criei um arquivo PNG real no aparelho e anexei a prévia abaixo. Esta versão usa arte procedural local (formas, arquitetura, luzes e partículas), não um modelo neural de geração de imagens; ela ainda não compreende semanticamente referências visuais.",
+                            false,
+                            imagePath = imageFile.absolutePath
+                        )
+                    )
+                    status = "Imagem PNG criada localmente; use Baixar PNG para salvá-la em Imagens/Kellvyn."
+                    saveHistory()
+                } catch (e: Exception) {
+                    val error = "Não consegui gerar a imagem local: " + (e.message ?: e.javaClass.simpleName)
+                    messages.add(ChatMessage(error, false))
+                    status = error
+                    saveHistory()
+                } finally {
+                    isGenerating = false
+                }
+            }
             return
         }
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
