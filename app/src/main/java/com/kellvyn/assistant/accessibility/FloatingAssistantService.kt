@@ -35,6 +35,7 @@ import com.kellvyn.assistant.MainActivity
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -287,6 +288,8 @@ class FloatingAssistantService : Service() {
                         loaded = try {
                             engine.prepareLocalModel { progress -> setStatus(progress) }
                             engine.loadSavedModel()
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             AssistantResult.Failure(
                                 "Não foi possível preparar a IA local para o assistente flutuante: " +
@@ -327,6 +330,8 @@ class FloatingAssistantService : Service() {
                     is AssistantResult.Unavailable -> setStatus("IA local indisponível: " + result.reason)
                     is AssistantResult.Failure -> setStatus("Erro na resposta: " + result.reason)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 setStatus("Erro: " + (e.message ?: e.javaClass.simpleName))
             }
