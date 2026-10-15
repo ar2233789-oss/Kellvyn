@@ -29,6 +29,7 @@ private const val TEMPLATE_OVERHEAD_TOKENS = 256
 private const val CHARS_PER_TOKEN_NUMERATOR = 5
 private const val CHARS_PER_TOKEN_DENOMINATOR = 2
 private const val MIN_OUTPUT_TOKEN_BUDGET = 256
+private const val LONG_GENERATION_SYSTEM_RESERVE_TOKENS = 512
 
 /**
  * On-device inference engine. It prefers a checksum-verified .litertlm asset in the APK
@@ -440,7 +441,7 @@ internal fun boundLocalPrompt(
 
     val overheadChars = TEMPLATE_OVERHEAD_TOKENS * CHARS_PER_TOKEN_NUMERATOR / CHARS_PER_TOKEN_DENOMINATOR
     val estimatedUserAndTemplateTokens = estimateTokens(latestUserText.length + overheadChars)
-    val systemOutputReserve = minOf(requestedMaxOutputTokens, MAX_CHAT_OUTPUT_TOKENS)
+    val systemOutputReserve = if (requestedMaxOutputTokens > MAX_CHAT_OUTPUT_TOKENS) LONG_GENERATION_SYSTEM_RESERVE_TOKENS else requestedMaxOutputTokens
     val systemTokenCapacity = (
         MODEL_CONTEXT_TOKEN_LIMIT - estimatedUserAndTemplateTokens -
             CONTEXT_SAFETY_TOKEN_RESERVE - systemOutputReserve
