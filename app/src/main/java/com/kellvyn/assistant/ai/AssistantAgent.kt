@@ -906,7 +906,7 @@ class AgentToolRouter(
 
 /**
  * Bounded tool-use loop for ordinary chat. A model may propose a JSON action, and reliable
- * read-only requests also have direct preflight routes. The chat agent uses workspace/file/Git/build APIs directly and never routes tasks through a terminal.
+ * read-only requests also have direct preflight routes. The chat agent uses workspace/file/Git/build APIs directly for app work; it may invoke Termux only when the current user explicitly requests terminal help, and each command requires approval.
  * Mutating operations require explicit user approval.
  */
 class AssistantAgent(
