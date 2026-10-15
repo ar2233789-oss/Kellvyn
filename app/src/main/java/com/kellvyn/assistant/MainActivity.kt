@@ -1076,6 +1076,8 @@ fun KellvynApp() {
                     }
                 }
                 saveHistory()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val reason = e.message ?: e.javaClass.simpleName
                 messages.add(ChatMessage("Falha inesperada: $reason", false))
