@@ -131,7 +131,7 @@ private fun isRepairableSourceBuildFailure(reason: String): Boolean {
         value.contains("cannot fit requested classes in a single dex file")
 }
 
-data class ChatMessage(val text: String, val fromUser: Boolean, val queued: Boolean = false)
+data class ChatMessage(val text: String, val fromUser: Boolean)
 
 private fun projectIconKind(project: WorkspaceProject): String {
     val description = (project.name + " " + project.description).lowercase(Locale.ROOT)
@@ -607,7 +607,7 @@ fun KellvynApp() {
     }
 
     fun saveHistory() {
-        val savedMessages = messages.filterNot { it.queued }.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) }
+        val savedMessages = messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) }
         historyStore.save(savedMessages)
         val previous = conversations.firstOrNull { it.id == activeConversationId }
         val firstPrompt = savedMessages.firstOrNull { it.fromUser }?.text
@@ -650,7 +650,7 @@ fun KellvynApp() {
     }
 
     fun buildConversationTurns(): List<AssistantTurn> {
-        val recent = messages.filterNot { it.queued }.takeLast(MAX_CONTEXT_MESSAGES)
+        val recent = messages.takeLast(MAX_CONTEXT_MESSAGES)
         val latestUserIndex = recent.indexOfLast { it.fromUser }
         val memoryContext = memoryStore.promptContext()
         return buildList {
@@ -849,7 +849,6 @@ fun KellvynApp() {
         if (text.isEmpty()) return
         if (isGenerating && !alreadyQueued) {
             pendingChatRequests.add(text)
-            messages.add(ChatMessage(text, true, queued = true))
             draft = ""
             status = "Mensagem na fila (${pendingChatRequests.size}). Pode continuar enviando."
             return
@@ -862,10 +861,7 @@ fun KellvynApp() {
             status = "Kellvyn IA — identidade do assistente"
             if (alreadyQueued && pendingChatRequests.isNotEmpty()) {
                 val nextRequest = pendingChatRequests.removeAt(0)
-                val queuedIndex = messages.indexOfFirst {
-                    it.fromUser && it.queued && it.text == nextRequest
-                }
-                if (queuedIndex >= 0) messages[queuedIndex] = messages[queuedIndex].copy(queued = false)
+                messages.add(ChatMessage(nextRequest, true))
                 draft = nextRequest
                 scope.launch { submitDraft(alreadyQueued = true) }
             }
@@ -881,10 +877,7 @@ fun KellvynApp() {
             status = "IA local não inicializada."
             if (alreadyQueued && pendingChatRequests.isNotEmpty()) {
                 val nextRequest = pendingChatRequests.removeAt(0)
-                val queuedIndex = messages.indexOfFirst {
-                    it.fromUser && it.queued && it.text == nextRequest
-                }
-                if (queuedIndex >= 0) messages[queuedIndex] = messages[queuedIndex].copy(queued = false)
+                messages.add(ChatMessage(nextRequest, true))
                 draft = nextRequest
                 scope.launch { submitDraft(alreadyQueued = true) }
             }
@@ -1185,12 +1178,7 @@ fun KellvynApp() {
                 isGenerating = false
                 if (pendingChatRequests.isNotEmpty()) {
                     val nextRequest = pendingChatRequests.removeAt(0)
-                    val queuedIndex = messages.indexOfFirst {
-                        it.fromUser && it.queued && it.text == nextRequest
-                    }
-                    if (queuedIndex >= 0) {
-                        messages[queuedIndex] = messages[queuedIndex].copy(queued = false)
-                    }
+                    messages.add(ChatMessage(nextRequest, true))
                     draft = nextRequest
                     submitDraft(alreadyQueued = true)
                 }
