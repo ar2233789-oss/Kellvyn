@@ -70,6 +70,7 @@ import com.kellvyn.assistant.attachments.LocalImageTextExtractor
 import com.kellvyn.assistant.attachments.LocalSvgImageGenerator
 import com.kellvyn.assistant.attachments.LocalSvgGenerationResult
 import com.kellvyn.assistant.ai.AssistantAgent
+import com.kellvyn.assistant.ai.TermuxRequestPolicy
 import com.kellvyn.assistant.ai.AgentToolRouter
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.reasonOrText
@@ -857,7 +858,12 @@ fun KellvynApp() {
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsImage && !wantsExistingBuild &&
             ChatRequestRouter.shouldBuild(text)
-        val wantsCoder = !wantsImage && (wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseOnlineTools(text))
+        val wantsCoder = !wantsImage && (
+            wantsBuild || wantsExistingBuild ||
+                ChatRequestRouter.shouldPreferCoder(text) ||
+                ChatRequestRouter.shouldUseOnlineTools(text) ||
+                TermuxRequestPolicy.mayUseTermux(text)
+            )
         isGenerating = true
         streamingReply = if (wantsImage) "Preparando ilustração…" else "Pensando…"
         status = if (wantsImage) {
