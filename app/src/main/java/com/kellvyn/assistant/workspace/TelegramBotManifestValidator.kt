@@ -30,6 +30,7 @@ internal object TelegramBotManifestValidator {
             if (action == "response" && (response.isBlank() || response.length > 3800)) {
                 return "a resposta de /" + name + " está vazia ou longa demais."
             }
+            if (name in names) return "há nomes de comandos repetidos."
             names += name
         }
         if (names.distinct().size != names.size) "há nomes de comando repetidos." else null
