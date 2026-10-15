@@ -34,8 +34,8 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
      * ordinary shell commands use Android's /system/bin/sh in the current workspace directory.
      * This runs as the app UID, without root; Android app permissions still apply to commands and paths.
      */
-        fun executeInteractive(raw: String): String {
-        val command = tokenize(raw).firstOrNull()?.lowercase(Locale.ROOT) ?: return ""
+    fun executeInteractive(raw: String): String {
+        if (tokenize(raw).isEmpty()) return ""
         return if (shouldUseWorkspaceTerminalHandler(raw)) {
             execute(raw)
         } else {
