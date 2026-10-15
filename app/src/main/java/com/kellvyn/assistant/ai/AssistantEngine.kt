@@ -14,7 +14,8 @@ interface AssistantEngine {
 
 data class AssistantTurn(
     val role: Role,
-    val content: String
+    val content: String,
+    val imagePath: String? = null
 ) {
     enum class Role { SYSTEM, USER, ASSISTANT }
 }
