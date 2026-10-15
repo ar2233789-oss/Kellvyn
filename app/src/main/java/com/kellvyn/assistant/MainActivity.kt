@@ -95,6 +95,7 @@ import com.kellvyn.assistant.runtime.GeneratedProjectKind
 import com.kellvyn.assistant.runtime.GeneratedProjectRuntimeStore
 import java.io.ByteArrayOutputStream
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -310,6 +311,7 @@ fun KellvynApp() {
     var modelReady by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
     var isLoadingModel by remember { mutableStateOf(false) }
+    var modelInitializationAttempted by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
     var showTerminalDialog by remember { mutableStateOf(false) }
     var showConversationsDialog by remember { mutableStateOf(false) }
@@ -1103,6 +1105,34 @@ fun KellvynApp() {
         }
     }
 
+    fun retryLocalModelInitialization() {
+        if (isLoadingModel || modelReady) return
+        scope.launch {
+            isLoadingModel = true
+            modelInitializationAttempted = true
+            status = "Tentando preparar a IA local novamente…"
+            try {
+                localEngine.prepareLocalModel { progress -> status = progress }
+                if (localEngine.hasSavedModel()) {
+                    status = "Modelo local encontrado; inicializando…"
+                    updateModelResult(localEngine.loadSavedModel())
+                } else {
+                    updateModelResult(AssistantResult.Unavailable(
+                        "O modelo local não ficou disponível. Verifique a conexão e tente novamente."
+                    ))
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                updateModelResult(AssistantResult.Failure(
+                    "Não foi possível preparar a IA local: " + (e.message ?: e.javaClass.simpleName)
+                ))
+            } finally {
+                isLoadingModel = false
+            }
+        }
+    }
+
     val fileExportPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/plain")
     ) { destination ->
@@ -1290,12 +1320,20 @@ fun KellvynApp() {
             if (localEngine.hasSavedModel()) {
                 status = "IA local encontrada; inicializando…"
                 updateModelResult(localEngine.loadSavedModel())
+            } else {
+                updateModelResult(AssistantResult.Unavailable(
+                    "O modelo local não ficou disponível. Verifique a conexão e tente novamente."
+                ))
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            status = "Não foi possível preparar a IA local: " +
-                (e.message ?: e.javaClass.simpleName)
+            updateModelResult(AssistantResult.Failure(
+                "Não foi possível preparar a IA local: " + (e.message ?: e.javaClass.simpleName)
+            ))
         } finally {
             isLoadingModel = false
+            modelInitializationAttempted = true
         }
     }
 
@@ -1734,6 +1772,15 @@ fun KellvynApp() {
                     lineHeight = 13.sp,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)
                 )
+            }
+            if (modelInitializationAttempted && !modelReady && !isLoadingModel) {
+                TextButton(
+                    onClick = { retryLocalModelInitialization() },
+                    modifier = Modifier.align(Alignment.End).heightIn(min = 26.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Text("Tentar novamente", color = accentColor, fontSize = 10.sp)
+                }
             }
 
             Surface(
