@@ -111,6 +111,21 @@ class LocalSvgImageGeneratorTest {
     }
 
     @Test
+    fun generatedSvgDropsUnsupportedClippingButStrictValidationStillRejectsIt() {
+        val source = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><clipPath id="cut"><circle cx="5" cy="5" r="4"/></clipPath></defs><rect x="0" y="0" width="10" height="10" fill="#38e6bc" clip-path="url(#cut)"/></svg>"""
+
+        assertTrue("Imported SVG must still reject unsupported clipPath markup.",
+            runCatching { LocalSvgImageGenerator.extractAndValidate(source) }.isFailure)
+
+        val normalized = LocalSvgImageGenerator.extractGeneratedAndValidate(source)
+        assertFalse("Generated SVG still contains unsupported clipPath markup.", normalized.contains("clipPath"))
+        assertFalse("Generated SVG still contains a clip-path attribute.", normalized.contains("clip-path="))
+        assertTrue("The drawing geometry should be retained.", normalized.contains("<rect"))
+        assertTrue("Normalized generated SVG must pass strict validation.",
+            runCatching { LocalSvgImageGenerator.extractAndValidate(normalized) }.isSuccess)
+    }
+
+    @Test
     fun acceptsTheOfficialSvgNamespacePrefixDeclaration() {
         val source = """<svg:svg xmlns:svg="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><svg:rect x="0" y="0" width="10" height="10" fill="#38e6bc"/></svg:svg>"""
         assertTrue(LocalSvgImageGenerator.extractAndValidate(source).contains("xmlns:svg="))
