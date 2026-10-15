@@ -59,6 +59,26 @@ class LocalPromptBudgetTest {
     }
 
     @Test
+    fun tailOfMostRecentPriorTurnIsKeptWhenItCannotFitWhole() {
+        val latestPrior = "CONTEXTO-RECENTE-".repeat(1_000)
+        val budget = boundLocalPrompt(
+            systemInstruction = "K".repeat(10_000),
+            priorTurns = listOf(
+                AssistantTurn(AssistantTurn.Role.USER, "turno antigo"),
+                AssistantTurn(AssistantTurn.Role.ASSISTANT, latestPrior)
+            ),
+            latestUserText = "continua",
+            requestedMaxOutputTokens = 1024
+        )
+
+        assertEquals(1, budget.priorTurns.size)
+        val retained = budget.priorTurns.single().content
+        assertTrue(retained.startsWith("…"))
+        assertTrue(latestPrior.endsWith(retained.removePrefix("…")))
+        assertTrue(retained.length < latestPrior.length)
+    }
+
+    @Test
     fun chatOutputNeverExceedsItsRequestedLimit() {
         val budget = boundLocalPrompt(
             systemInstruction = "System context",
