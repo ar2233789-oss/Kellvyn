@@ -82,8 +82,8 @@ class ManualShellExecutor(
     }
 
     private companion object {
-        const val MAX_COMMAND_CHARS = 2_000
-        const val MAX_RUNTIME_SECONDS = 15L
-        const val MAX_OUTPUT_BYTES = 64 * 1024
+        const val MAX_COMMAND_CHARS = 4_000
+        const val MAX_RUNTIME_SECONDS = 120L
+        const val MAX_OUTPUT_BYTES = 128 * 1024
     }
 }
