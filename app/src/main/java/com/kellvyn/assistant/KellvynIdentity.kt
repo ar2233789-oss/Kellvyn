@@ -51,7 +51,20 @@ internal object KellvynIdentity {
         "deus da ritalina e seu tutor",
         "deus da ritalina e seu superior",
         "quem te orienta",
-        "quem supervisiona voce"
+        "quem supervisiona voce",
+        "kellvyn e seu criador",
+        "kellvyn e quem te criou",
+        "quem e kellvyn para voce",
+        "qual e o papel de kellvyn",
+        "qual e o papel do deus da ritalina",
+        "qual e o papel de deus da ritalina",
+        "qual e a relacao entre voce e deus da ritalina",
+        "qual e sua relacao com deus da ritalina",
+        "qual e a sua relacao com deus da ritalina",
+        "o que deus da ritalina e para voce",
+        "deus da ritalina no seu desenvolvimento",
+        "deus da ritalina participa do seu desenvolvimento",
+        "quem responde pelo desenvolvimento da kellvyn"
     )
 
     fun isIdentityQuestion(text: String): Boolean {
