@@ -30,7 +30,7 @@ class LocalAttachmentExtractionTest {
         get() = ApplicationProvider.getApplicationContext()
 
     @Test
-    fun extractsTextFromDocxAndOdtWithoutNetwork() {
+    fun extractsTextFromDocxAndOdtWithoutNetwork() = runBlocking {
         val docx = File(context.cacheDir, "kellvyn-attachment-test.docx")
         val odt = File(context.cacheDir, "kellvyn-attachment-test.odt")
         try {
@@ -62,7 +62,7 @@ class LocalAttachmentExtractionTest {
     }
 
     @Test
-    fun extractsSearchableTextFromPdfWithoutNetwork() {
+    fun extractsSearchableTextFromPdfWithoutNetwork() = runBlocking {
         PDFBoxResourceLoader.init(context)
         val file = File(context.cacheDir, "kellvyn-attachment-test.pdf")
         try {
@@ -88,7 +88,7 @@ class LocalAttachmentExtractionTest {
     }
 
     @Test
-    fun extractsTextFromScannedPdfWithOnDeviceOcr() {
+    fun extractsTextFromScannedPdfWithOnDeviceOcr() = runBlocking {
         PDFBoxResourceLoader.init(context)
         val file = File(context.cacheDir, "kellvyn-scanned-pdf-test.pdf")
         val bitmap = Bitmap.createBitmap(1200, 320, Bitmap.Config.ARGB_8888)
