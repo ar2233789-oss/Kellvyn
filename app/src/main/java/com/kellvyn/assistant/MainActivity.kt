@@ -1404,7 +1404,11 @@ fun KellvynApp() {
                 Column(Modifier.weight(1f)) {
                     Text("Kellvyn Assistente", color = accentColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Text(
-                        if (modelReady) "KELLVYN IA • LOCAL" else "KELLVYN IA • INICIALIZANDO",
+                        when {
+                            modelReady -> "KELLVYN IA • LOCAL"
+                            isLoadingModel || !modelInitializationAttempted -> "KELLVYN IA • INICIALIZANDO"
+                            else -> "KELLVYN IA • INDISPONÍVEL"
+                        },
                         color = Muted,
                         fontSize = 9.sp,
                         letterSpacing = 1.sp,
@@ -1818,7 +1822,11 @@ fun KellvynApp() {
                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Text(
-                            if (modelReady) "● IA local" else if (isLoadingModel) "◌ Preparando IA" else "IA local indisponível",
+                            when {
+                                modelReady -> "● IA local"
+                                isLoadingModel || !modelInitializationAttempted -> "◌ Preparando IA"
+                                else -> "IA local indisponível"
+                            },
                             color = if (modelReady) accentColor else Muted,
                             fontSize = 10.sp,
                             maxLines = 1
