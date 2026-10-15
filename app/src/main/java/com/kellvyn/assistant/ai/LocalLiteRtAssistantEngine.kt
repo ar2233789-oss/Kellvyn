@@ -37,6 +37,12 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         const val BUNDLED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
         const val MAX_CHAT_OUTPUT_TOKENS = 1024
         const val MAX_PROJECT_OUTPUT_TOKENS = 8192
+        const val MODEL_CONTEXT_TOKEN_LIMIT = 8192
+        const val CONTEXT_SAFETY_TOKEN_RESERVE = 384
+        const val TEMPLATE_OVERHEAD_TOKENS = 256
+        const val CHARS_PER_TOKEN_NUMERATOR = 5
+        const val CHARS_PER_TOKEN_DENOMINATOR = 2
+        const val MIN_OUTPUT_TOKEN_BUDGET = 256
     }
 
     private val appContext = context.applicationContext
@@ -267,14 +273,6 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             return@withContext AssistantResult.Failure("Não há mensagem do usuário para responder.")
         }
 
-        val priorMessages = conversation.take(lastUserIndex).mapNotNull { turn ->
-            when (turn.role) {
-                AssistantTurn.Role.SYSTEM -> null
-                AssistantTurn.Role.USER -> Message.user(turn.content)
-                AssistantTurn.Role.ASSISTANT -> Message.model(turn.content)
-            }
-        }
-
         try {
             val answer = StringBuilder()
             var lastPublishedLength = 0
@@ -288,26 +286,39 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 onPartial(capabilityNotice)
                 return@withContext AssistantResult.Success(capabilityNotice)
             }
+
+            val baseSystemInstruction = buildString {
+                append(
+                    "Você é Kellvyn IA, o assistente integrado ao aplicativo Kellvyn. Responda em português brasileiro, com clareza, naturalidade e sem enrolação. " +
+                        "Identidade fixa: o projeto Kellvyn IA foi idealizado e criado por Kellvyn, que definiu sua identidade, seus objetivos e seu comportamento. Se perguntarem quem te criou, quem desenvolveu o projeto ou quem você é, reconheça explicitamente Kellvyn como criador do projeto. " +
+                        "O modelo de linguagem é a tecnologia usada para gerar respostas; Kellvyn é o criador do aplicativo. Não confunda o modelo integrado com o aplicativo que o utiliza. " +
+                        "Não invente capacidades nem ações executadas. Terminal/Termux é independente do chat e não participa de tarefas de programação. Para criar, editar ou compilar projetos, use as ferramentas internas do aplicativo; nunca sugira nem encaminhe essas tarefas para terminal/Termux. O editor serve apenas para guardar e consultar códigos, não é um agente independente. Para tarefas que precisarem de internet, use a conexão já disponível no Android sem pedir configuração manual. A conversa usa um modelo textual local; um fluxo especializado pode pedir ao mesmo modelo uma ilustração vetorial SVG, validar o código e renderizá-lo como PNG localmente. Isso não é geração por difusão/fotorrealista. Imagens anexadas são analisadas separadamente no aparelho por rótulos visuais aproximados e OCR; os pixels não são enviados ao modelo textual e os rótulos não equivalem a uma descrição visual completa. Nunca afirme ter gerado arquivo sem o fluxo de imagem retornar sucesso real."
+                )
+                conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }
+                    ?.content
+                    ?.take(MAX_SYSTEM_CONTEXT_CHARS)
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { appendLine(); appendLine(); append(it) }
+            }
+            val requestedOutputLimit = if (projectGeneration) MAX_PROJECT_OUTPUT_TOKENS else MAX_CHAT_OUTPUT_TOKENS
+            val boundedPrompt = boundLocalPrompt(
+                systemInstruction = baseSystemInstruction,
+                priorTurns = conversation.take(lastUserIndex).filter { it.role != AssistantTurn.Role.SYSTEM },
+                latestUserText = requestedText,
+                requestedMaxOutputTokens = requestedOutputLimit
+            )
+            val priorMessages = boundedPrompt.priorTurns.map { turn ->
+                when (turn.role) {
+                    AssistantTurn.Role.SYSTEM -> error("System messages are not allowed in the retained history.")
+                    AssistantTurn.Role.USER -> Message.user(turn.content)
+                    AssistantTurn.Role.ASSISTANT -> Message.model(turn.content)
+                }
+            }
             val config = ConversationConfig(
-                systemInstruction = Contents.of(
-                    buildString {
-                        append(
-                            "Você é Kellvyn IA, o assistente integrado ao aplicativo Kellvyn. Responda em português brasileiro, com clareza, naturalidade e sem enrolação. " +
-                                "Identidade fixa: o projeto Kellvyn IA foi idealizado e criado por Kellvyn, que definiu sua identidade, seus objetivos e seu comportamento. Se perguntarem quem te criou, quem desenvolveu o projeto ou quem você é, reconheça explicitamente Kellvyn como criador do projeto. " +
-                                "O modelo de linguagem é a tecnologia usada para gerar respostas; Kellvyn é o criador do aplicativo. Não confunda o modelo integrado com o aplicativo que o utiliza. " +
-                                "Não invente capacidades nem ações executadas. Terminal/Termux é independente do chat e não participa de tarefas de programação. Para criar, editar ou compilar projetos, use as ferramentas internas do aplicativo; nunca sugira nem encaminhe essas tarefas para terminal/Termux. O editor serve apenas para guardar e consultar códigos, não é um agente independente. Para tarefas que precisarem de internet, use a conexão já disponível no Android sem pedir configuração manual. A conversa usa um modelo textual local; um fluxo especializado pode pedir ao mesmo modelo uma ilustração vetorial SVG, validar o código e renderizá-lo como PNG localmente. Isso não é geração por difusão/fotorrealista. Imagens anexadas são analisadas separadamente no aparelho por rótulos visuais aproximados e OCR; os pixels não são enviados ao modelo textual e os rótulos não equivalem a uma descrição visual completa. Nunca afirme ter gerado arquivo sem o fluxo de imagem retornar sucesso real."
-                        )
-                        conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }
-                            ?.content
-                            ?.take(MAX_SYSTEM_CONTEXT_CHARS)
-                            ?.takeIf { it.isNotBlank() }
-                            ?.let { appendLine(); appendLine(); append(it) }
-                    }
-                ),
+                systemInstruction = Contents.of(boundedPrompt.systemInstruction),
                 initialMessages = priorMessages,
-                // Bound output length so malformed model output cannot stream indefinitely.
-                // Code generation gets a larger budget because it must return a complete JSON project.
-                maxOutputToken = if (projectGeneration) MAX_PROJECT_OUTPUT_TOKENS else MAX_CHAT_OUTPUT_TOKENS,
+                // Keep the latest request intact and bound history/output to the model's 8K context.
+                maxOutputToken = boundedPrompt.maxOutputTokens,
                 samplerConfig = SamplerConfig(
                     topK = 40,
                     topP = 0.9,
@@ -400,4 +411,62 @@ internal fun isExplicitImageGenerationRequest(prompt: String): Boolean {
         "gere uma ilustracao", "crie uma ilustração", "crie uma ilustracao",
         "generate an image", "create an image", "draw an image"
     ).any { it in value }
+}
+
+/**
+ * Conservative character-based budgeting for the local model's 8K-token context.
+ * The newest request is never shortened. When space is tight, older turns are trimmed first,
+ * then system context; remaining output capacity is passed to LiteRT-LM instead of requesting
+ * an output budget that cannot fit alongside the input.
+ */
+internal data class BoundedLocalPrompt(
+    val systemInstruction: String,
+    val priorTurns: List<AssistantTurn>,
+    val maxOutputTokens: Int
+)
+
+internal fun boundLocalPrompt(
+    systemInstruction: String,
+    priorTurns: List<AssistantTurn>,
+    latestUserText: String,
+    requestedMaxOutputTokens: Int
+): BoundedLocalPrompt {
+    require(requestedMaxOutputTokens > 0) { "O limite de saída precisa ser positivo." }
+
+    fun estimateTokens(charCount: Int): Int =
+        ((charCount.coerceAtLeast(0) * CHARS_PER_TOKEN_DENOMINATOR) + CHARS_PER_TOKEN_NUMERATOR - 1) /
+            CHARS_PER_TOKEN_NUMERATOR
+
+    val overheadChars = TEMPLATE_OVERHEAD_TOKENS * CHARS_PER_TOKEN_NUMERATOR / CHARS_PER_TOKEN_DENOMINATOR
+    val estimatedUserAndTemplateTokens = estimateTokens(latestUserText.length + overheadChars)
+    val systemOutputReserve = minOf(requestedMaxOutputTokens, MAX_CHAT_OUTPUT_TOKENS)
+    val systemTokenCapacity = (
+        MODEL_CONTEXT_TOKEN_LIMIT - estimatedUserAndTemplateTokens -
+            CONTEXT_SAFETY_TOKEN_RESERVE - systemOutputReserve
+        ).coerceAtLeast(MIN_OUTPUT_TOKEN_BUDGET)
+    val systemCharCapacity = systemTokenCapacity * CHARS_PER_TOKEN_NUMERATOR / CHARS_PER_TOKEN_DENOMINATOR
+    val boundedSystem = systemInstruction.take(minOf(systemInstruction.length, systemCharCapacity))
+
+    val fixedInputTokens = estimateTokens(boundedSystem.length + latestUserText.length + overheadChars)
+    val availableOutputTokens = (
+        MODEL_CONTEXT_TOKEN_LIMIT - fixedInputTokens - CONTEXT_SAFETY_TOKEN_RESERVE
+        ).coerceAtLeast(MIN_OUTPUT_TOKEN_BUDGET)
+    val outputTokenBudget = minOf(requestedMaxOutputTokens, availableOutputTokens)
+
+    val remainingHistoryTokens = (
+        MODEL_CONTEXT_TOKEN_LIMIT - fixedInputTokens - outputTokenBudget - CONTEXT_SAFETY_TOKEN_RESERVE
+        ).coerceAtLeast(0)
+    var remainingHistoryChars = remainingHistoryTokens * CHARS_PER_TOKEN_NUMERATOR / CHARS_PER_TOKEN_DENOMINATOR
+    val retainedReversed = ArrayList<AssistantTurn>()
+    for (turn in priorTurns.asReversed()) {
+        if (turn.content.length > remainingHistoryChars) break
+        retainedReversed += turn
+        remainingHistoryChars -= turn.content.length
+    }
+
+    return BoundedLocalPrompt(
+        systemInstruction = boundedSystem,
+        priorTurns = retainedReversed.asReversed(),
+        maxOutputTokens = outputTokenBudget
+    )
 }
