@@ -12,7 +12,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Histórico limitado e apagável; memórias explícitas podem ser guardadas, vistas e apagadas.
 - [x] Contexto recente ampliado para 32 mensagens, com orçamento dinâmico de tokens que preserva o pedido atual, reduz contexto antigo e limita a saída ao espaço disponível do modelo.
 - [x] Falhas de inicialização do modelo mostram erro e ação de tentar novamente; cancelamentos de inferência, geração de projetos, OCR e exportação são propagados em vez de virarem erros genéricos.
-- [x] Gradle Wrapper oficial 8.9 incluído com SHA-256 da distribuição fixado para permitir builds de desenvolvimento locais do aplicativo anfitrião sem workflows remotos; ainda não executado neste ambiente.
+- [x] Gradle Wrapper oficial 8.9 incluído com SHA-256 da distribuição fixado para builds locais do aplicativo anfitrião. O workflow `android-apk.yml` também compila e publica o APK anfitrião de debug após testes unitários; isso não substitui a validação local no aparelho.
 - [x] Ditado em português no compositor e ação “Ouvir” nas respostas, usando recursos disponíveis no próprio Android e informando quando indisponíveis.
 - [x] Ícones do cabeçalho, compositor e catálogo Apps substituídos por desenhos vetoriais escaláveis em Canvas; validar a aparência final no Poco F6 ainda está pendente.
 - [x] Código da sobreposição flutuante e do leitor de tela declarado no Manifesto; o usuário precisa conceder permissão de sobreposição e habilitar Acessibilidade para ler texto somente por toque.
@@ -27,7 +27,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Código da ponte Termux RUN_COMMAND, recepção de resultado real e política de uso pelo agente principal em tarefas que precisam de shell e foram solicitadas no chat; confirmação antes de cada comando. A integração ainda precisa de build e teste real.
 - [x] Fluxo do chat consulta o compilador e mostra o resultado/diagnósticos; o APK mais recente pode ser salvo ou instalado.
 - [x] Exportação de projetos em arquivo compactado removida. O resultado de criação de aplicativos é o APK, não um arquivo compactado.
-- [x] Workflows de build e teste em nuvem removidos; não compilar apps criados via GitHub Actions, Replit ou servidores remotos.
+- [x] Separação do tipo de build: a CI compila/publica somente o APK anfitrião de debug e roda testes de aceitação com projetos-fixture descartáveis; a compilação de projetos solicitados pelo usuário no uso real permanece responsabilidade do compilador local no aparelho, sem Replit ou servidores remotos.
 - [x] Código para runtime nativo de bots Telegram: token criptografado, long polling da Bot API, comandos por manifesto e ativação pelo catálogo Apps. Build e teste real continuam pendentes.
 - [x] Isolamento entre runtimes Discord/Telegram: cada serviço confere o `platform` do manifesto antes de alterar o registro compartilhado; comandos de parada enviados ao runtime errado não desativam o outro tipo de bot. Testes unitários da guarda de plataforma adicionados; teste de serviço real continua pendente.
 
@@ -36,11 +36,12 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [ ] Compilar o próprio Kellvyn a partir de um checkout limpo em ambiente Android local.
 - [x] Adicionar inicialização do modelo local com fallback para download público fixado por revisão, progresso real, tamanho esperado e verificação SHA-256, sem inferência remota.
 - [ ] Testar o primeiro download de aproximadamente 374 MB, cancelamento/falha de rede e reinicialização no Poco F6.
-- [ ] Executar `./gradlew testDebugUnitTest` e `./gradlew assembleDebug` no ambiente Android local; depois rodar instrumentações e a suíte real que pede ao modelo local criar projetos e compilar APKs.
+- [x] CI executou `testDebugUnitTest` e `assembleDebug` para o APK anfitrião; build #47 terminou com sucesso: https://github.com/ar2233789-oss/Kellvyn/actions/runs/38765936032. Isso comprova a compilação na CI, não uma build independente em Android local.
 - [ ] Confirmar permissões e funcionamento da bolha flutuante em Android 15/HyperOS e ajustar dimensões/legibilidade em uma captura real do Poco F6.
 - [ ] Instalar e testar o APK anfitrião no Poco F6 real, incluindo a transferência inicial do modelo se ele não vier embutido.
 - [ ] Testar com token de teste a ativação/desativação e os comandos /start, /ping e /echo do runtime Telegram, além de reconexão após perda de rede e restauração após reinício.
 - [ ] Executar teste instrumentado no Android com ambos os runtimes ativos para comprovar restauração, parada individual e parada global sem interferência entre Discord e Telegram.
+- [ ] Concluir a suíte de aceitação com modelo local no emulador e inspecionar relatório/logs antes de declarar aprovadas as conversas reais, geração de apps e compilação/instalação de APKs-fixture. Execução atual: https://github.com/ar2233789-oss/Kellvyn/actions/runs/38765935892 (ainda em andamento na última verificação).
 - [ ] Confirmar que o modelo gera respostas reais e medir RAM, tempo, aquecimento e estabilidade.
 - [ ] Confirmar que ditado e leitura em voz alta funcionam em português no aparelho-alvo.
 - [ ] Pedir no chat a criação de um app Java mínimo, deixar o Kellvyn compilá-lo localmente, verificar assinatura/package ID e instalar o APK.
