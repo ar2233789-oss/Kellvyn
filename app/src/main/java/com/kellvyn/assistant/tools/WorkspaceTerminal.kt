@@ -36,10 +36,7 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
      */
         fun executeInteractive(raw: String): String {
         val command = tokenize(raw).firstOrNull()?.lowercase(Locale.ROOT) ?: return ""
-        // Keep only custom workspace/Git helpers and persistent cd handling in the built-in
-        // router. Standard shell commands should support flags, pipes, chaining and redirection.
-        val workspaceCommands = setOf("help", "pwd", "cd", "tree", "write", "append", "status", "projects", "git")
-        return if (command in workspaceCommands) {
+        return if (shouldUseWorkspaceTerminalHandler(command)) {
             execute(raw)
         } else {
             ManualShellExecutor(root).execute(raw, currentDirectoryFile())
@@ -483,3 +480,11 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
         const val MAX_OUTPUT_CHARS = 30_000
     }
 }
+
+
+/**
+ * Custom commands that must preserve workspace navigation or use the app's JGit API.
+ * All ordinary shell utilities are delegated to Android's shell for standard flags/pipelines.
+ */
+internal fun shouldUseWorkspaceTerminalHandler(command: String): Boolean =
+    command.lowercase(Locale.ROOT) in setOf("help", "pwd", "cd", "tree", "write", "append", "status", "projects", "git")
