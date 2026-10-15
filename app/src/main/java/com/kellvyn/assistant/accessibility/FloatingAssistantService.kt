@@ -103,7 +103,7 @@ class FloatingAssistantService : Service() {
         root.addView(orb, LinearLayout.LayoutParams(dp(42), dp(42)).apply { gravity = Gravity.END })
         panel = buildPanel().also { view ->
             view.visibility = android.view.View.GONE
-            root.addView(view, LinearLayout.LayoutParams(dp(300), dp(430)))
+            root.addView(view, LinearLayout.LayoutParams(dp(260), dp(330)))
         }
         val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
         val params = WindowManager.LayoutParams(
@@ -174,35 +174,33 @@ class FloatingAssistantService : Service() {
         val outer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(10), dp(6), dp(10), dp(9))
+            background = rounded(Color.rgb(5, 19, 16), Color.rgb(56, 230, 188), 18f, dp(1))
         }
         val top = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             orientation = LinearLayout.HORIZONTAL
         }
         top.addView(TextView(this).apply {
-            text = "Kellvyn · ajuda rápida"
-            textSize = 15f
+            text = "Kellvyn IA"
+            textSize = 14f
             setTextColor(Color.rgb(56, 230, 188))
             typeface = Typeface.DEFAULT_BOLD
-        }, LinearLayout.LayoutParams(0, dp(38), 1f))
+        }, LinearLayout.LayoutParams(0, dp(34), 1f))
         top.addView(button("×") { togglePanel() })
         outer.addView(top)
 
-        statusText = TextView(this).apply {
-            text = "Toque em Ler tela para usar o texto visível no app atual."
-            textSize = 11f
-            setTextColor(Color.rgb(145, 184, 173))
+        val scroll = ScrollView(this)
+        resultText = TextView(this).apply {
+            text = "Converse comigo."
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            setPadding(dp(4), dp(6), dp(4), dp(8))
         }
-        outer.addView(statusText)
-
-        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        actions.addView(button("Ler tela") { readScreenAloud() }, LinearLayout.LayoutParams(0, dp(40), 1f))
-        actions.addView(button("Traduzir") { runScreenTask("Traduza fielmente para português o texto visível na tela. Preserve nomes, números e formatação essencial.") }, LinearLayout.LayoutParams(0, dp(40), 1f))
-        actions.addView(button("Responder") { runScreenTask("Prepare uma resposta breve e natural para a mensagem visível na tela. Não envie a mensagem; apenas mostre uma sugestão que o usuário possa revisar e copiar.") }, LinearLayout.LayoutParams(0, dp(40), 1f))
-        outer.addView(actions)
+        scroll.addView(resultText)
+        outer.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
         promptEdit = EditText(this).apply {
-            hint = "Peça algo sobre o texto da tela…"
+            hint = "Digite sua mensagem…"
             textSize = 13f
             setTextColor(Color.WHITE)
             setHintTextColor(Color.GRAY)
@@ -210,29 +208,14 @@ class FloatingAssistantService : Service() {
             background = rounded(Color.rgb(12, 32, 27), Color.rgb(28, 92, 75), 10f, dp(1))
             maxLines = 3
         }
-        outer.addView(promptEdit, LinearLayout.LayoutParams(-1, dp(72)).apply { topMargin = dp(5) })
-        outer.addView(button("Perguntar ao Kellvyn") {
+        outer.addView(promptEdit, LinearLayout.LayoutParams(-1, dp(62)).apply { topMargin = dp(5) })
+        outer.addView(button("Enviar") {
             val prompt = promptEdit?.text?.toString()?.trim().orEmpty()
-            if (prompt.isNotBlank()) ask(prompt, includeScreen = latestScreenText.isNotBlank())
-        }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(5) })
-
-        val scroll = ScrollView(this)
-        resultText = TextView(this).apply {
-            text = "As respostas aparecem aqui, sem abrir o chat inteiro."
-            textSize = 12f
-            setTextColor(Color.WHITE)
-            setPadding(dp(4), dp(8), dp(4), dp(8))
-        }
-        scroll.addView(resultText)
-        outer.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        outer.addView(button("Copiar resposta") {
-            val output = resultText?.text?.toString().orEmpty()
-            if (output.isNotBlank()) {
-                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("Resposta do Kellvyn", output))
-                setStatus("Resposta copiada. Revise antes de enviar.")
+            if (prompt.isNotBlank()) {
+                promptEdit?.setText("")
+                ask(prompt, includeScreen = false)
             }
-        }, LinearLayout.LayoutParams(-1, dp(38)))
+        }, LinearLayout.LayoutParams(-1, dp(38)).apply { topMargin = dp(5) })
         return outer
     }
 
