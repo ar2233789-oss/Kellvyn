@@ -5,13 +5,13 @@ mkdir -p android-test-reports
 
 case "${ACCEPTANCE_SUITE:-model-acceptance}" in
   compiler-smoke)
-    TEST_METHOD="com.kellvyn.assistant.workspace.LocalCompilerAgentIntegrationTest#builderProjectCanBeBuiltByTheAgentToolIntoVerifiedInstallableApk"
+    TEST_FILTER="com.kellvyn.assistant.workspace.LocalCompilerAgentIntegrationTest#builderProjectCanBeBuiltByTheAgentToolIntoVerifiedInstallableApk"
     ;;
   model-acceptance)
-    TEST_METHOD="com.kellvyn.assistant.workspace.LocalCompilerAgentIntegrationTest#realLocalModelAcceptanceSuiteChatsBuildsRainGameAndMusicPlayer"
+    TEST_FILTER="com.kellvyn.assistant.workspace.LocalCompilerAgentIntegrationTest#realLocalModelAcceptanceSuiteChatsBuildsRainGameAndMusicPlayer"
     ;;
   svg-model-smoke)
-    TEST_METHOD="com.kellvyn.assistant.attachments.LocalSvgImageGeneratorTest#realLocalModelGeneratesValidatedImage"
+    TEST_FILTER="com.kellvyn.assistant.attachments.LocalSvgImageGeneratorTest"
     ;;
   *)
     echo "Unknown acceptance suite: ${ACCEPTANCE_SUITE}"
@@ -19,7 +19,7 @@ case "${ACCEPTANCE_SUITE:-model-acceptance}" in
     ;;
 esac
 
-./gradlew --no-daemon --stacktrace connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=${TEST_METHOD}"
+./gradlew --no-daemon --stacktrace connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=${TEST_FILTER}"
 TEST_EXIT=$?
 
 adb shell run-as com.kellvyn.assistant cat files/kellvyn_qa/model-acceptance-report.md > android-test-reports/model-acceptance-report.md 2>/dev/null || true
