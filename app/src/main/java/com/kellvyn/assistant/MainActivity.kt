@@ -1,6 +1,7 @@
 package com.kellvyn.assistant
 
 import android.app.Activity
+import android.graphics.BitmapFactory
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.Intent
@@ -25,6 +26,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,6 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -57,6 +61,8 @@ import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.accessibility.FloatingAssistantService
 import com.kellvyn.assistant.attachments.LocalDocumentTextExtractor
 import com.kellvyn.assistant.attachments.LocalImageTextExtractor
+import com.kellvyn.assistant.attachments.LocalSvgImageGenerator
+import com.kellvyn.assistant.attachments.LocalSvgGenerationResult
 import com.kellvyn.assistant.ai.AssistantAgent
 import com.kellvyn.assistant.ai.AgentToolRouter
 import com.kellvyn.assistant.ai.AssistantResult
@@ -329,6 +335,7 @@ fun KellvynApp() {
     var pendingFileExportContent by remember { mutableStateOf<String?>(null) }
     var pendingFileExportName by remember { mutableStateOf("") }
     var pendingApkExport by remember { mutableStateOf<File?>(null) }
+    var pendingImageExport by remember { mutableStateOf<File?>(null) }
     var latestBuiltApk by remember(localAndroidCompiler) { mutableStateOf(localAndroidCompiler.mostRecentApk()) }
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
     var showSdkLicenseDialog by remember { mutableStateOf(false) }
@@ -756,6 +763,7 @@ fun KellvynApp() {
             return
         }
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
+        val wantsImage = ChatRequestRouter.shouldGenerateImage(text)
         if (!modelReady && !existingBuildOnly) {
             messages.add(ChatMessage(text, true))
             messages.add(ChatMessage("O núcleo de IA ainda não iniciou. Confira o estado exibido na tela e tente novamente quando o carregamento terminar.", false))
@@ -769,12 +777,14 @@ fun KellvynApp() {
         saveHistory()
         draft = ""
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
-        val wantsBuild = !wantsExistingBuild &&
+        val wantsBuild = !wantsImage && !wantsExistingBuild &&
             ChatRequestRouter.shouldBuild(text)
-        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseOnlineTools(text)
+        val wantsCoder = !wantsImage && (wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseOnlineTools(text))
         isGenerating = true
-        streamingReply = "Pensando…"
-        status = if (wantsBuild) {
+        streamingReply = if (wantsImage) "Preparando ilustração…" else "Pensando…"
+        status = if (wantsImage) {
+            "Criando uma ilustração vetorial com a IA local…"
+        } else if (wantsBuild) {
             "Planejando e gerando o projeto com o núcleo local…"
         } else if (wantsExistingBuild) {
             "Selecionando o projeto e iniciando a compilação local…"
@@ -785,7 +795,26 @@ fun KellvynApp() {
         val selectedEngine: AssistantEngine = localEngine
         scope.launch {
             try {
-                if (wantsBuild) {
+                if (wantsImage) {
+                    when (val generated = LocalSvgImageGenerator.generate(context, localEngine, text) { progress ->
+                        scope.launch(Dispatchers.Main.immediate) {
+                            status = progress
+                            streamingReply = progress
+                        }
+                    }) {
+                        is LocalSvgGenerationResult.Success -> {
+                            messages.add(ChatMessage(
+                                "Ilustração vetorial gerada com a IA local e convertida em PNG neste aparelho.\nIMAGEM_LOCAL_GERADA:" + generated.pngFile.name,
+                                false
+                            ))
+                            status = "Imagem PNG criada localmente. Você pode pré-visualizar e salvar o arquivo abaixo."
+                        }
+                        is LocalSvgGenerationResult.Failure -> {
+                            messages.add(ChatMessage("Não consegui gerar a imagem: " + generated.reason, false))
+                            status = generated.reason
+                        }
+                    }
+                } else if (wantsBuild) {
                     when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
                         is AppBuildResult.Success -> {
                             val project = result.project
@@ -1167,6 +1196,28 @@ fun KellvynApp() {
         }
     }
 
+    val imageExportPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("image/png")
+    ) { destination ->
+        val source = pendingImageExport
+        pendingImageExport = null
+        if (destination != null && source != null && source.isFile) {
+            val fileToCopy = source
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(destination, "w")?.use { output ->
+                            fileToCopy.inputStream().buffered().use { input -> input.copyTo(output) }
+                        } ?: throw IllegalStateException("O Android não abriu o destino para salvar a imagem.")
+                    }
+                    status = "Imagem salva: " + fileToCopy.name
+                } catch (e: Exception) {
+                    status = "Falha ao salvar a imagem: " + (e.message ?: e.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
     val speechInputLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -1278,7 +1329,7 @@ fun KellvynApp() {
                     modifier = Modifier.background(Panel)
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Ler arquivo de texto/código") },
+                        text = { Text("Anexar arquivo, documento ou imagem") },
                         onClick = {
                             showQuickMenu = false
                             readFileLauncher.launch(arrayOf("*/*"))
@@ -1377,13 +1428,58 @@ fun KellvynApp() {
                                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0B3329)),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
+                                    val imageMarker = Regex("""IMAGEM_LOCAL_GERADA:([A-Za-z0-9._-]+)""")
+                                        .find(message.text)?.groupValues?.getOrNull(1)
+                                    val visibleAssistantText = if (imageMarker == null) message.text
+                                        else message.text.replace("IMAGEM_LOCAL_GERADA:" + imageMarker, "").trim()
                                     Text(
-                                        message.text,
+                                        visibleAssistantText,
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                                         color = Color(0xFF9ED7C8),
                                         fontSize = 14.sp,
                                         lineHeight = 20.sp
                                     )
+                                }
+                                val generatedImageFile = imageMarker?.let { name ->
+                                    File(File(context.filesDir, "kellvyn_images"), name)
+                                        .takeIf { it.isFile && it.length() > 0L }
+                                }
+                                val generatedImageBitmap = remember(generatedImageFile?.absolutePath) {
+                                    generatedImageFile?.let { file ->
+                                        runCatching { BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap() }.getOrNull()
+                                    }
+                                }
+                                if (generatedImageBitmap != null && generatedImageFile != null) {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                        color = Color(0xFF061F17),
+                                        shape = RoundedCornerShape(13.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.6f))
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth().padding(9.dp),
+                                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                                        ) {
+                                            Text("Ilustração PNG local", color = accentColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Image(
+                                                bitmap = generatedImageBitmap,
+                                                contentDescription = "Ilustração vetorial gerada pelo Kellvyn",
+                                                modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                                TextButton(
+                                                    onClick = {
+                                                        if (generatedImageFile.isFile && generatedImageFile.length() > 0L) {
+                                                            pendingImageExport = generatedImageFile
+                                                            imageExportPicker.launch(generatedImageFile.name)
+                                                        } else status = "O arquivo PNG desta resposta não está mais disponível."
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                                ) { Text("Salvar imagem", color = accentColor, fontSize = 11.sp) }
+                                            }
+                                        }
+                                    }
                                 }
                                 val apkNameFromMessage = if (message.text.contains("APK criado, assinado e verificado no próprio celular.")) {
                                     Regex("""Arquivo:\s+([a-z0-9][a-z0-9-]{0,60}\.apk)\.""", RegexOption.IGNORE_CASE)
