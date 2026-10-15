@@ -1020,11 +1020,17 @@ class AssistantAgent(
                     }.getOrElse { "Não consegui listar os projetos: ${it.message}" }
                     "Para compilar sem escolher o projeto errado, diga o nome/ID do projeto. Projetos atuais: " + projects
                 } else {
-                    onToolStatus("Iniciando a compilação local do projeto pelo agente…")
-                    val result = runCatchingSuspend {
-                        tools.execute("build_project_apk", buildArguments, internetAllowed, onToolStatus)
-                    }.getOrElse { "Falha na ferramenta de build local: ${it.message ?: it.javaClass.simpleName}" }
-                    "Resultado da ferramenta de build local (estado e erros reais): " + result
+                    val buildApproved = !tools.approvalRequired("build_project_apk", reinforcedProtection) ||
+                        requestApproval(tools.approvalSummary("build_project_apk", buildArguments))
+                    if (!buildApproved) {
+                        "Compilação cancelada pela proteção reforçada. Nenhum novo APK foi criado."
+                    } else {
+                        onToolStatus("Iniciando a compilação local do projeto pelo agente…")
+                        val result = runCatchingSuspend {
+                            tools.execute("build_project_apk", buildArguments, internetAllowed, onToolStatus)
+                        }.getOrElse { "Falha na ferramenta de build local: ${it.message ?: it.javaClass.simpleName}" }
+                        "Resultado da ferramenta de build local (estado e erros reais): " + result
+                    }
                 }
             }
             !hasExternalLinkRequest && looksLikeProjectList(lastUser) -> {
