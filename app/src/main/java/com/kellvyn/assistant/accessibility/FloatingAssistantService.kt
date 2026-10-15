@@ -105,7 +105,7 @@ class FloatingAssistantService : Service() {
         }
         val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
         val params = WindowManager.LayoutParams(
-            dp(320), WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(72), WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             flags,
