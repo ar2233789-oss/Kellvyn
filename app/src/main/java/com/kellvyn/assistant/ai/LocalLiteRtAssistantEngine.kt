@@ -246,7 +246,7 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                 EngineConfig(
                     modelPath = modelFile.absolutePath,
                     backend = Backend.CPU(),
-                    visionBackend = Backend.CPU(),
+                    visionBackend = Backend.GPU(),
                     cacheDir = appContext.cacheDir.absolutePath
                 )
             )
