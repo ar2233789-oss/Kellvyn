@@ -885,6 +885,29 @@ class AgentToolRouter(
 class AssistantAgent(
     private val tools: AgentToolRouter
 ) {
+
+    /**
+     * Uses real token-stream events to keep the UI responsive during internal agent turns.
+     * Intermediate JSON/planning is not shown in the transcript; only a small status update is.
+     */
+    private suspend fun replyWithProgress(
+        engine: AssistantEngine,
+        conversation: List<AssistantTurn>,
+        onToolStatus: (String) -> Unit
+    ): AssistantResult {
+        val streaming = engine as? StreamingAssistantEngine ?: return engine.reply(conversation)
+        var lastReportedLength = 0
+        return streaming.replyStreaming(conversation) { partial ->
+            if (partial.isNotBlank() &&
+                (lastReportedLength == 0 || partial.length - lastReportedLength >= 256)
+            ) {
+                lastReportedLength = partial.length
+                onToolStatus("IA local trabalhando na próxima etapa… (${partial.length} caracteres gerados)")
+            }
+        }
+    }
+
+
     suspend fun respond(
         engine: AssistantEngine,
         conversation: List<AssistantTurn>,
@@ -1149,7 +1172,7 @@ class AssistantAgent(
             MAX_PROJECT_COMPLETION_TOOL_ROUNDS
         } else MAX_TOOL_ROUNDS
         repeat(toolRoundLimit) {
-            val modelResult = engine.reply(turns)
+            val modelResult = replyWithProgress(engine, turns, onToolStatus)
             if (modelResult !is AssistantResult.Success) return modelResult
             val json = extractJson(modelResult.text)
             if (json == null) {
@@ -1217,7 +1240,7 @@ class AssistantAgent(
             AssistantTurn.Role.USER,
             "Finalize agora com uma resposta clara em português. Resuma as ações confirmadas e os resultados das ferramentas. Não faça novas chamadas de ferramenta."
         ))
-        return when (val last = engine.reply(turns)) {
+        return when (val last = replyWithProgress(engine, turns, onToolStatus)) {
             is AssistantResult.Success -> {
                 val json = extractJson(last.text)
                 AssistantResult.Success(json?.optString("text")?.takeIf { it.isNotBlank() } ?: last.text)
