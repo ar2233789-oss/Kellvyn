@@ -338,6 +338,45 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         }
     }
 
+    /**
+     * Requests original vector markup from the one local language model. The caller validates
+     * and rasterizes the markup before exposing it as an image file.
+     */
+    suspend fun generateSvgSource(
+        prompt: String,
+        onPartial: suspend (String) -> Unit = {}
+    ): AssistantResult {
+        val system = """
+            You are generating a local vector illustration. Return only one complete standalone SVG document.
+            This is a constrained SVG drawing, not photorealistic diffusion. Use viewBox="0 0 1024 1024".
+            Allowed elements only: svg, g, defs, linearGradient, radialGradient, stop, rect, circle, ellipse,
+            line, polyline, polygon, path, text, tspan. Use direct presentation attributes, never style attributes.
+            Allowed attributes only: xmlns, width, height, viewBox, version, id, x, y, x1, y1, x2, y2, cx, cy,
+            r, rx, ry, fill, stroke, stroke-width, opacity, fill-opacity, stroke-opacity, points, d, transform,
+            offset, stop-color, stop-opacity, font-family, font-size, font-weight, font-style, text-anchor,
+            dominant-baseline, stroke-linecap, stroke-linejoin, stroke-miterlimit, fill-rule, clip-rule,
+            gradientUnits, gradientTransform, spreadMethod.
+            Use only gradients referenced as url(#localId). No links, image tags, CSS, scripts, foreignObject,
+            event handlers, entities, external references, or explanations. Produce an attractive, balanced
+            vector illustration with layered shapes, deliberate colors, and clear composition. Make sure XML
+            special characters in text nodes are escaped. Use transparent background only if the design needs it.
+        """.trimIndent()
+        val task = buildString {
+            appendLine("TAREFA: criar código-fonte funcional de uma ilustração vetorial SVG autossuficiente.")
+            appendLine("Descrição da ilustração solicitada: ")
+            appendLine(prompt.take(4_000))
+            appendLine()
+            appendLine("Devolva somente o SVG completo. O aplicativo irá validá-lo e renderizá-lo como PNG localmente.")
+        }
+        return replyStreaming(
+            listOf(
+                AssistantTurn(AssistantTurn.Role.SYSTEM, system),
+                AssistantTurn(AssistantTurn.Role.USER, task)
+            ),
+            onPartial
+        )
+    }
+
     override fun close() {
         try { engine?.close() } catch (_: Exception) { }
         engine = null
