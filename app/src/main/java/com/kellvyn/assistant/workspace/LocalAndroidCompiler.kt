@@ -78,6 +78,21 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 if (sources.size > MAX_SOURCE_FILES) {
                     return@withContext LocalApkBuildResult.Failure("A build local aceita até " + MAX_SOURCE_FILES + " fontes Java por projeto.")
                 }
+                val oversizedSource = sources.firstOrNull { it.length() > MAX_SINGLE_SOURCE_BYTES }
+                if (oversizedSource != null) {
+                    return@withContext LocalApkBuildResult.Failure(
+                        "O arquivo Java " + oversizedSource.name + " ultrapassa o limite local de " +
+                            (MAX_SINGLE_SOURCE_BYTES / 1024) + " KiB."
+                    )
+                }
+                val totalSourceBytes = sources.sumOf { it.length() }
+                if (totalSourceBytes > MAX_TOTAL_SOURCE_BYTES) {
+                    return@withContext LocalApkBuildResult.Failure(
+                        "O projeto Java ultrapassa o limite total de " + (MAX_TOTAL_SOURCE_BYTES / (1024 * 1024)) +
+                            " MiB de código-fonte para a compilação local."
+                    )
+                }
+                coroutineContext.ensureActive()
                 val mainActivity = sources.firstOrNull {
                     it.name == "MainActivity.java" && Regex("""\bclass\s+MainActivity\b""").containsMatchIn(it.readText())
                 } ?: return@withContext LocalApkBuildResult.Failure("Não encontrei uma classe MainActivity em app/src/main/java.")
@@ -125,6 +140,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 }
                 val compiled = BatchCompiler.compile(ecjArgs.toTypedArray(), PrintWriter(stdout), PrintWriter(stderr), null)
                 val diagnostics = (stderr.toString() + "\n" + stdout.toString()).trim()
+                coroutineContext.ensureActive()
                 if (!compiled || classesDir.walkTopDown().none { it.isFile && it.extension == "class" }) {
                     val detail = diagnostics.ifBlank { "O compilador não produziu classes." }
                     return@withContext LocalApkBuildResult.Failure(("Erro real da compilação Java:\n" + detail).take(MAX_LOG_CHARS))
@@ -148,6 +164,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 if (dexFiles.isEmpty() || dexFiles.none { it.name == "classes.dex" }) {
                     return@withContext LocalApkBuildResult.Failure("O D8 não gerou classes.dex.")
                 }
+                coroutineContext.ensureActive()
                 report(onProgress, "Montando APK e manifesto Android…")
                 val appLabel = workspace.getProject(projectId)?.name
                     ?.trim()?.take(100)?.ifBlank { APP_LABEL } ?: APP_LABEL
@@ -164,6 +181,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                         zip.closeEntry()
                     }
                 }
+                coroutineContext.ensureActive()
                 report(onProgress, "Assinando e verificando o APK…")
                 val output = File(buildRoot, projectId + ".apk")
                 val signedTemp = File(buildRoot, projectId + ".apk.tmp")
@@ -424,6 +442,8 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
         const val MIN_SDK = 26
         const val TARGET_SDK = 35
         const val MAX_SOURCE_FILES = 80
+        const val MAX_SINGLE_SOURCE_BYTES = 512 * 1024L
+        const val MAX_TOTAL_SOURCE_BYTES = 2 * 1024 * 1024L
         const val MAX_LOG_CHARS = 16_000
         const val MIN_ANDROID_JAR_BYTES = 20_000_000L
         const val MAX_ANDROID_JAR_BYTES = 100L * 1024L * 1024L
