@@ -10,6 +10,12 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Cabeçalho com histórico de conversas, menu superior para leitura de arquivos de texto/código, códigos guardados, Apps/APKs, memória e configurações.
 - [x] Histórico limitado e apagável; memórias explícitas podem ser guardadas, vistas e apagadas.
 - [x] Ditado em português no compositor e ação “Ouvir” nas respostas, usando recursos disponíveis no próprio Android e informando quando indisponíveis.
+- [x] Ícones do cabeçalho, compositor e catálogo Apps substituídos por desenhos vetoriais escaláveis em Canvas; validar a aparência final no Poco F6 ainda está pendente.
+- [x] Código da sobreposição flutuante e do leitor de tela declarado no Manifesto; o usuário precisa conceder permissão de sobreposição e habilitar Acessibilidade para ler texto somente por toque.
+- [x] Entrada local de PDF pesquisável, DOCX, ODT e imagens para OCR latino empacotado; não interpreta a cena visual da imagem, e PDFs escaneados sem camada de texto ainda não recebem OCR.
+- [x] Geração local de ilustrações vetoriais: modelo textual retorna SVG validado, a biblioteca local renderiza PNG, a resposta mostra prévia e permite salvar. Não é difusão fotorrealista.
+- [x] Resposta em streaming publica o primeiro trecho assim que chega; a tela mostra um estado de processamento desde o envio para não aparentar congelamento antes do primeiro token.
+- [x] O compilador verifica SHA-1/tamanho do arquivo da plataforma, valida o android.jar extraído e conserva um arquivo anterior conhecido enquanto instala a nova plataforma. O build local ainda precisa ser executado em Android.
 - [x] Agente acessa o workspace por APIs diretas, lê e pesquisa arquivos, altera arquivos após pedidos claros e encaminha diagnósticos para o chat.
 - [x] Editor de código mantém rascunhos não salvos e sincroniza alterações feitas pelo agente com proteção contra sobrescrita.
 - [x] Ferramentas Git locais por JGit; nenhuma aba/ícone Terminal ou Git na navegação principal.
@@ -24,6 +30,8 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [ ] Compilar o próprio Kellvyn a partir de um checkout limpo em ambiente Android local.
 - [x] Adicionar inicialização do modelo local com fallback para download público fixado por revisão, progresso real, tamanho esperado e verificação SHA-256, sem inferência remota.
 - [ ] Testar o primeiro download de aproximadamente 374 MB, cancelamento/falha de rede e reinicialização no Poco F6.
+- [ ] Executar as novas instrumentações de extração PDF/DOCX/ODT, OCR, validação SVG/PNG e a suíte real que pede ao modelo local criar projetos e compilar APKs.
+- [ ] Confirmar permissões e funcionamento da bolha flutuante em Android 15/HyperOS e ajustar dimensões/legibilidade em uma captura real do Poco F6.
 - [ ] Instalar e testar o APK anfitrião no Poco F6 real, incluindo a transferência inicial do modelo se ele não vier embutido.
 - [ ] Testar com token de teste a ativação/desativação e os comandos /start, /ping e /echo do runtime Telegram, além de reconexão após perda de rede e restauração após reinício.
 - [ ] Testar que o serviço Discord não inicia nem desativa projetos Telegram ao restaurar ou encerrar bots.
