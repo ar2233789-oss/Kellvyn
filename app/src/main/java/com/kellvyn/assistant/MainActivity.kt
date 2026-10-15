@@ -647,6 +647,15 @@ fun KellvynApp() {
         repairBrief: String? = null,
         repairEngine: AssistantEngine? = null
     ) {
+        if (reinforcedProtection && !requestAgentApproval(
+                "Compilar e assinar o APK do projeto ${project.name} no armazenamento local do aparelho"
+            )
+        ) {
+            messages.add(ChatMessage("Compilação cancelada pela proteção reforçada. Nenhum novo APK foi criado.", false))
+            status = "Build cancelada pela proteção reforçada."
+            saveHistory()
+            return
+        }
         var result = localAndroidCompiler.build(project.id) { progress ->
             status = progress
         }
@@ -656,31 +665,40 @@ fun KellvynApp() {
             !repairBrief.isNullOrBlank() && repairEngine != null
         ) {
             val firstError = result.reason
-            status = "O agente está corrigindo o código a partir dos diagnósticos reais e fará uma única nova build…"
-            messages.add(ChatMessage("A primeira compilação falhou. O agente vai analisar os erros e tentar uma correção automática limitada.", false))
-            saveHistory()
-            val repairFailure = appBuilderAgent.repairJavaProject(
-                engine = repairEngine,
-                projectId = project.id,
-                originalBrief = repairBrief,
-                buildError = firstError
+            val repairAllowed = !reinforcedProtection || requestAgentApproval(
+                "Permitir uma correção automática do código de ${project.name} após o erro real de compilação"
             )
-            if (repairFailure == null) {
-                autoRepaired = true
-                result = localAndroidCompiler.build(project.id) { progress ->
-                    status = progress
-                }
-                if (result is LocalApkBuildResult.Failure) {
+            if (!repairAllowed) {
+                result = LocalApkBuildResult.Failure(
+                    "A primeira compilação falhou. A proteção reforçada bloqueou a correção automática porque ela não foi autorizada."
+                )
+            } else {
+                status = "O agente está corrigindo o código a partir dos diagnósticos reais e fará uma única nova build…"
+                messages.add(ChatMessage("A primeira compilação falhou. O agente vai analisar os erros e tentar uma correção automática limitada.", false))
+                saveHistory()
+                val repairFailure = appBuilderAgent.repairJavaProject(
+                    engine = repairEngine,
+                    projectId = project.id,
+                    originalBrief = repairBrief,
+                    buildError = firstError
+                )
+                if (repairFailure == null) {
+                    autoRepaired = true
+                    result = localAndroidCompiler.build(project.id) { progress ->
+                        status = progress
+                    }
+                    if (result is LocalApkBuildResult.Failure) {
+                        result = LocalApkBuildResult.Failure(
+                            "Primeira tentativa:\n" + firstError.take(4_000) +
+                                "\n\nApós a correção automática, a nova compilação também falhou:\n" + result.reason.take(8_000)
+                        )
+                    }
+                } else {
                     result = LocalApkBuildResult.Failure(
                         "Primeira tentativa:\n" + firstError.take(4_000) +
-                            "\n\nApós a correção automática, a nova compilação também falhou:\n" + result.reason.take(8_000)
+                            "\n\nNão consegui aplicar uma correção segura: " + repairFailure
                     )
                 }
-            } else {
-                result = LocalApkBuildResult.Failure(
-                    "Primeira tentativa:\n" + firstError.take(4_000) +
-                        "\n\nNão consegui aplicar uma correção segura: " + repairFailure
-                )
             }
         }
 
@@ -840,6 +858,15 @@ fun KellvynApp() {
                         }
                     }
                 } else if (wantsBuild) {
+                    if (reinforcedProtection && !requestAgentApproval(
+                            "Criar e salvar os arquivos do novo projeto solicitado: " + text.take(180)
+                        )
+                    ) {
+                        messages.add(ChatMessage("Criação cancelada pela proteção reforçada. Nenhum projeto novo foi salvo.", false))
+                        status = "Criação cancelada pela proteção reforçada."
+                        saveHistory()
+                        return@launch
+                    }
                     when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
                         is AppBuildResult.Success -> {
                             val project = result.project
@@ -2040,7 +2067,7 @@ fun KellvynApp() {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text("Proteção reforçada da IA", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    if (reinforcedProtection) "Ativada: pede autorização antes de alterar arquivos ou compilar." else "Desativada: edições pedidas no chat continuam automáticas.",
+                                    if (reinforcedProtection) "Ativada: pede autorização antes de criar/alterar projetos, corrigir arquivos ou compilar." else "Desativada: edições pedidas no chat continuam automáticas.",
                                     color = Muted,
                                     fontSize = 11.sp
                                 )
