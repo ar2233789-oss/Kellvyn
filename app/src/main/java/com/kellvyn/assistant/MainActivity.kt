@@ -913,8 +913,9 @@ fun KellvynApp() {
     fun installLatestApk() = installApkFile(latestBuiltApk)
 
     fun submitDraft(alreadyQueued: Boolean = false, queuedRequest: PendingChatRequest? = null) {
-        val text = queuedRequest?.text ?: draft.trim()
-        val requestImagePath = queuedRequest?.imagePath ?: pendingImagePath
+        val rawText = queuedRequest?.text ?: draft.trim()
+        val requestImagePath = if (queuedRequest != null) queuedRequest.imagePath else pendingImagePath
+        val text = if (rawText.isBlank() && requestImagePath != null) "Analise a imagem anexada." else rawText
         if (text.isEmpty() && requestImagePath == null) return
         if (isGenerating && !alreadyQueued) {
             pendingChatRequests.add(PendingChatRequest(text, requestImagePath))
@@ -2015,14 +2016,14 @@ fun KellvynApp() {
                         }
 
                         Box(
-                            modifier = Modifier.size(30.dp).clickable(enabled = !isGenerating) {
+                            modifier = Modifier.size(30.dp).clickable {
                                 readFileLauncher.launch(arrayOf("*/*"))
                             },
                             contentAlignment = Alignment.Center
                         ) { KellvynLineIcon("attach", accentColor, Modifier.size(17.dp)) }
 
                         Box(
-                            modifier = Modifier.size(34.dp).clickable(enabled = !isGenerating) {
+                            modifier = Modifier.size(34.dp).clickable {
                                 if (!SpeechRecognizer.isRecognitionAvailable(context)) {
                                     status = "O reconhecimento de voz não está disponível neste aparelho."
                                 } else {
@@ -2044,7 +2045,7 @@ fun KellvynApp() {
                         Spacer(Modifier.weight(1f))
 
                         Button(
-                            enabled = draft.isNotBlank(),
+                            enabled = draft.isNotBlank() || pendingImagePath != null,
                             onClick = { submitDraft() },
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.height(34.dp),
