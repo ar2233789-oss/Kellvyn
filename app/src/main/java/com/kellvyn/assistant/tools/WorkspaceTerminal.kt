@@ -488,9 +488,10 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
  */
 internal fun shouldUseWorkspaceTerminalHandler(rawCommand: String): Boolean {
     val input = rawCommand.trim()
-    val command = input.substringBefore(Regex("\\s+")).lowercase(Locale.ROOT)
+    val parts = input.split(Regex("\\s+"), limit = 2)
+    val command = parts.firstOrNull().orEmpty().lowercase(Locale.ROOT)
     if (command == "cd") {
-        val arguments = input.substringAfter(Regex("\\s+"), missingDelimiterValue = "")
+        val arguments = parts.getOrNull(1).orEmpty()
         // A standalone cd updates the terminal's persistent workspace directory. With shell
         // operators, leave the whole expression to /system/bin/sh (e.g. "cd app && ls -la").
         return !Regex("""(?:&&|\|\||[;|<>\x60])""").containsMatchIn(arguments) &&
