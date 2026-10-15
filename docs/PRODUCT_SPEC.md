@@ -2,6 +2,14 @@
 
 Este documento reúne os requisitos do produto para manter a direção do projeto consistente.
 
+## Regra obrigatória de preservação do trabalho concluído
+
+- Trabalhar uma exigência por vez: conferir o estado atual, corrigir apenas a divergência comprovada, testar/verificar e só então passar à próxima.
+- Antes de editar qualquer parte, comparar o código e o comportamento atual com as instruções do usuário. Se já cumprir o pedido, considerar concluída e não alterar, refatorar, redesenhar ou substituir essa parte.
+- Não desfazer, reintroduzir nem reinterpretar decisões que o usuário já definiu. Não criar recursos extras, menus, abas, modos, seletores ou agentes por iniciativa própria.
+- Uma alteração só é considerada concluída depois de conferir o diff e verificar a compilação/testes disponíveis. Se a validação no aparelho não for possível, declarar isso como pendência, sem fingir que foi testado.
+- Entregar primeiro o resultado da exigência em andamento; não acumular alterações de partes já prontas no mesmo ciclo.
+
 ## Identidade e objetivo
 - Nome: **Kellvyn IA**. Não usar Brian/Brain como nome e não apresentar o app como produto oficial da OpenAI.
 - Assistente Android nativo com IA real, planejamento, geração/revisão de código e, como objetivo central, capacidade de criar aplicativos instaláveis.
