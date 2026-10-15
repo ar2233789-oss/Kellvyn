@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.animateScrollTo
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,6 +23,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +63,7 @@ fun WorkspaceConsoleDialog(
     var command by remember { mutableStateOf("") }
     var workingDirectory by remember { mutableStateOf(TermuxBridge.TERMUX_HOME) }
     var terminalBusy by remember { mutableStateOf(false) }
+    val outputScrollState = rememberScrollState()
     var output by remember(termux) {
         mutableStateOf(
             if (termux.isInstalled()) {
@@ -70,6 +73,10 @@ fun WorkspaceConsoleDialog(
                 "KELLVYN TERMINAL  •  TERMUX REAL\nTermux não está instalado.\nUse “Abrir Termux” para acessar a página oficial de versões e instalar.\n"
             }
         )
+    }
+
+    LaunchedEffect(output) {
+        outputScrollState.animateScrollTo(outputScrollState.maxValue)
     }
 
     fun appendOutput(value: String) {
@@ -149,7 +156,7 @@ fun WorkspaceConsoleDialog(
                     border = androidx.compose.foundation.BorderStroke(1.dp, ConsoleBorder)
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(10.dp)
+                        modifier = Modifier.fillMaxSize().verticalScroll(outputScrollState).padding(10.dp)
                     ) {
                         Text(
                             output.ifBlank { "Saída do Termux aparecerá aqui." },
@@ -184,7 +191,7 @@ fun WorkspaceConsoleDialog(
                     ) { Text(if (terminalBusy) "…" else "▶") }
                 }
                 Text(
-                    "Executa no Termux instalado. Para liberar comandos externos, conceda a permissão RUN_COMMAND ao Kellvyn e configure allow-external-apps=true nas configurações do próprio Termux. A IA só executa comandos quando você pedir ajuda pelo chat principal e confirmar a execução.",
+                    "Este painel executa comandos no Termux instalado. Para programas interativos, toque em Abrir Termux. Para liberar a ponte, conceda RUN_COMMAND ao Kellvyn em Permissões do Android e defina allow-external-apps=true em ~/.termux/termux.properties; depois execute termux-reload-settings. A IA só executa após pedido explícito no chat principal e confirmação individual.",
                     color = ConsoleMuted,
                     fontSize = 9.sp,
                     lineHeight = 12.sp
