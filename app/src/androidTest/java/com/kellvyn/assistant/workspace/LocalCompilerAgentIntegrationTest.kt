@@ -24,6 +24,7 @@ import com.kellvyn.assistant.runtime.GeneratedProjectKind
 import com.kellvyn.assistant.runtime.GeneratedProjectRuntimeStore
 import com.kellvyn.assistant.tools.WorkspaceTerminal
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -203,12 +204,13 @@ class LocalCompilerAgentIntegrationTest {
         suspend fun ask(title: String, prompt: String, history: MutableList<AssistantTurn>): String {
             history.add(AssistantTurn(AssistantTurn.Role.USER, prompt))
             val startedAt = SystemClock.elapsedRealtime()
-            val result = engine.reply(history.toList())
+            val result = withTimeoutOrNull(180_000L) { engine.reply(history.toList()) }
             val elapsedMs = SystemClock.elapsedRealtime() - startedAt
             val answer = when (result) {
                 is AssistantResult.Success -> result.text
                 is AssistantResult.Unavailable -> "ERRO/INDISPONÍVEL: " + result.reason
                 is AssistantResult.Failure -> "ERRO DE GERAÇÃO: " + result.reason
+                null -> "TIMEOUT: a resposta ultrapassou 180 segundos."
             }
             if (result is AssistantResult.Success) {
                 history.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, result.text))
@@ -329,11 +331,13 @@ class LocalCompilerAgentIntegrationTest {
             ask("raciocínio de depuração e bateria", "Na versão de teste, as gotas continuam animando depois de Pausar, o botão de chuva só muda a cor mas não afeta as partículas e o aparelho esquenta. Diagnostique causas prováveis e dê uma sequência concreta de verificações e correções priorizando bateria.", history)
             ask("continuidade da conversa", "Usando o plano e os problemas que discutimos, forneça uma matriz curta com testes, ação do usuário, resultado esperado e evidência que comprova o resultado. Não repita a explicação inteira.", history)
             val imageStartedAt = SystemClock.elapsedRealtime()
-            when (val image = LocalSvgImageGenerator.generate(
-                context,
-                engine,
-                "Uma ilustração vetorial de uma cidade-fantasia gótica à noite, sob chuva, com luzes verde-esmeralda e azul elétrico, composição detalhada e original."
-            )) {
+            when (val image = withTimeoutOrNull(240_000L) {
+                LocalSvgImageGenerator.generate(
+                    context,
+                    engine,
+                    "Uma ilustração vetorial de uma cidade-fantasia gótica à noite, sob chuva, com luzes verde-esmeralda e azul elétrico, composição detalhada e original."
+                )
+            }) {
                 is LocalSvgGenerationResult.Success -> {
                     createdImageFiles += image.pngFile
                     createdImageFiles += image.svgFile
@@ -351,6 +355,10 @@ class LocalCompilerAgentIntegrationTest {
                 is LocalSvgGenerationResult.Failure -> {
                     section("Geração de imagem local", "Tempo até falha: " + (SystemClock.elapsedRealtime() - imageStartedAt) + " ms\\nFALHOU: " + image.reason)
                     failures.add("Geração de imagem local falhou: " + image.reason)
+                }
+                null -> {
+                    section("Geração de imagem local", "TIMEOUT: a geração ultrapassou 240 segundos.")
+                    failures.add("Geração de imagem local excedeu 240 segundos.")
                 }
             }
 
