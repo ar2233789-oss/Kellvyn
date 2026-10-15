@@ -16,7 +16,7 @@ internal object TermuxRequestPolicy {
         """\b(ajude|ajuda|execute|executar|executa|rode|rodar|roda|instale|instalar|instala|teste|testar|testa|diagnostique|diagnosticar|diagnostica|investigue|investigar|investiga|verifique|verificar|verifica|inspecione|inspecionar|inspeciona|depure|depurar|depura|inicie|iniciar|inicia|corrija|corrigir|conserte|consertar)\b"""
     )
     private val commandOrRuntimePattern = Regex(
-        """\b(npm|npx|node|python3?|pip3?|bash|sh|pkg\s+install|apt(?:-get)?\s+install|chmod|chown|grep|awk|sed|make|cmake|cargo|rustc|gcc|g\+\+|clang|javac|pytest|gradle)\b|\.(sh|bash|py|js|mjs|cjs)\b|\b(script|scripts|dependências|dependencias|pacotes do ambiente|logs do processo|servidor local|processo em execução|processo em execucao)\b"""
+        """\b(npm|npx|node|python3?|pip3?|bash|sh|pkg\s+install|apt(?:-get)?\s+install|chmod|chown|grep|awk|sed|make|cmake|cargo|rustc|gcc|g\+\+|clang|javac|pytest|gradle|ls|pwd|cat|tail|head|ps|top|env|find|wc|touch|mkdir|cp|mv|curl|wget|ssh|scp|rsync)\b|\.(sh|bash|py|js|mjs|cjs)\b|\b(script|scripts|dependências|dependencias|pacotes do ambiente|logs do processo|logs|servidor local|processo em execução|processo em execucao)\b"""
     )
     private val explicitTerminalPattern = Regex(
         """\b(termux|terminal|shell|linha de comando|ambiente linux)\b"""
