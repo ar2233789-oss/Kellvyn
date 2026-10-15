@@ -85,7 +85,7 @@ import com.kellvyn.assistant.workspace.WorkspaceProject
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
 import com.kellvyn.assistant.workspace.LocalApkBuildResult
 import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
-import com.kellvyn.assistant.tools.WorkspaceTerminal
+import com.kellvyn.assistant.tools.TermuxBridge
 import com.kellvyn.assistant.runtime.DiscordBotCredentialsStore
 import com.kellvyn.assistant.runtime.DiscordBotRuntimeService
 import com.kellvyn.assistant.runtime.TelegramBotCredentialsStore
@@ -186,6 +186,18 @@ private fun KellvynLineIcon(
                         )
                     }
                 }
+            }
+            "attach" -> {
+                val path = Path().apply {
+                    moveTo(w*.68f,h*.12f)
+                    cubicTo(w*.89f,h*.29f,w*.86f,h*.43f,w*.70f,h*.59f)
+                    lineTo(w*.45f,h*.83f)
+                    cubicTo(w*.29f,h*.98f,w*.11f,h*.80f,w*.27f,h*.64f)
+                    lineTo(w*.55f,h*.36f)
+                    cubicTo(w*.65f,h*.25f,w*.76f,h*.36f,w*.66f,h*.46f)
+                    lineTo(w*.41f,h*.72f)
+                }
+                drawPath(path, tint, style = stroke)
             }
             "mic" -> {
                 rect(.36f,.12f,.64f,.60f,.15f)
@@ -302,7 +314,7 @@ fun KellvynApp() {
     val workspaceStore = remember(context) { ProjectWorkspaceStore(context) }
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
     val localAndroidCompiler = remember(context, workspaceStore) { LocalAndroidCompiler(context, workspaceStore) }
-    val workspaceTerminal = remember(workspaceStore) { WorkspaceTerminal(workspaceStore) }
+    val termuxBridge = remember(context) { TermuxBridge(context) }
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
     var draft by remember { mutableStateOf("") }
@@ -312,7 +324,6 @@ fun KellvynApp() {
     var isGenerating by remember { mutableStateOf(false) }
     var isLoadingModel by remember { mutableStateOf(false) }
     var modelInitializationAttempted by remember { mutableStateOf(false) }
-    var showQuickMenu by remember { mutableStateOf(false) }
     var showTerminalDialog by remember { mutableStateOf(false) }
     var showConversationsDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -545,7 +556,7 @@ fun KellvynApp() {
         }
     }
 
-    val assistantAgent = remember(workspaceStore, localAndroidCompiler) {
+    val assistantAgent = remember(workspaceStore, localAndroidCompiler, termuxBridge) {
         AssistantAgent(
             AgentToolRouter(
                 workspace = workspaceStore,
@@ -555,7 +566,8 @@ fun KellvynApp() {
                     pendingLicenseRepairBrief = null
                     showSdkLicenseDialog = true
                     status = "O agente quer compilar um projeto. Leia a licença oficial do Android SDK antes do primeiro download."
-                }
+                },
+                termuxBridge = termuxBridge
             )
         )
     }
@@ -1441,75 +1453,10 @@ fun KellvynApp() {
                     KellvynLineIcon("apps", accentColor, Modifier.size(20.dp))
                 }
                 IconButton(
-                    onClick = { showQuickMenu = true },
-                    modifier = Modifier.size(36.dp).semantics { contentDescription = "Ferramentas e anexos" }
-                ) {
-                    KellvynLineIcon("tools", accentColor, Modifier.size(18.dp))
-                }
-                IconButton(
                     onClick = { showSettingsDialog = true },
                     modifier = Modifier.size(36.dp).semantics { contentDescription = "Configurações" }
                 ) {
                     KellvynLineIcon("more", accentColor, Modifier.size(20.dp))
-                }
-                DropdownMenu(
-                    expanded = showQuickMenu,
-                    onDismissRequest = { showQuickMenu = false },
-                    modifier = Modifier.background(Panel)
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Anexar arquivo, documento ou imagem") },
-                        onClick = {
-                            showQuickMenu = false
-                            readFileLauncher.launch(arrayOf("*/*"))
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Códigos guardados") },
-                        onClick = {
-                            showQuickMenu = false
-                            existingProjects.clear()
-                            existingProjects.addAll(workspaceStore.listProjects())
-                            showProjectsDialog = true
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Memória") },
-                        onClick = {
-                            showQuickMenu = false
-                            savedMemories.clear()
-                            savedMemories.addAll(memoryStore.list())
-                            memoryDraft = ""
-                            memoryStatus = ""
-                            showMemoryDialog = true
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Assistente flutuante") },
-                        onClick = {
-                            showQuickMenu = false
-                            requestFloatingAssistantStart()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Terminal independente") },
-                        onClick = {
-                            showQuickMenu = false
-                            showTerminalDialog = true
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Ativar leitura de tela") },
-                        onClick = {
-                            showQuickMenu = false
-                            status = "Nas Configurações do Android, abra Acessibilidade e ative o serviço de leitura de tela do Kellvyn. Ele captura texto somente quando você toca em Ler tela."
-                            try {
-                                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                            } catch (e: Exception) {
-                                status = "Não consegui abrir Acessibilidade: " + (e.message ?: e.javaClass.simpleName)
-                            }
-                        }
-                    )
                 }
             }
 
@@ -1848,6 +1795,13 @@ fun KellvynApp() {
                         )
 
                         Box(
+                            modifier = Modifier.size(30.dp).clickable(enabled = !isGenerating) {
+                                readFileLauncher.launch(arrayOf("*/*"))
+                            },
+                            contentAlignment = Alignment.Center
+                        ) { KellvynLineIcon("attach", accentColor, Modifier.size(17.dp)) }
+
+                        Box(
                             modifier = Modifier.size(34.dp).clickable(enabled = !isGenerating) {
                                 if (!SpeechRecognizer.isRecognitionAvailable(context)) {
                                     status = "O reconhecimento de voz não está disponível neste aparelho."
@@ -2089,8 +2043,7 @@ fun KellvynApp() {
         }
         if (showTerminalDialog) {
             WorkspaceConsoleDialog(
-                workspace = workspaceStore,
-                terminal = workspaceTerminal,
+                termux = termuxBridge,
                 onDismiss = { showTerminalDialog = false }
             )
         }
@@ -2178,8 +2131,21 @@ fun KellvynApp() {
                                 Text("APPS, BOTS E PROJETOS", color = accentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 Text("Catálogo permanente de tudo que o construtor gerou", color = Muted, fontSize = 11.sp)
                             }
-    
-                            TextButton(onClick = { showAppsDialog = false }) { Text("Fechar", color = Color.White) }
+                            TextButton(
+                                onClick = {
+                                    showAppsDialog = false
+                                    existingProjects.clear()
+                                    existingProjects.addAll(workspaceStore.listProjects())
+                                    showProjectsDialog = true
+                                }
+                            ) { Text("Códigos", color = accentColor, fontSize = 11.sp) }
+                            TextButton(
+                                onClick = {
+                                    showAppsDialog = false
+                                    showTerminalDialog = true
+                                }
+                            ) { Text("Terminal", color = accentColor, fontSize = 11.sp) }
+                            TextButton(onClick = { showAppsDialog = false }) { Text("Fechar", color = Color.White, fontSize = 11.sp) }
                         }
                         if (existingProjects.isEmpty()) {
                             Text("Ainda não há aplicativos criados. Peça ao chat principal para criar um; o editor serve só para editar arquivos.", color = Muted, fontSize = 13.sp)
