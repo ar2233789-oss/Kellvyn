@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
+import com.kellvyn.assistant.ai.reasonOrText
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
