@@ -29,7 +29,7 @@ private const val TEMPLATE_OVERHEAD_TOKENS = 256
 private const val CHARS_PER_TOKEN_NUMERATOR = 5
 private const val CHARS_PER_TOKEN_DENOMINATOR = 2
 private const val MIN_OUTPUT_TOKEN_BUDGET = 256
-private const val LONG_GENERATION_SYSTEM_RESERVE_TOKENS = 512
+private const val LONG_GENERATION_SYSTEM_RESERVE_TOKENS = 2048
 
 /**
  * On-device inference engine. It prefers a checksum-verified .litertlm asset in the APK
