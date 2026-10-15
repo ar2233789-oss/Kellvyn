@@ -354,6 +354,7 @@ fun KellvynApp() {
         mutableStateOf(securityPreferences.getBoolean("reinforced_protection", false))
     }
     var accentHex by remember(uiPreferences) { mutableStateOf(uiPreferences.getString("accent_hex", "#38E6BC") ?: "#38E6BC") }
+    var floatingAssistantEnabled by remember(uiPreferences) { mutableStateOf(uiPreferences.getBoolean("floating_assistant_enabled", false)) }
     val accentColor = remember(accentHex) { Color(android.graphics.Color.parseColor(accentHex)) }
     var ttsReady by remember { mutableStateOf(false) }
     var ttsEngine by remember { mutableStateOf<TextToSpeech?>(null) }
@@ -1457,12 +1458,12 @@ fun KellvynApp() {
                         for (segment in 0..6) {
                             val y = head - segment * streakHeight * 1.65f
                             if (y >= -streakHeight && y <= size.height) {
-                                val opacity = (0.10f * (1f - segment / 7f)).coerceAtLeast(0.012f)
+                                val opacity = (0.34f * (1f - segment / 7f)).coerceAtLeast(0.045f)
                                 drawLine(
                                     color = Neon.copy(alpha = opacity),
                                     start = Offset(x, y),
                                     end = Offset(x + (if (column % 2 == 0) 0.6f else -0.6f) * streakHeight, y + streakHeight),
-                                    strokeWidth = 1.dp.toPx()
+                                    strokeWidth = 1.35.dp.toPx()
                                 )
                             }
                         }
@@ -2349,14 +2350,24 @@ fun KellvynApp() {
                                 modifier = Modifier.weight(1f),
                                 contentPadding = PaddingValues(horizontal = 2.dp, vertical = 3.dp)
                             ) { Text("Memória local", color = accentColor, fontSize = 10.sp) }
-                            TextButton(
-                                onClick = {
-                                    showSettingsDialog = false
-                                    requestFloatingAssistantStart()
-                                },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 3.dp)
-                            ) { Text("Assistente flutuante", color = accentColor, fontSize = 10.sp) }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("Assistente virtual", color = Color.White, fontSize = 11.sp)
+                                Text("Bolha pequena sobre outros apps", color = Muted, fontSize = 9.sp)
+                                Switch(
+                                    checked = floatingAssistantEnabled,
+                                    onCheckedChange = { enabled ->
+                                        floatingAssistantEnabled = enabled
+                                        uiPreferences.edit().putBoolean("floating_assistant_enabled", enabled).apply()
+                                        if (enabled) requestFloatingAssistantStart()
+                                        else {
+                                            runCatching {
+                                                context.startService(Intent(context, FloatingAssistantService::class.java).setAction(FloatingAssistantService.ACTION_STOP))
+                                            }
+                                            status = "Assistente virtual desativado."
+                                        }
+                                    }
+                                )
+                            }
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
