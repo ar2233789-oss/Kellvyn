@@ -7,6 +7,7 @@ import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
 import com.kellvyn.assistant.workspace.WorkspaceGitService
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
 import com.kellvyn.assistant.workspace.LocalApkBuildResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -986,10 +987,10 @@ class AssistantAgent(
         val preflight = when {
             !hasExternalLinkRequest && looksLikeProjectFinalization(lastUser) -> {
                 onToolStatus("Auditando o workspace e identificando o projeto antes de concluir o trabalho…")
-                val workspaceState = runCatching {
+                val workspaceState = runCatchingSuspend {
                     tools.execute("workspace_status", JSONObject(), internetAllowed)
                 }.getOrElse { "Falha ao consultar o workspace: ${it.message ?: it.javaClass.simpleName}" }
-                val projectListing = runCatching {
+                val projectListing = runCatchingSuspend {
                     tools.execute("list_projects", JSONObject(), internetAllowed)
                 }.getOrElse { "Falha ao listar projetos: ${it.message ?: it.javaClass.simpleName}" }
                 val projectArray = runCatching { JSONArray(projectListing) }.getOrNull()
@@ -997,7 +998,7 @@ class AssistantAgent(
                     val project = projectArray.optJSONObject(0)
                     val projectId = project?.optString("id").orEmpty()
                     if (projectId.isNotBlank()) {
-                        runCatching {
+                        runCatchingSuspend {
                             "Arquivos do único projeto (" + project?.optString("name").orEmpty() + "): " +
                                 tools.execute("list_files", JSONObject().put("project_id", projectId), internetAllowed)
                         }.getOrElse { "Falha ao listar os arquivos do projeto: ${it.message}" }
@@ -1014,13 +1015,13 @@ class AssistantAgent(
             !hasExternalLinkRequest && looksLikeLocalApkBuildRequest(lastUser) -> {
                 val buildArguments = tools.explicitProjectBuildArguments(lastUser)
                 if (buildArguments == null) {
-                    val projects = runCatching {
+                    val projects = runCatchingSuspend {
                         tools.execute("list_projects", JSONObject(), internetAllowed)
                     }.getOrElse { "Não consegui listar os projetos: ${it.message}" }
                     "Para compilar sem escolher o projeto errado, diga o nome/ID do projeto. Projetos atuais: " + projects
                 } else {
                     onToolStatus("Iniciando a compilação local do projeto pelo agente…")
-                    val result = runCatching {
+                    val result = runCatchingSuspend {
                         tools.execute("build_project_apk", buildArguments, internetAllowed, onToolStatus)
                     }.getOrElse { "Falha na ferramenta de build local: ${it.message ?: it.javaClass.simpleName}" }
                     "Resultado da ferramenta de build local (estado e erros reais): " + result
@@ -1028,20 +1029,20 @@ class AssistantAgent(
             }
             !hasExternalLinkRequest && looksLikeProjectList(lastUser) -> {
                 onToolStatus("Consultando seus projetos locais…")
-                "Lista atual dos projetos locais: " + runCatching {
+                "Lista atual dos projetos locais: " + runCatchingSuspend {
                     tools.execute("list_projects", JSONObject(), internetAllowed)
                 }.getOrElse { "Falha ao listar projetos: ${it.message}" }
             }
             !hasExternalLinkRequest && localFileRequest != null -> {
                 onToolStatus("Lendo o arquivo do workspace pelas APIs internas…")
-                "Arquivo local identificado: " + runCatching {
+                "Arquivo local identificado: " + runCatchingSuspend {
                     tools.execute("read_file", localFileRequest, internetAllowed)
                 }.getOrElse { "Falha ao ler o arquivo local: ${it.message}" }
             }
             !hasExternalLinkRequest && localGitReadRequest != null -> {
                 val (toolName, arguments) = localGitReadRequest
                 onToolStatus("Consultando Git local pelas APIs internas…")
-                "Resultado do Git local: " + runCatching {
+                "Resultado do Git local: " + runCatchingSuspend {
                     tools.execute(toolName, arguments, internetAllowed)
                 }.getOrElse { "Falha na consulta Git: ${it.message ?: it.javaClass.simpleName}" }
             }
@@ -1049,7 +1050,7 @@ class AssistantAgent(
                 val needle = extractLocalSearchQuery(lastUser)
                 if (needle.length < 2) null else {
                     onToolStatus("Buscando nos arquivos locais do projeto…")
-                    "Resultado da busca local para '$needle': " + runCatching {
+                    "Resultado da busca local para '$needle': " + runCatchingSuspend {
                         tools.execute("search_workspace", JSONObject().put("query", needle), internetAllowed)
                     }.getOrElse { "Falha na busca local: ${it.message}" }
                 }
@@ -1059,7 +1060,7 @@ class AssistantAgent(
             }
             githubFileRequest != null -> {
                 onToolStatus("Lendo o arquivo público indicado no GitHub…")
-                "Conteúdo do repositório público: " + runCatching {
+                "Conteúdo do repositório público: " + runCatchingSuspend {
                     tools.execute("github_file", githubFileRequest, internetAllowed)
                 }.getOrElse { "Falha ao ler o arquivo público: ${it.message}" }
             }
@@ -1074,7 +1075,7 @@ class AssistantAgent(
                         "Importação cancelada. Nenhum arquivo do repositório foi copiado."
                     } else {
                         onToolStatus("Importando arquivos públicos autorizados para o workspace local…")
-                        runCatching {
+                        runCatchingSuspend {
                             tools.execute("github_import", githubRepositoryRequest, internetAllowed)
                         }.getOrElse { "Falha na importação do repositório: ${it.message}" }
                     }
@@ -1085,13 +1086,13 @@ class AssistantAgent(
             }
             githubRepositoryRequest != null -> {
                 onToolStatus("Explorando a estrutura do repositório público do GitHub…")
-                runCatching {
+                runCatchingSuspend {
                     inspectGithubRepository(githubRepositoryRequest, lastUser, internetAllowed, onToolStatus)
                 }.getOrElse { "Falha ao inspecionar o repositório: ${it.message}" }
             }
             localFileListRequest != null -> {
                 onToolStatus("Listando arquivos do projeto diretamente no workspace…")
-                "Arquivos do projeto local: " + runCatching {
+                "Arquivos do projeto local: " + runCatchingSuspend {
                     tools.execute("list_files", localFileListRequest, internetAllowed)
                 }.getOrElse { "Falha ao listar arquivos: ${it.message}" }
             }
@@ -1100,7 +1101,7 @@ class AssistantAgent(
             }
             explicitPageUrl != null -> {
                 onToolStatus("Lendo a página HTTPS que você indicou…")
-                "Conteúdo da página pública: " + runCatching {
+                "Conteúdo da página pública: " + runCatchingSuspend {
                     tools.execute("open_web_page", JSONObject().put("url", explicitPageUrl), internetAllowed)
                 }.getOrElse { "Falha ao ler a página indicada: ${it.message}" }
             }
@@ -1114,7 +1115,7 @@ class AssistantAgent(
                 onToolStatus(if (asksForRepository) "Procurando repositórios públicos de código…" else "Pesquisando na internet para responder com fontes…")
                 val tool = if (asksForRepository) "github_search" else "web_search"
                 val label = if (asksForRepository) "Repositórios públicos encontrados" else "Resultados atuais da pesquisa pública na internet"
-                "$label: " + runCatching {
+                "$label: " + runCatchingSuspend {
                     tools.execute(tool, JSONObject().put("query", normalizedQuery), internetAllowed)
                 }.getOrElse { "Falha na pesquisa: ${it.message}" }
             }
@@ -1195,7 +1196,7 @@ class AssistantAgent(
                         }
                     }
                     onToolStatus(toolStatus(name))
-                    val result = runCatching { tools.execute(name, args, internetAllowed, onToolStatus) }
+                    val result = runCatchingSuspend { tools.execute(name, args, internetAllowed, onToolStatus) }
                         .fold(
                             onSuccess = { resultText -> resultText.take(if (name == "build_project_apk") maxBuildToolResultChars else maxToolResultChars) },
                             onFailure = { "A ferramenta falhou: ${it.message ?: it.javaClass.simpleName}" }
@@ -1560,3 +1561,16 @@ class AssistantAgent(
         const val AGENT_SYSTEM = "Você é Kellvyn IA, um agente conversacional e agente de trabalho capaz de usar ferramentas reais do aplicativo com permissão. IDENTIDADE FIXA: o projeto Kellvyn IA foi idealizado e criado por Kellvyn, que definiu sua identidade, objetivos e comportamento. Quando perguntarem quem te criou, quem desenvolveu o projeto ou quem você é, reconheça explicitamente Kellvyn como criador do projeto. O modelo de linguagem instalado é a tecnologia usada para gerar respostas, não o criador do Kellvyn IA. Não atribua a criação do projeto a terceiros nem invente qual tecnologia foi usada para implementá-lo. Converse normalmente em português brasileiro, raciocine e ajude o usuário. O terminal/Termux é independente do chat e não participa de tarefas de programação. Para consultar ou modificar projetos, arquivos e Git, use as ferramentas diretas do workspace e do compilador. Nunca recomende abrir nem encaminhe tarefas para terminal/Termux a partir do chat. Use pesquisa web somente quando a permissão separada estiver ligada. Nunca invente ações, execuções, testes ou resultados."
     }
 }
+
+/**
+ * A coroutine-safe counterpart to runCatching for suspend tool calls.
+ * Kotlin's runCatching catches CancellationException and can keep a cancelled agent loop alive.
+ */
+private suspend fun <T> runCatchingSuspend(block: suspend () -> T): Result<T> =
+    try {
+        Result.success(block())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
