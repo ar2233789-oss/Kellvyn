@@ -12,6 +12,9 @@ import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.util.concurrent.TimeUnit
 import java.io.File
 import java.io.FileOutputStream
@@ -46,7 +49,7 @@ object LocalDocumentTextExtractor {
         )
     }
 
-    fun extract(context: Context, uri: Uri, fileName: String, mimeType: String): String {
+    suspend fun extract(context: Context, uri: Uri, fileName: String, mimeType: String): String {
         val extension = fileName.substringAfterLast('.', "").lowercase()
         val kind = when {
             extension == "pdf" || mimeType.equals("application/pdf", true) -> "pdf"
@@ -59,6 +62,7 @@ object LocalDocumentTextExtractor {
 
         val temp = File(context.cacheDir, "kellvyn-document-" + System.nanoTime() + "." + kind)
         try {
+            currentCoroutineContext().ensureActive()
             copyBounded(context, uri, temp)
             val extracted = when (kind) {
                 "pdf" -> extractPdf(context, temp)
@@ -77,7 +81,7 @@ object LocalDocumentTextExtractor {
         }
     }
 
-    private fun copyBounded(context: Context, uri: Uri, destination: File) {
+    private suspend fun copyBounded(context: Context, uri: Uri, destination: File) {
         val input = context.contentResolver.openInputStream(uri)
             ?: throw IllegalStateException("O Android não conseguiu abrir o documento escolhido.")
         var total = 0L
@@ -86,6 +90,7 @@ object LocalDocumentTextExtractor {
                 FileOutputStream(destination).use { output ->
                     val buffer = ByteArray(32 * 1024)
                     while (true) {
+                        currentCoroutineContext().ensureActive()
                         val count = source.read(buffer)
                         if (count < 0) break
                         if (count == 0) continue
@@ -104,7 +109,7 @@ object LocalDocumentTextExtractor {
         }
     }
 
-    private fun extractPdf(context: Context, file: File): String {
+    private suspend fun extractPdf(context: Context, file: File): String {
         PDFBoxResourceLoader.init(context.applicationContext)
         PDDocument.load(file).use { document ->
             require(document.numberOfPages > 0) { "O PDF não contém páginas." }
@@ -119,6 +124,7 @@ object LocalDocumentTextExtractor {
                 TimeUnit.SECONDS.toNanos(MAX_PDF_OCR_TOTAL_TIMEOUT_SECONDS)
             try {
                 for (pageIndex in 0 until pagesToRead) {
+                    currentCoroutineContext().ensureActive()
                     stripper.startPage = pageIndex + 1
                     stripper.endPage = pageIndex + 1
                     val nativeText = stripper.getText(document).trim()
@@ -159,6 +165,8 @@ object LocalDocumentTextExtractor {
                                         pageText = "[Página ${pageIndex + 1} — OCR local]\n$recognizedText"
                                     }
                                 }
+                            } catch (e: CancellationException) {
+                                throw e
                             } catch (_: Exception) {
                                 ocrFailures++
                                 if (System.nanoTime() >= ocrDeadlineNanos) ocrBudgetExhausted = true
@@ -192,17 +200,19 @@ object LocalDocumentTextExtractor {
         }
     }
 
-    private fun extractXmlFromZip(file: File, entryName: String): String {
+    private suspend fun extractXmlFromZip(file: File, entryName: String): String {
         var xmlBytes: ByteArray? = null
         var totalExpandedBytes = 0L
         ZipInputStream(file.inputStream().buffered()).use { zip ->
             while (true) {
+                currentCoroutineContext().ensureActive()
                 val entry = zip.nextEntry ?: break
                 if (!entry.isDirectory && entry.name == entryName) {
                     val output = java.io.ByteArrayOutputStream()
                     val buffer = ByteArray(16 * 1024)
                     var total = 0
                     while (true) {
+                        currentCoroutineContext().ensureActive()
                         val count = zip.read(buffer)
                         if (count < 0) break
                         if (count == 0) continue
@@ -220,6 +230,7 @@ object LocalDocumentTextExtractor {
                     // malicious unrelated entry cannot expand without a total-size bound.
                     val buffer = ByteArray(16 * 1024)
                     while (true) {
+                        currentCoroutineContext().ensureActive()
                         val count = zip.read(buffer)
                         if (count < 0) break
                         if (count == 0) continue
