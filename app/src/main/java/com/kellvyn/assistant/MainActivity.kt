@@ -131,7 +131,7 @@ private fun isRepairableSourceBuildFailure(reason: String): Boolean {
         value.contains("cannot fit requested classes in a single dex file")
 }
 
-data class ChatMessage(val text: String, val fromUser: Boolean)
+data class ChatMessage(val text: String, val fromUser: Boolean, val queued: Boolean = false)
 
 private fun projectIconKind(project: WorkspaceProject): String {
     val description = (project.name + " " + project.description).lowercase(Locale.ROOT)
@@ -325,6 +325,7 @@ fun KellvynApp() {
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
     var draft by remember { mutableStateOf("") }
+    val pendingChatRequests = remember { mutableStateListOf<String>() }
     var streamingReply by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("Kellvyn pronto. Converse pelo chat principal.") }
     var modelReady by remember { mutableStateOf(false) }
@@ -606,7 +607,7 @@ fun KellvynApp() {
     }
 
     fun saveHistory() {
-        val savedMessages = messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) }
+        val savedMessages = messages.filterNot { it.queued }.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) }
         historyStore.save(savedMessages)
         val previous = conversations.firstOrNull { it.id == activeConversationId }
         val firstPrompt = savedMessages.firstOrNull { it.fromUser }?.text
@@ -649,7 +650,7 @@ fun KellvynApp() {
     }
 
     fun buildConversationTurns(): List<AssistantTurn> {
-        val recent = messages.takeLast(MAX_CONTEXT_MESSAGES)
+        val recent = messages.filterNot { it.queued }.takeLast(MAX_CONTEXT_MESSAGES)
         val latestUserIndex = recent.indexOfLast { it.fromUser }
         val memoryContext = memoryStore.promptContext()
         return buildList {
@@ -843,11 +844,18 @@ fun KellvynApp() {
 
     fun installLatestApk() = installApkFile(latestBuiltApk)
 
-    fun submitDraft() {
+    fun submitDraft(alreadyQueued: Boolean = false) {
         val text = draft.trim()
-        if (text.isEmpty() || isGenerating) return
+        if (text.isEmpty()) return
+        if (isGenerating && !alreadyQueued) {
+            pendingChatRequests.add(text)
+            messages.add(ChatMessage(text, true, queued = true))
+            draft = ""
+            status = "Mensagem na fila (${pendingChatRequests.size}). Pode continuar enviando."
+            return
+        }
         if (KellvynIdentity.isIdentityQuestion(text)) {
-            messages.add(ChatMessage(text, true))
+            if (!alreadyQueued) messages.add(ChatMessage(text, true))
             messages.add(ChatMessage(KellvynIdentity.answer(), false))
             draft = ""
             saveHistory()
@@ -865,7 +873,7 @@ fun KellvynApp() {
             return
         }
 
-        messages.add(ChatMessage(text, true))
+        if (!alreadyQueued) messages.add(ChatMessage(text, true))
         saveHistory()
         draft = ""
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
@@ -1157,6 +1165,17 @@ fun KellvynApp() {
             } finally {
                 streamingReply = ""
                 isGenerating = false
+                if (pendingChatRequests.isNotEmpty()) {
+                    val nextRequest = pendingChatRequests.removeAt(0)
+                    val queuedIndex = messages.indexOfFirst {
+                        it.fromUser && it.queued && it.text == nextRequest
+                    }
+                    if (queuedIndex >= 0) {
+                        messages[queuedIndex] = messages[queuedIndex].copy(queued = false)
+                    }
+                    draft = nextRequest
+                    submitDraft(alreadyQueued = true)
+                }
             }
         }
     }
@@ -1847,7 +1866,7 @@ fun KellvynApp() {
                         shape = RoundedCornerShape(12.dp),
                         minLines = 1,
                         maxLines = 3,
-                        enabled = !isGenerating,
+                        enabled = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color.Transparent,
                             unfocusedBorderColor = Color.Transparent,
@@ -1910,7 +1929,7 @@ fun KellvynApp() {
                         Spacer(Modifier.weight(1f))
 
                         Button(
-                            enabled = !isGenerating,
+                            enabled = draft.isNotBlank(),
                             onClick = { submitDraft() },
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.height(34.dp),
