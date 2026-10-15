@@ -2,6 +2,7 @@ package com.kellvyn.assistant.runtime
 
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
 import com.kellvyn.assistant.workspace.TelegramBotManifestValidator
+import java.util.Locale
 import org.json.JSONObject
 
 data class TelegramBotCommand(
@@ -25,10 +26,10 @@ data class TelegramBotDefinition(val displayName: String, val commands: List<Tel
             val commands = (0 until rawCommands.length()).map { index ->
                 val item = rawCommands.getJSONObject(index)
                 TelegramBotCommand(
-                    name = item.getString("name").trim().lowercase(),
+                    name = item.getString("name").trim().lowercase(Locale.ROOT),
                     description = item.getString("description").trim(),
                     response = item.optString("response").trim(),
-                    action = item.optString("action", "response").trim().lowercase().ifBlank { "response" }
+                    action = item.optString("action", "response").trim().lowercase(Locale.ROOT).ifBlank { "response" }
                 )
             }
             return TelegramBotDefinition(
