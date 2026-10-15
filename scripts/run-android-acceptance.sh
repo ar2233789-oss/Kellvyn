@@ -22,11 +22,11 @@ esac
 ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=${TEST_FILTER}"
 TEST_EXIT=$?
 
-if [ "${ACCEPTANCE_SUITE:-model-acceptance}" = "model-acceptance" ] && [ "$TEST_EXIT" -eq 0 ]; then
+if [ "${ACCEPTANCE_SUITE:-model-acceptance}" = "model-acceptance" ]; then
   echo "Running local document and image attachment extraction tests..."
   ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.kellvyn.assistant.attachments.LocalAttachmentExtractionTest"
   ATTACHMENT_EXIT=$?
-  if [ "$ATTACHMENT_EXIT" -ne 0 ]; then TEST_EXIT=$ATTACHMENT_EXIT; fi
+  if [ "$ATTACHMENT_EXIT" -ne 0 ] && [ "$TEST_EXIT" -eq 0 ]; then TEST_EXIT=$ATTACHMENT_EXIT; fi
 fi
 
 adb shell run-as com.kellvyn.assistant cat files/kellvyn_qa/model-acceptance-report.md > android-test-reports/model-acceptance-report.md 2>/dev/null || true
