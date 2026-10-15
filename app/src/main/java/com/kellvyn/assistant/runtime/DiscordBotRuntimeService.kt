@@ -55,7 +55,6 @@ class DiscordBotRuntimeService : Service() {
             ACTION_START_DISCORD -> {
                 val id = intent.getStringExtra(EXTRA_PROJECT_ID).orEmpty()
                 if (id.isNotBlank()) {
-                    runtimeStore.setActive(id, true)
                     startDiscordProject(id)
                 }
             }
@@ -84,11 +83,25 @@ class DiscordBotRuntimeService : Service() {
 
     private fun isDiscordProject(id: String): Boolean {
         val project = workspaceStore.getProject(id) ?: return false
-        return runCatching { DiscordBotDefinition.load(workspaceStore, id, project.name) }.isSuccess
+        return runCatching {
+            "kellvyn.bot.json" in workspaceStore.listFiles(id) &&
+                BotRuntimePlatformGuard.manifestMatchesPlatform(
+                    workspaceStore.readFile(id, "kellvyn.bot.json"),
+                    "discord"
+                )
+        }.getOrDefault(false)
     }
 
     private fun startDiscordProject(id: String) {
         if (clients.containsKey(id)) return
+        // Verify platform ownership before changing the shared active-project registry.
+        if (!isDiscordProject(id)) {
+            statuses[id] = "Este projeto não pertence ao runtime Discord; nenhum estado foi alterado."
+            updateNotification()
+            stopSelfIfIdle()
+            return
+        }
+        runtimeStore.setActive(id, true)
         val project = workspaceStore.getProject(id)
         val credentials = credentialsStore.get(id)
         if (project == null || credentials == null) {
@@ -116,6 +129,13 @@ class DiscordBotRuntimeService : Service() {
     }
 
     private fun stopProject(id: String) {
+        // A STOP_PROJECT intent may be malformed or sent to the wrong service.
+        // Do not clear a Telegram project's shared active flag from Discord.
+        if (!clients.containsKey(id) && !isDiscordProject(id)) {
+            statuses.remove(id)
+            updateNotification()
+            return
+        }
         runtimeStore.setActive(id, false)
         clients.remove(id)?.stop()
         statuses.remove(id)
