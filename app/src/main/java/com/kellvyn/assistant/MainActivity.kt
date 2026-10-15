@@ -860,16 +860,34 @@ fun KellvynApp() {
             draft = ""
             saveHistory()
             status = "Kellvyn IA — identidade do assistente"
+            if (alreadyQueued && pendingChatRequests.isNotEmpty()) {
+                val nextRequest = pendingChatRequests.removeAt(0)
+                val queuedIndex = messages.indexOfFirst {
+                    it.fromUser && it.queued && it.text == nextRequest
+                }
+                if (queuedIndex >= 0) messages[queuedIndex] = messages[queuedIndex].copy(queued = false)
+                draft = nextRequest
+                scope.launch { submitDraft(alreadyQueued = true) }
+            }
             return
         }
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsImage = ChatRequestRouter.shouldGenerateImage(text)
         if (!modelReady && !existingBuildOnly) {
-            messages.add(ChatMessage(text, true))
+            if (!alreadyQueued) messages.add(ChatMessage(text, true))
             messages.add(ChatMessage("A IA local ainda está iniciando. Confira o status na tela e tente novamente quando ela estiver pronta.", false))
             saveHistory()
             draft = ""
             status = "IA local não inicializada."
+            if (alreadyQueued && pendingChatRequests.isNotEmpty()) {
+                val nextRequest = pendingChatRequests.removeAt(0)
+                val queuedIndex = messages.indexOfFirst {
+                    it.fromUser && it.queued && it.text == nextRequest
+                }
+                if (queuedIndex >= 0) messages[queuedIndex] = messages[queuedIndex].copy(queued = false)
+                draft = nextRequest
+                scope.launch { submitDraft(alreadyQueued = true) }
+            }
             return
         }
 
