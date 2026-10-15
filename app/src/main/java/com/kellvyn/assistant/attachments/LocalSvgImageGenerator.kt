@@ -143,7 +143,7 @@ object LocalSvgImageGenerator {
         val closingBracket = source.indexOf('>', start)
         if (closingBracket < 0) return source
         val rootTag = source.substring(start, closingBracket + 1)
-        if (Regex("""\\bviewBox\\s*=""").containsMatchIn(rootTag)) return source
+        if (Regex("""\bviewBox\s*=""").containsMatchIn(rootTag)) return source
 
         val insertionPoint = if (closingBracket > start && source[closingBracket - 1] == '/') {
             closingBracket - 1
@@ -152,7 +152,7 @@ object LocalSvgImageGenerator {
         }
         return buildString(source.length + 28) {
             append(source, 0, insertionPoint)
-            append(" viewBox=\\\"0 0 1024 1024\\\"")
+            append(" viewBox=\"0 0 1024 1024\"")
             append(source, insertionPoint, source.length)
         }
     }
