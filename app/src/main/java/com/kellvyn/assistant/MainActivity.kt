@@ -761,6 +761,8 @@ fun KellvynApp() {
                 }
                 context.startActivity(Intent.createChooser(sendIntent, "Enviar documento do Kellvyn").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 status = "Abri o compartilhamento Android para enviar a resposta como arquivo .txt."
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 status = "Não consegui compartilhar a resposta: " + (e.message ?: e.javaClass.simpleName)
             }
@@ -1152,6 +1154,8 @@ fun KellvynApp() {
                     }
                     status = "Arquivo " + name + " baixado para o destino escolhido."
                     editorStatus = status
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     status = "Falha ao baixar o arquivo: " + (e.message ?: e.javaClass.simpleName)
                     editorStatus = status
@@ -1252,6 +1256,8 @@ fun KellvynApp() {
                             else -> "Arquivo $fileName lido e adicionado ao rascunho. Revise antes de enviar."
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     status = "Não consegui ler o arquivo: " + (e.message ?: e.javaClass.simpleName)
                 }
@@ -1274,6 +1280,8 @@ fun KellvynApp() {
                         } ?: throw IllegalStateException("O Android não abriu o destino para salvar o APK.")
                     }
                     status = "APK salvo: " + fileToCopy.name
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     status = "Falha ao salvar o APK: " + (e.message ?: e.javaClass.simpleName)
                 }
@@ -1296,6 +1304,8 @@ fun KellvynApp() {
                         } ?: throw IllegalStateException("O Android não abriu o destino para salvar a imagem.")
                     }
                     status = "Imagem salva: " + fileToCopy.name
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     status = "Falha ao salvar a imagem: " + (e.message ?: e.javaClass.simpleName)
                 }
@@ -1938,8 +1948,11 @@ fun KellvynApp() {
                                             existingProjects.clear(); existingProjects.addAll(workspaceStore.listProjects())
                                             activeEditProject = workspaceStore.getProject(project.id)
                                             editorStatus = "Arquivo salvo. Para compilar, peça ao chat principal para gerar ou corrigir o APK."
-                                        } catch (e: Exception) { editorStatus = "Falha ao salvar: " + (e.message ?: e.javaClass.simpleName) }
-                                        finally { isSavingFile = false }
+                                        } catch (e: CancellationException) {
+                                            throw e
+                                        } catch (e: Exception) {
+                                            editorStatus = "Falha ao salvar: " + (e.message ?: e.javaClass.simpleName)
+                                        } finally { isSavingFile = false }
                                     }
                                 }
                             }, colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Night)) { Text("Salvar", fontSize = 11.sp) }
