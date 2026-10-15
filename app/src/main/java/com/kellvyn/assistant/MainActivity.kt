@@ -667,7 +667,7 @@ fun KellvynApp() {
                             } else if (appBuilderAgent.isBotProjectRequest(text) && appBuilderAgent.isTelegramBotRequest(text)) {
                                 messages.add(
                                     ChatMessage(
-                                        "O bot Telegram \"" + project.name + "\" foi salvo em Apps. Para ativá-lo, abra Apps, toque em Manter ativo e informe o token do BotFather na configuração protegida. O runtime nativo fica neste aparelho e processa os comandos declarados em kellvyn.telegram.json.",
+                                        "O bot Telegram \"" + project.name + "\" foi salvo em Apps. Para ativá-lo, abra Apps, toque em Manter ativo e informe o token do BotFather na configuração protegida. O runtime nativo processa apenas as ações compatíveis declaradas em kellvyn.telegram.json; os arquivos JavaScript Node.js ficam salvos como fonte e não são executados pelo runtime Android.",
                                         false
                                     )
                                 )
@@ -1886,7 +1886,7 @@ fun KellvynApp() {
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            "O runtime funciona neste telefone por conexão direta com a Bot API oficial do Telegram. O token fica criptografado pelo Android Keystore e não é enviado ao modelo de IA. Você pode desativar o bot no catálogo Apps ou na notificação.",
+                            "O runtime funciona neste telefone por conexão direta com a Bot API oficial do Telegram. O token fica criptografado pelo Android Keystore e não é enviado ao modelo de IA. Só as ações nativas suportadas declaradas em kellvyn.telegram.json são executadas; o JavaScript Node.js permanece como código-fonte. Você pode desativar o bot no catálogo Apps ou na notificação.",
                             color = Muted,
                             fontSize = 12.sp
                         )
