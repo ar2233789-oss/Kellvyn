@@ -7,6 +7,18 @@ import org.junit.Test
 class ChatRequestRouterTest {
 
     @Test
+    fun directImageRequestsUseTheLocalImageGeneratorButAnalysisStaysInChat() {
+        assertTrue(ChatRequestRouter.shouldGenerateImage("Gere uma imagem de um dragão verde em uma cidade futurista"))
+        assertTrue(ChatRequestRouter.shouldGenerateImage("Crie uma ilustração de um necromante"))
+        assertTrue(ChatRequestRouter.shouldGenerateImage("Faz uma imagem de um gato preto"))
+        assertTrue(ChatRequestRouter.shouldGenerateImage("Gera uma foto de uma floresta neon"))
+        assertTrue(ChatRequestRouter.shouldGenerateImage("Desenha uma imagem de um castelo"))
+        assertFalse(ChatRequestRouter.shouldGenerateImage("Analise esta imagem"))
+        assertFalse(ChatRequestRouter.shouldGenerateImage("Como funcionam os geradores de imagem?"))
+        assertFalse(ChatRequestRouter.shouldGenerateImage("Descreva uma imagem de exemplo"))
+    }
+
+    @Test
     fun explicitCreationStartsBuildFromTheMainChat() {
         assertTrue(ChatRequestRouter.shouldBuild("Faz minha IA"))
         assertTrue(ChatRequestRouter.shouldBuild("Crie um app Android com login"))

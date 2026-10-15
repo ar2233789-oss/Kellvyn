@@ -46,38 +46,19 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
     @Volatile private var engine: Engine? = null
 
     // One integrated Kellvyn assistant; no light/heavy model modes are exposed.
-    override val displayName: String = "Kellvyn IA — núcleo local"
+    override val displayName: String = "Kellvyn IA"
 
-    private fun selectedModelFile(): File = modelFile
-
-    fun hasSavedModel(): Boolean {
-        val selected = selectedModelFile()
-        return selected.isFile && selected.length() > 0L
-    }
-
-    fun savedModelSizeBytes(): Long {
-        val selected = selectedModelFile()
-        return if (selected.isFile) selected.length() else 0L
-    }
-
-    /** Clears the private model cache; the bundled model is copied again at next initialization. */
-    fun removeSavedModel(): Boolean {
-        close()
-        val files = listOf(modelFile, File(modelDirectory, "kellvyn-model.previous"), File(modelDirectory, "kellvyn-model.bundled"), File(modelDirectory, "kellvyn-model.download.part"))
-        var allRemoved = true
-        files.forEach { file -> if (file.exists() && !file.delete()) allRemoved = false }
-        return allRemoved
-    }
+    fun hasSavedModel(): Boolean = modelFile.isFile && modelFile.length() > 0L
 
     /**
      * Prepare the one local model. Prefer a model bundled in the APK; when it is absent,
      * download the pinned, checksum-verified public model into private storage once.
      * Inference stays on-device after the download completes.
      */
-    suspend fun recoverInterruptedModelSwap(onProgress: (String) -> Unit = {}) {
+    suspend fun prepareLocalModel(onProgress: (String) -> Unit = {}) {
         withContext(Dispatchers.IO) {
             if (!modelDirectory.exists() && !modelDirectory.mkdirs()) {
-                throw IllegalStateException("Não foi possível preparar a pasta privada do núcleo local.")
+                throw IllegalStateException("Não foi possível preparar o armazenamento privado da IA local.")
             }
             installConversationModelIfAvailable(onProgress)
         }
@@ -107,13 +88,13 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             } else {
                 reportModelProgress(
                     onProgress,
-                    "O modelo não veio dentro do APK. Baixando o núcleo local (aprox. 374 MB); depois ele funciona sem internet…"
+                    "Preparando a IA local pela primeira vez (aprox. 374 MB)…"
                 )
                 downloadPinnedModel(temporary, onProgress)
             }
 
             if (modelFile.exists() && !modelFile.delete()) {
-                throw IllegalStateException("Não foi possível substituir o modelo antigo pelo núcleo local verificado.")
+                throw IllegalStateException("Não foi possível finalizar a preparação do modelo local verificado.")
             }
             if (!temporary.renameTo(modelFile)) {
                 throw IllegalStateException("Não foi possível instalar o modelo no armazenamento privado.")
@@ -155,7 +136,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 "O tamanho informado pelo servidor não corresponde à versão verificada do modelo."
             }
             connection.inputStream.use { input ->
-                copyAndVerifyModel(input, destination, onProgress, "Baixando núcleo local")
+                copyAndVerifyModel(input, destination, onProgress, "Preparando a IA local")
             }
         } finally {
             connection.disconnect()
@@ -236,7 +217,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
 
     suspend fun loadSavedModel(): AssistantResult {
         if (!hasSavedModel()) {
-            return AssistantResult.Unavailable("O núcleo local integrado não está disponível nesta versão.")
+            return AssistantResult.Unavailable("O modelo local integrado não está disponível nesta versão.")
         }
         return loadModel()
     }
@@ -279,7 +260,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         onPartial: suspend (String) -> Unit = {}
     ): AssistantResult = withContext(Dispatchers.IO) {
         val activeEngine = engine
-            ?: return@withContext AssistantResult.Unavailable("O núcleo local ainda não terminou de inicializar. Tente enviar novamente.")
+            ?: return@withContext AssistantResult.Unavailable("A IA local ainda está inicializando. Tente enviar novamente quando o status indicar que está pronta.")
 
         val lastUserIndex = conversation.indexOfLast { it.role == AssistantTurn.Role.USER }
         if (lastUserIndex < 0) {
@@ -314,7 +295,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                             "Você é Kellvyn IA, o assistente integrado ao aplicativo Kellvyn. Responda em português brasileiro, com clareza, naturalidade e sem enrolação. " +
                                 "Identidade fixa: o projeto Kellvyn IA foi idealizado e criado por Kellvyn, que definiu sua identidade, seus objetivos e seu comportamento. Se perguntarem quem te criou, quem desenvolveu o projeto ou quem você é, reconheça explicitamente Kellvyn como criador do projeto. " +
                                 "O modelo de linguagem é a tecnologia usada para gerar respostas; Kellvyn é o criador do aplicativo. Não confunda o modelo integrado com o aplicativo que o utiliza. " +
-                                "Não invente capacidades nem ações executadas. Terminal/Termux é independente do chat e não participa de tarefas de programação. Para criar, editar ou compilar projetos, use as ferramentas internas do aplicativo; nunca sugira nem encaminhe essas tarefas para terminal/Termux. O editor serve apenas para guardar e consultar códigos, não é um agente independente. Para tarefas que precisarem de internet, use a conexão já disponível no Android sem pedir configuração manual. Neste build, o chat só produz texto: ele não gera/edita imagens bitmap, não recebe anexos de imagem e não consegue enviar uma imagem como referência visual. Se pedirem uma imagem, explique essa limitação sem fingir que criou um arquivo. Você pode escrever código Canvas/SVG como parte de um app, mas isso não equivale a gerar um arquivo de imagem nem a verificar sua semelhança visual."
+                                "Não invente capacidades nem ações executadas. Terminal/Termux é independente do chat e não participa de tarefas de programação. Para criar, editar ou compilar projetos, use as ferramentas internas do aplicativo; nunca sugira nem encaminhe essas tarefas para terminal/Termux. O editor serve apenas para guardar e consultar códigos, não é um agente independente. Para tarefas que precisarem de internet, use a conexão já disponível no Android sem pedir configuração manual. A conversa usa um modelo textual local; um fluxo especializado pode pedir ao mesmo modelo uma ilustração vetorial SVG, validar o código e renderizá-lo como PNG localmente. Isso não é geração por difusão/fotorrealista. Imagens anexadas são analisadas separadamente no aparelho por rótulos visuais aproximados e OCR; os pixels não são enviados ao modelo textual e os rótulos não equivalem a uma descrição visual completa. Nunca afirme ter gerado arquivo sem o fluxo de imagem retornar sucesso real."
                         )
                         conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }
                             ?.content
@@ -337,7 +318,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             activeEngine.createConversation(config).use { chat ->
                 chat.sendMessageAsync(conversation[lastUserIndex].content).collect { part ->
                     answer.append(part.contents.toString())
-                    if (answer.length - lastPublishedLength >= 24) {
+                    if (answer.isNotEmpty() && (lastPublishedLength == 0 || answer.length - lastPublishedLength >= 4)) {
                         onPartial(answer.toString())
                         lastPublishedLength = answer.length
                     }
@@ -355,6 +336,45 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 "Falha durante a geração local: " + (e.message ?: e.javaClass.simpleName)
             )
         }
+    }
+
+    /**
+     * Requests original vector markup from the one local language model. The caller validates
+     * and rasterizes the markup before exposing it as an image file.
+     */
+    suspend fun generateSvgSource(
+        prompt: String,
+        onPartial: suspend (String) -> Unit = {}
+    ): AssistantResult {
+        val system = """
+            You are generating a local vector illustration. Return only one complete standalone SVG document.
+            This is a constrained SVG drawing, not photorealistic diffusion. Use viewBox="0 0 1024 1024".
+            Allowed elements only: svg, g, defs, linearGradient, radialGradient, stop, rect, circle, ellipse,
+            line, polyline, polygon, path, text, tspan. Use direct presentation attributes, never style attributes.
+            Allowed attributes only: xmlns, width, height, viewBox, version, id, x, y, x1, y1, x2, y2, cx, cy,
+            r, rx, ry, fill, stroke, stroke-width, opacity, fill-opacity, stroke-opacity, points, d, transform,
+            offset, stop-color, stop-opacity, font-family, font-size, font-weight, font-style, text-anchor,
+            dominant-baseline, stroke-linecap, stroke-linejoin, stroke-miterlimit, fill-rule, clip-rule,
+            gradientUnits, gradientTransform, spreadMethod.
+            Use only gradients referenced as url(#localId). No links, image tags, CSS, scripts, foreignObject,
+            event handlers, entities, external references, or explanations. Produce an attractive, balanced
+            vector illustration with layered shapes, deliberate colors, and clear composition. Make sure XML
+            special characters in text nodes are escaped. Use transparent background only if the design needs it.
+        """.trimIndent()
+        val task = buildString {
+            appendLine("TAREFA: criar código-fonte funcional de uma ilustração vetorial SVG autossuficiente.")
+            appendLine("Descrição da ilustração solicitada: ")
+            appendLine(prompt.take(4_000))
+            appendLine()
+            appendLine("Devolva somente o SVG completo. O aplicativo irá validá-lo e renderizá-lo como PNG localmente.")
+        }
+        return replyStreaming(
+            listOf(
+                AssistantTurn(AssistantTurn.Role.SYSTEM, system),
+                AssistantTurn(AssistantTurn.Role.USER, task)
+            ),
+            onPartial
+        )
     }
 
     override fun close() {

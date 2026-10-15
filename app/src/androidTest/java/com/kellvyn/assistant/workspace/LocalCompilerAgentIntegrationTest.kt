@@ -1,6 +1,7 @@
 package com.kellvyn.assistant.workspace
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.SystemClock
@@ -8,6 +9,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kellvyn.assistant.ai.AgentToolRouter
+import com.kellvyn.assistant.attachments.LocalSvgImageGenerator
+import com.kellvyn.assistant.attachments.LocalSvgGenerationResult
 import com.kellvyn.assistant.ai.AssistantAgent
 import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantResult
@@ -187,6 +190,7 @@ class LocalCompilerAgentIntegrationTest {
         val report = StringBuilder(reportFile.readText())
         val failures = mutableListOf<String>()
         val createdProjectIds = mutableListOf<String>()
+        val createdImageFiles = mutableListOf<File>()
         var originalLicense: Boolean? = null
 
         fun persist() {
@@ -312,7 +316,7 @@ class LocalCompilerAgentIntegrationTest {
 
         try {
             section("Ambiente", "Modelo LiteRT integrado ou baixado uma vez e verificado; inferência no emulador Android; sem provedor de IA remoto. Este relatório registra as respostas e saídas reais recebidas.")
-            engine.recoverInterruptedModelSwap()
+            engine.prepareLocalModel()
             val loaded = engine.loadSavedModel()
             section("Carregamento do modelo", loaded.reasonOrText())
             assertTrue("O modelo local real não carregou: " + loaded, loaded is AssistantResult.Success)
@@ -322,11 +326,30 @@ class LocalCompilerAgentIntegrationTest {
             ask("planejamento técnico complexo", "Planeje um jogo Android 2D offline de aventura com clima dinâmico. Liste arquitetura, estado da partida, física simples, controles, chuva como partículas, pausa, reinício e como testar se cada botão realmente altera o estado.", history)
             ask("raciocínio de depuração e bateria", "Na versão de teste, as gotas continuam animando depois de Pausar, o botão de chuva só muda a cor mas não afeta as partículas e o aparelho esquenta. Diagnostique causas prováveis e dê uma sequência concreta de verificações e correções priorizando bateria.", history)
             ask("continuidade da conversa", "Usando o plano e os problemas que discutimos, forneça uma matriz curta com testes, ação do usuário, resultado esperado e evidência que comprova o resultado. Não repita a explicação inteira.", history)
-            val imageAnswer = ask("pedido de imagem extremamente complexa", "Gere uma imagem extremamente complexa de uma cidade-fantasia à noite, com chuva volumétrica, milhares de partículas, arquitetura gótica, materiais molhados e iluminação verde/azul. Quero um arquivo PNG real e que essa mesma imagem seja usada como referência dentro do jogo. Diga exatamente o que este aplicativo realmente consegue fazer hoje, sem fingir anexos ou arquivos.", history)
-            val imageClaimedFile = Regex("(?i)(arquivo png criado|png foi criado|imagem anexada|salvei a imagem|imagem gerada em)").containsMatchIn(imageAnswer)
-            section("Teste de geração de imagem", "O núcleo é baseado em texto e não contém saída bitmap. Resposta reivindicou arquivo real: " + imageClaimedFile +
-                "\nSem integração de imagem, PNG anexo ou inspeção visual neste build, qualquer alegação de arquivo gerado seria enganosa. Resposta registrada na conversa acima.")
-            if (imageClaimedFile) failures.add("O modelo afirmou ter criado/anexado uma imagem sem existir ferramenta bitmap.")
+            when (val image = LocalSvgImageGenerator.generate(
+                context,
+                engine,
+                "Uma ilustração vetorial de uma cidade-fantasia gótica à noite, sob chuva, com luzes verde-esmeralda e azul elétrico, composição detalhada e original."
+            )) {
+                is LocalSvgGenerationResult.Success -> {
+                    createdImageFiles += image.pngFile
+                    createdImageFiles += image.svgFile
+                    val bitmap = BitmapFactory.decodeFile(image.pngFile.absolutePath)
+                    val pngValid = bitmap != null && bitmap.width == 1024 && bitmap.height == 1024
+                    bitmap?.recycle()
+                    section(
+                        "Geração de imagem local",
+                        "O gerador do modelo local retornou SVG validado, e o renderizador produziu PNG.\\nPNG: " +
+                            image.pngFile.absolutePath + "\\nSVG: " + image.svgFile.absolutePath +
+                            "\\nPNG válido 1024x1024: " + pngValid + "\\nTamanho: " + image.pngFile.length() + " bytes"
+                    )
+                    if (!pngValid || image.pngFile.length() == 0L) failures.add("A geração local de imagem não produziu um PNG válido.")
+                }
+                is LocalSvgGenerationResult.Failure -> {
+                    section("Geração de imagem local", "FALHOU: " + image.reason)
+                    failures.add("Geração de imagem local falhou: " + image.reason)
+                }
+            }
 
             val termuxAnswer = ask("ajuda com Termux pelo chat principal", "Quero criar e testar um projeto Java pelo Termux. Organize os comandos para eu copiar, explique a pasta e como ler erros. Não execute nenhum comando por mim; eu vou rodá-los no meu terminal.", history)
             if (termuxAnswer.contains("executei o comando", ignoreCase = true) || termuxAnswer.contains("rodei o comando", ignoreCase = true)) {
@@ -454,7 +477,7 @@ class LocalCompilerAgentIntegrationTest {
 
             section("Resumo de falhas observadas", if (failures.isEmpty()) "Nenhuma falha automática registrada." else failures.mapIndexed { i, item -> (i + 1).toString() + ". " + item }.joinToString("\n"))
             report.append("\n## Limitações verificadas\n\n")
-            report.append("- O núcleo usado aqui gera texto. Não gera PNG/JPEG nem pode ver uma imagem de referência.\n")
+            report.append("- O modelo textual pode gerar uma ilustração vetorial SVG que é validada e renderizada em PNG localmente; isso não é difusão fotorrealista nem compreensão visual de uma imagem de referência.\n")
             report.append("- O build local inicial compila Java com APIs Android, não Kotlin/Compose ou dependências arbitrárias.\n")
             report.append("- Não foram usadas credenciais reais de serviços externos.\n")
             persist()
@@ -470,6 +493,7 @@ class LocalCompilerAgentIntegrationTest {
                 File(buildRoot, id + ".apk.tmp").delete()
                 File(buildRoot, id + ".apk.previous").delete()
             }
+            createdImageFiles.forEach { it.delete() }
             originalLicense?.let { accepted ->
                 licensePreferences.edit().putBoolean("android_sdk_license_accepted", accepted).apply()
             }

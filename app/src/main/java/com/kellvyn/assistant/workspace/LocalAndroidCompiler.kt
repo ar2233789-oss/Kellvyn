@@ -200,75 +200,168 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
 
     private suspend fun ensureAndroidPlatform(onProgress: (String) -> Unit): File {
         if (isUsableAndroidJar()) return androidJar
-        if (androidJar.exists()) androidJar.delete()
-        platformDir.mkdirs()
+        if (!platformDir.exists() && !platformDir.mkdirs()) {
+            throw IllegalStateException("Não foi possível preparar a pasta privada da plataforma Android.")
+        }
+
         val archive = File(platformDir, "platform-35.zip")
         val partial = File(platformDir, "platform-35.zip.part")
-        // Clean the previous name too, in case an older app version left a partial download.
+        val candidateJar = File(platformDir, "android.jar.part")
+        val previousJar = File(platformDir, "android.jar.previous")
         File(platformDir, "platform-36.zip.part").delete()
-        archive.delete()
         partial.delete()
-        report(onProgress, "Baixando a plataforma oficial do Android para a primeira build…")
-        val connection = (URL(PLATFORM_URL).openConnection() as HttpURLConnection).apply {
-            connectTimeout = CONNECT_TIMEOUT_MS
-            readTimeout = READ_TIMEOUT_MS
-            requestMethod = "GET"
-            useCaches = false
-            setRequestProperty("User-Agent", "Kellvyn-IA-Local-Builder")
-        }
-        try {
-            connection.connect()
-            val code = connection.responseCode
-            require(code in 200..299) { "O servidor do Android SDK não aceitou o download (HTTP " + code + ")." }
-            val digest = MessageDigest.getInstance("SHA-1")
-            var total = 0L
-            connection.inputStream.use { input ->
-                FileOutputStream(partial).buffered().use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    while (true) {
-                        coroutineContext.ensureActive()
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        if (count == 0) continue
-                        total += count
-                        require(total <= PLATFORM_ARCHIVE_BYTES) { "O arquivo do SDK excedeu o tamanho esperado." }
-                        digest.update(buffer, 0, count)
-                        output.write(buffer, 0, count)
-                        if (total % (2L * 1024 * 1024) < count) {
-                            val percent = ((total * 100) / PLATFORM_ARCHIVE_BYTES).coerceIn(0, 100)
-                            report(onProgress, "Baixando Android SDK: " + percent + "%")
+        candidateJar.delete()
+
+        // Reuse a complete checksum-verified archive after extraction failures instead of
+        // throwing it away and downloading another 64 MB on every retry.
+        if (archive.exists() && !isValidPlatformArchive(archive)) archive.delete()
+        if (!archive.isFile) {
+            report(onProgress, "Preparando a plataforma Android para a compilação local…")
+            val connection = (URL(PLATFORM_URL).openConnection() as HttpURLConnection).apply {
+                connectTimeout = CONNECT_TIMEOUT_MS
+                readTimeout = READ_TIMEOUT_MS
+                requestMethod = "GET"
+                useCaches = false
+                setRequestProperty("User-Agent", "Kellvyn-IA-Local-Builder")
+            }
+            try {
+                connection.connect()
+                val code = connection.responseCode
+                require(code in 200..299) {
+                    "O servidor do Android SDK não aceitou o download (HTTP " + code + ")."
+                }
+                val contentLength = connection.getHeaderFieldLong("Content-Length", -1L)
+                require(contentLength < 0L || contentLength == PLATFORM_ARCHIVE_BYTES) {
+                    "O tamanho informado para a plataforma Android não corresponde à revisão esperada."
+                }
+                val digest = MessageDigest.getInstance("SHA-1")
+                var total = 0L
+                connection.inputStream.use { input ->
+                    FileOutputStream(partial).use { raw ->
+                        val output = BufferedOutputStream(raw)
+                        val buffer = ByteArray(64 * 1024)
+                        while (true) {
+                            coroutineContext.ensureActive()
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            if (count == 0) continue
+                            total += count
+                            require(total <= PLATFORM_ARCHIVE_BYTES) {
+                                "O arquivo do SDK excedeu o tamanho esperado."
+                            }
+                            digest.update(buffer, 0, count)
+                            output.write(buffer, 0, count)
+                            if (total % (2L * 1024 * 1024) < count) {
+                                val percent = ((total * 100) / PLATFORM_ARCHIVE_BYTES).coerceIn(0, 100)
+                                report(onProgress, "Preparando a plataforma Android: " + percent + "%")
+                            }
                         }
+                        output.flush()
+                        raw.fd.sync()
+                    }
+                }
+                require(total == PLATFORM_ARCHIVE_BYTES) {
+                    "Download incompleto: " + total + " de " + PLATFORM_ARCHIVE_BYTES + " bytes."
+                }
+                val actualSha = digest.digest().joinToString("") { "%02x".format(it) }
+                require(actualSha.equals(PLATFORM_ARCHIVE_SHA1, ignoreCase = true)) {
+                    "A verificação de integridade da plataforma Android falhou. O arquivo não será usado."
+                }
+                check(partial.renameTo(archive)) {
+                    "Não foi possível finalizar o arquivo da plataforma Android."
+                }
+            } finally {
+                connection.disconnect()
+                if (partial.exists()) partial.delete()
+            }
+        }
+
+        check(isValidPlatformArchive(archive)) {
+            "O arquivo local da plataforma Android não passou pela verificação de integridade."
+        }
+        report(onProgress, "Extraindo e verificando android.jar…")
+        try {
+            ZipFile(archive).use { zip ->
+                val entry = zip.getEntry(PLATFORM_JAR_ENTRY)
+                    ?: error("A plataforma baixada não contém android.jar.")
+                require(entry.size in (MIN_ANDROID_JAR_BYTES + 1)..MAX_ANDROID_JAR_BYTES) {
+                    "O tamanho de android.jar é inválido para a plataforma Android."
+                }
+                zip.getInputStream(entry).use { input ->
+                    FileOutputStream(candidateJar).use { raw ->
+                        val output = BufferedOutputStream(raw)
+                        val buffer = ByteArray(64 * 1024)
+                        var total = 0L
+                        while (true) {
+                            coroutineContext.ensureActive()
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            if (count == 0) continue
+                            total += count
+                            require(total <= entry.size) { "android.jar ultrapassou o tamanho declarado no arquivo do SDK." }
+                            output.write(buffer, 0, count)
+                        }
+                        output.flush()
+                        raw.fd.sync()
+                        require(total == entry.size) { "O tamanho extraído de android.jar não confere." }
                     }
                 }
             }
-            require(total == PLATFORM_ARCHIVE_BYTES) { "Download incompleto: " + total + " de " + PLATFORM_ARCHIVE_BYTES + " bytes." }
-            val actualSha = digest.digest().joinToString("") { "%02x".format(it) }
-            require(actualSha.equals(PLATFORM_ARCHIVE_SHA1, ignoreCase = true)) {
-                "A verificação de integridade do Android SDK falhou. O download não será usado."
+            require(isUsableAndroidJarFile(candidateJar)) {
+                "android.jar foi extraído, mas não passou pela verificação estrutural."
             }
-            check(partial.renameTo(archive)) { "Não foi possível finalizar o arquivo do SDK." }
-        } finally {
-            connection.disconnect()
-            if (partial.exists()) partial.delete()
+            previousJar.delete()
+            if (androidJar.exists()) {
+                check(androidJar.renameTo(previousJar)) {
+                    "Não foi possível preservar a plataforma anterior antes da troca."
+                }
+            }
+            if (!candidateJar.renameTo(androidJar)) {
+                if (previousJar.exists()) previousJar.renameTo(androidJar)
+                error("Não foi possível instalar android.jar no armazenamento privado.")
+            }
+            if (!isUsableAndroidJar()) {
+                androidJar.delete()
+                if (previousJar.exists()) previousJar.renameTo(androidJar)
+                error("A plataforma instalada falhou na verificação final.")
+            }
+            previousJar.delete()
+            archive.delete()
+            return androidJar
+        } catch (e: Exception) {
+            candidateJar.delete()
+            if (!isUsableAndroidJar() && previousJar.exists() && !androidJar.exists()) {
+                previousJar.renameTo(androidJar)
+            }
+            throw e
         }
-        report(onProgress, "Extraindo android.jar verificado…")
-        ZipFile(archive).use { zip ->
-            val entry = zip.getEntry(PLATFORM_JAR_ENTRY) ?: error("A plataforma baixada não contém android.jar.")
-            require(entry.size > MIN_ANDROID_JAR_BYTES) { "android.jar parece incompleto." }
-            val temporary = File(platformDir, "android.jar.part")
-            zip.getInputStream(entry).use { input -> FileOutputStream(temporary).buffered().use { input.copyTo(it) } }
-            require(temporary.length() == entry.size) { "O tamanho de android.jar não confere." }
-            androidJar.delete()
-            check(temporary.renameTo(androidJar)) { "Não foi possível instalar android.jar no armazenamento privado." }
-        }
-        archive.delete()
-        return androidJar
     }
 
-    private fun isUsableAndroidJar(): Boolean {
-        if (!androidJar.isFile || androidJar.length() <= MIN_ANDROID_JAR_BYTES) return false
+    private fun isValidPlatformArchive(file: File): Boolean {
+        if (!file.isFile || file.length() != PLATFORM_ARCHIVE_BYTES) return false
+        return try {
+            val digest = MessageDigest.getInstance("SHA-1")
+            file.inputStream().buffered().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    if (count > 0) digest.update(buffer, 0, count)
+                }
+            }
+            digest.digest().joinToString("") { "%02x".format(it) }
+                .equals(PLATFORM_ARCHIVE_SHA1, ignoreCase = true)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isUsableAndroidJar(): Boolean = isUsableAndroidJarFile(androidJar)
+
+    private fun isUsableAndroidJarFile(file: File): Boolean {
+        if (!file.isFile || file.length() <= MIN_ANDROID_JAR_BYTES || file.length() > MAX_ANDROID_JAR_BYTES) return false
         return runCatching {
-            ZipFile(androidJar).use { zip ->
+            ZipFile(file).use { zip ->
                 zip.getEntry("android/app/Activity.class") != null &&
                     zip.getEntry("java/lang/Object.class") != null
             }
@@ -333,6 +426,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
         const val MAX_SOURCE_FILES = 80
         const val MAX_LOG_CHARS = 16_000
         const val MIN_ANDROID_JAR_BYTES = 20_000_000L
+        const val MAX_ANDROID_JAR_BYTES = 100L * 1024L * 1024L
         const val PLATFORM_URL = "https://dl.google.com/android/repository/platform-35_r02.zip"
         const val PLATFORM_ARCHIVE_SHA1 = "0bb560a90a7a2cbd0dd8348224d518b638fe7949"
         const val PLATFORM_ARCHIVE_BYTES = 64_273_788L

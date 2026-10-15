@@ -1,6 +1,7 @@
 package com.kellvyn.assistant
 
 import android.app.Activity
+import android.graphics.BitmapFactory
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.Intent
@@ -25,6 +26,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,11 +41,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +60,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kellvyn.assistant.ai.AssistantEngine
+import com.kellvyn.assistant.accessibility.FloatingAssistantService
+import com.kellvyn.assistant.attachments.LocalDocumentTextExtractor
+import com.kellvyn.assistant.attachments.LocalImageTextExtractor
+import com.kellvyn.assistant.attachments.LocalSvgImageGenerator
+import com.kellvyn.assistant.attachments.LocalSvgGenerationResult
 import com.kellvyn.assistant.ai.AssistantAgent
 import com.kellvyn.assistant.ai.AgentToolRouter
 import com.kellvyn.assistant.ai.AssistantResult
@@ -112,23 +123,115 @@ private fun isRepairableSourceBuildFailure(reason: String): Boolean {
 
 data class ChatMessage(val text: String, val fromUser: Boolean)
 
-private fun projectIconGlyph(project: WorkspaceProject): String {
+private fun projectIconKind(project: WorkspaceProject): String {
     val description = (project.name + " " + project.description).lowercase(Locale.ROOT)
     return when {
-        listOf("jogo", "game", "arcade", "rpg").any { it in description } -> "🎮"
-        listOf("música", "musica", "áudio", "audio", "player").any { it in description } -> "🎵"
-        listOf("foto", "câmera", "camera", "imagem", "galeria").any { it in description } -> "📷"
-        listOf("nota", "texto", "escrita", "diário", "diario").any { it in description } -> "📝"
-        listOf("tarefa", "todo", "lista", "produtividade").any { it in description } -> "✅"
-        listOf("agenda", "calendário", "calendario", "evento").any { it in description } -> "📅"
-        listOf("chat", "mensagem", "conversa", "assistente", "ia ").any { it in description } -> "💬"
-        listOf("loja", "compra", "produto", "venda").any { it in description } -> "🛍️"
-        listOf("mapa", "rota", "localização", "localizacao").any { it in description } -> "🗺️"
-        listOf("dinheiro", "finança", "financa", "banco", "gasto", "orçamento", "orcamento").any { it in description } -> "💰"
-        listOf("calculadora", "cálculo", "calculo", "matemática", "matematica").any { it in description } -> "🧮"
-        listOf("saúde", "saude", "treino", "fitness", "exercício", "exercicio").any { it in description } -> "💠"
-        listOf("bot", "discord", "whatsapp", "telegram", "wpp").any { it in description } -> "🤖"
-        else -> "▣"
+        listOf("jogo", "game", "arcade", "rpg").any { it in description } -> "game"
+        listOf("música", "musica", "áudio", "audio", "player").any { it in description } -> "music"
+        listOf("foto", "câmera", "camera", "imagem", "galeria").any { it in description } -> "image"
+        listOf("nota", "texto", "escrita", "diário", "diario").any { it in description } -> "document"
+        listOf("tarefa", "todo", "lista", "produtividade").any { it in description } -> "check"
+        listOf("agenda", "calendário", "calendario", "evento").any { it in description } -> "calendar"
+        listOf("chat", "mensagem", "conversa", "assistente", "ia ").any { it in description } -> "chat"
+        listOf("loja", "compra", "produto", "venda").any { it in description } -> "shop"
+        listOf("mapa", "rota", "localização", "localizacao").any { it in description } -> "map"
+        listOf("dinheiro", "finança", "financa", "banco", "gasto", "orçamento", "orcamento").any { it in description } -> "finance"
+        listOf("calculadora", "cálculo", "calculo", "matemática", "matematica").any { it in description } -> "calculator"
+        listOf("saúde", "saude", "treino", "fitness", "exercício", "exercicio").any { it in description } -> "health"
+        listOf("bot", "discord", "whatsapp", "telegram", "wpp").any { it in description } -> "bot"
+        else -> "app"
+    }
+}
+
+@Composable
+private fun KellvynLineIcon(
+    kind: String,
+    tint: Color,
+    modifier: Modifier = Modifier.size(20.dp)
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = Stroke(width = (size.minDimension * 0.075f).coerceAtLeast(1.35.dp.toPx()))
+        fun line(x1: Float, y1: Float, x2: Float, y2: Float) {
+            drawLine(tint, Offset(x1 * w, y1 * h), Offset(x2 * w, y2 * h), stroke.width)
+        }
+        fun rect(l: Float, t: Float, r: Float, b: Float, radius: Float = 0.08f) {
+            drawRoundRect(
+                tint,
+                Offset(l * w, t * h),
+                Size((r - l) * w, (b - t) * h),
+                CornerRadius(radius * w, radius * w),
+                style = stroke
+            )
+        }
+        when (kind) {
+            "menu" -> { line(.17f,.27f,.83f,.27f); line(.17f,.5f,.83f,.5f); line(.17f,.73f,.83f,.73f) }
+            "more" -> { drawCircle(tint, w*.075f, Offset(w*.5f,h*.22f)); drawCircle(tint,w*.075f,Offset(w*.5f,h*.5f)); drawCircle(tint,w*.075f,Offset(w*.5f,h*.78f)) }
+            "tools" -> {
+                rect(.14f,.14f,.42f,.42f,.05f); rect(.58f,.14f,.86f,.42f,.05f)
+                rect(.14f,.58f,.42f,.86f,.05f); rect(.58f,.58f,.86f,.86f,.05f)
+            }
+            "mic" -> {
+                rect(.36f,.12f,.64f,.60f,.15f)
+                line(.23f,.47f,.23f,.53f); line(.23f,.53f,.32f,.66f); line(.32f,.66f,.50f,.72f)
+                line(.50f,.72f,.68f,.66f); line(.68f,.66f,.77f,.53f); line(.77f,.47f,.77f,.53f)
+                line(.50f,.72f,.50f,.87f); line(.36f,.87f,.64f,.87f)
+            }
+            "send" -> {
+                val path = Path().apply {
+                    moveTo(w*.16f,h*.18f); lineTo(w*.88f,h*.49f); lineTo(w*.16f,h*.82f)
+                    lineTo(w*.29f,h*.54f); lineTo(w*.62f,h*.49f); lineTo(w*.29f,h*.45f); close()
+                }
+                drawPath(path, tint)
+            }
+            "game" -> {
+                rect(.12f,.31f,.88f,.72f,.22f)
+                line(.27f,.47f,.46f,.47f); line(.365f,.37f,.365f,.57f)
+                drawCircle(tint,w*.045f,Offset(w*.68f,h*.44f)); drawCircle(tint,w*.045f,Offset(w*.77f,h*.54f))
+            }
+            "music" -> {
+                line(.63f,.17f,.63f,.66f); line(.63f,.17f,.84f,.12f); line(.84f,.12f,.84f,.58f)
+                drawCircle(tint,w*.13f,Offset(w*.44f,h*.70f)); drawCircle(tint,w*.13f,Offset(w*.70f,h*.62f))
+            }
+            "image" -> {
+                rect(.12f,.16f,.88f,.84f,.08f); drawCircle(tint,w*.08f,Offset(w*.67f,h*.34f))
+                line(.19f,.72f,.40f,.50f); line(.40f,.50f,.55f,.64f); line(.55f,.64f,.67f,.53f); line(.67f,.53f,.82f,.72f)
+            }
+            "document" -> {
+                val path = Path().apply { moveTo(w*.27f,h*.12f); lineTo(w*.63f,h*.12f); lineTo(w*.78f,h*.28f); lineTo(w*.78f,h*.88f); lineTo(w*.27f,h*.88f); close() }
+                drawPath(path,tint,style=stroke); line(.63f,.13f,.63f,.29f); line(.63f,.29f,.77f,.29f)
+                line(.36f,.46f,.68f,.46f); line(.36f,.59f,.68f,.59f); line(.36f,.72f,.61f,.72f)
+            }
+            "check" -> { drawCircle(tint,w*.38f,Offset(w*.5f,h*.5f),style=stroke); line(.29f,.51f,.44f,.65f); line(.44f,.65f,.72f,.35f) }
+            "calendar" -> {
+                rect(.14f,.2f,.86f,.84f,.08f); line(.14f,.38f,.86f,.38f); line(.32f,.12f,.32f,.29f); line(.68f,.12f,.68f,.29f)
+                line(.31f,.52f,.31f,.53f); line(.50f,.52f,.50f,.53f); line(.68f,.52f,.68f,.53f); line(.31f,.68f,.31f,.69f); line(.50f,.68f,.50f,.69f)
+            }
+            "chat" -> {
+                val path = Path().apply { moveTo(w*.16f,h*.2f); lineTo(w*.84f,h*.2f); lineTo(w*.84f,h*.68f); lineTo(w*.48f,h*.68f); lineTo(w*.28f,h*.84f); lineTo(w*.3f,h*.68f); lineTo(w*.16f,h*.68f); close() }
+                drawPath(path,tint,style=stroke); line(.29f,.37f,.70f,.37f); line(.29f,.5f,.62f,.5f)
+            }
+            "shop" -> {
+                rect(.2f,.33f,.8f,.85f,.06f); line(.15f,.33f,.26f,.16f); line(.26f,.16f,.74f,.16f); line(.74f,.16f,.85f,.33f)
+                line(.39f,.48f,.39f,.85f); line(.39f,.48f,.62f,.48f); line(.62f,.48f,.62f,.85f)
+            }
+            "map" -> {
+                val path = Path().apply { moveTo(w*.12f,h*.25f); lineTo(w*.38f,h*.15f); lineTo(w*.63f,h*.25f); lineTo(w*.88f,h*.15f); lineTo(w*.88f,h*.75f); lineTo(w*.63f,h*.85f); lineTo(w*.38f,h*.75f); lineTo(w*.12f,h*.85f); close() }
+                drawPath(path,tint,style=stroke); line(.38f,.15f,.38f,.75f); line(.63f,.25f,.63f,.85f)
+            }
+            "finance" -> {
+                drawCircle(tint,w*.35f,Offset(w*.5f,h*.5f),style=stroke); line(.50f,.27f,.50f,.73f)
+                line(.64f,.37f,.40f,.37f); line(.40f,.37f,.36f,.45f); line(.36f,.45f,.60f,.54f); line(.60f,.54f,.62f,.63f); line(.62f,.63f,.38f,.63f)
+            }
+            "calculator" -> { rect(.18f,.12f,.82f,.88f,.07f); line(.25f,.32f,.75f,.32f); for (x in listOf(.34f,.5f,.66f)) { line(x,.45f,x,.75f) }; line(.27f,.61f,.73f,.61f); line(.27f,.75f,.73f,.75f) }
+            "health" -> { rect(.17f,.17f,.83f,.83f,.16f); line(.5f,.30f,.5f,.70f); line(.30f,.5f,.70f,.5f) }
+            "bot" -> {
+                rect(.18f,.28f,.82f,.78f,.15f); line(.5f,.14f,.5f,.28f); drawCircle(tint,w*.045f,Offset(w*.5f,h*.12f))
+                drawCircle(tint,w*.065f,Offset(w*.36f,h*.48f)); drawCircle(tint,w*.065f,Offset(w*.64f,h*.48f)); line(.35f,.66f,.65f,.66f)
+            }
+            else -> { rect(.16f,.16f,.84f,.84f,.1f); line(.36f,.37f,.64f,.37f); line(.36f,.5f,.64f,.5f); line(.36f,.63f,.64f,.63f) }
+        }
     }
 }
 
@@ -230,9 +333,11 @@ fun KellvynApp() {
     var telegramTokenDraft by remember { mutableStateOf("") }
     var telegramSetupError by remember { mutableStateOf("") }
     var pendingTelegramStartId by remember { mutableStateOf<String?>(null) }
+    var pendingFloatingStart by remember { mutableStateOf(false) }
     var pendingFileExportContent by remember { mutableStateOf<String?>(null) }
     var pendingFileExportName by remember { mutableStateOf("") }
     var pendingApkExport by remember { mutableStateOf<File?>(null) }
+    var pendingImageExport by remember { mutableStateOf<File?>(null) }
     var latestBuiltApk by remember(localAndroidCompiler) { mutableStateOf(localAndroidCompiler.mostRecentApk()) }
     var pendingLicenseProjectId by remember { mutableStateOf<String?>(null) }
     var showSdkLicenseDialog by remember { mutableStateOf(false) }
@@ -305,6 +410,20 @@ fun KellvynApp() {
         }
     }
 
+    val floatingNotificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val shouldStart = pendingFloatingStart
+        pendingFloatingStart = false
+        if (granted && shouldStart) {
+            runCatching { FloatingAssistantService.start(context) }
+                .onSuccess { status = "Assistente flutuante iniciado. A bolinha verde ficará sobre os outros aplicativos." }
+                .onFailure { status = "Não consegui iniciar o assistente flutuante: " + (it.message ?: it.javaClass.simpleName) }
+        } else if (shouldStart) {
+            status = "A permissão de notificação foi negada; o assistente flutuante não foi iniciado."
+        }
+    }
+
     fun requestTelegramRuntimeStart(projectId: String) {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -314,6 +433,31 @@ fun KellvynApp() {
         } else {
             startTelegramRuntimeNow(projectId)
         }
+    }
+
+    fun requestFloatingAssistantStart() {
+        if (!Settings.canDrawOverlays(context)) {
+            status = "Permita a sobreposição do Kellvyn nas Configurações do Android; depois toque em Assistente flutuante novamente."
+            try {
+                context.startActivity(
+                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } catch (e: Exception) {
+                status = "Não consegui abrir a permissão de sobreposição: " + (e.message ?: e.javaClass.simpleName)
+            }
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingFloatingStart = true
+            floatingNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        runCatching { FloatingAssistantService.start(context) }
+            .onSuccess { status = "Assistente flutuante iniciado. A bolinha verde ficará sobre os outros aplicativos." }
+            .onFailure { status = "Não consegui iniciar o assistente flutuante: " + (it.message ?: it.javaClass.simpleName) }
     }
 
     val runtimeStateReceiver = remember(context, projectRuntimeStore) {
@@ -621,12 +765,13 @@ fun KellvynApp() {
             return
         }
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
+        val wantsImage = ChatRequestRouter.shouldGenerateImage(text)
         if (!modelReady && !existingBuildOnly) {
             messages.add(ChatMessage(text, true))
-            messages.add(ChatMessage("O núcleo de IA ainda não iniciou. Confira o estado exibido na tela e tente novamente quando o carregamento terminar.", false))
+            messages.add(ChatMessage("A IA local ainda está iniciando. Confira o status na tela e tente novamente quando ela estiver pronta.", false))
             saveHistory()
             draft = ""
-            status = "Núcleo local não inicializado."
+            status = "IA local não inicializada."
             return
         }
 
@@ -634,13 +779,15 @@ fun KellvynApp() {
         saveHistory()
         draft = ""
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
-        val wantsBuild = !wantsExistingBuild &&
+        val wantsBuild = !wantsImage && !wantsExistingBuild &&
             ChatRequestRouter.shouldBuild(text)
-        val wantsCoder = wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseOnlineTools(text)
+        val wantsCoder = !wantsImage && (wantsBuild || wantsExistingBuild || ChatRequestRouter.shouldPreferCoder(text) || ChatRequestRouter.shouldUseOnlineTools(text))
         isGenerating = true
-        streamingReply = ""
-        status = if (wantsBuild) {
-            "Planejando e gerando o projeto com o núcleo local…"
+        streamingReply = if (wantsImage) "Preparando ilustração…" else "Pensando…"
+        status = if (wantsImage) {
+            "Criando uma ilustração vetorial com a IA local…"
+        } else if (wantsBuild) {
+            "Planejando e gerando o projeto com a IA local…"
         } else if (wantsExistingBuild) {
             "Selecionando o projeto e iniciando a compilação local…"
         } else {
@@ -650,7 +797,26 @@ fun KellvynApp() {
         val selectedEngine: AssistantEngine = localEngine
         scope.launch {
             try {
-                if (wantsBuild) {
+                if (wantsImage) {
+                    when (val generated = LocalSvgImageGenerator.generate(context, localEngine, text) { progress ->
+                        scope.launch(Dispatchers.Main.immediate) {
+                            status = progress
+                            streamingReply = progress
+                        }
+                    }) {
+                        is LocalSvgGenerationResult.Success -> {
+                            messages.add(ChatMessage(
+                                "Ilustração vetorial gerada com a IA local e convertida em PNG neste aparelho.\nIMAGEM_LOCAL_GERADA:" + generated.pngFile.name,
+                                false
+                            ))
+                            status = "Imagem PNG criada localmente. Você pode pré-visualizar e salvar o arquivo abaixo."
+                        }
+                        is LocalSvgGenerationResult.Failure -> {
+                            messages.add(ChatMessage("Não consegui gerar a imagem: " + generated.reason, false))
+                            status = generated.reason
+                        }
+                    }
+                } else if (wantsBuild) {
                     when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
                         is AppBuildResult.Success -> {
                             val project = result.project
@@ -917,7 +1083,7 @@ fun KellvynApp() {
         if (uri != null) {
             scope.launch {
                 try {
-                    val (fileName, fileContent) = withContext(Dispatchers.IO) {
+                    val (fileName, fileContent, attachmentKind) = withContext(Dispatchers.IO) {
                         val name = context.contentResolver.query(
                             uri,
                             arrayOf(OpenableColumns.DISPLAY_NAME),
@@ -931,52 +1097,64 @@ fun KellvynApp() {
 
                         val mime = context.contentResolver.getType(uri)?.lowercase(Locale.ROOT).orEmpty()
                         val extension = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
-                        val textExtensions = setOf(
-                            "txt", "md", "markdown", "json", "xml", "csv", "log",
-                            "kt", "kts", "java", "js", "mjs", "ts", "tsx", "jsx",
-                            "py", "html", "css", "sh", "yml", "yaml", "toml",
-                            "gradle", "properties", "sql", "c", "h", "cpp", "hpp",
-                            "go", "rs", "rb", "php", "dart", "swift", "ini", "conf"
-                        )
-                        val recognizedText = mime.startsWith("text/") ||
-                            mime in setOf(
-                                "application/json",
-                                "application/xml",
-                                "application/javascript",
-                                "application/x-yaml"
-                            ) ||
-                            extension in textExtensions
-                        require(recognizedText) {
-                            "Selecione um arquivo de texto ou código (por exemplo TXT, MD, JSON, KT ou JAVA)."
-                        }
-
-                        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
-                            val output = ByteArrayOutputStream()
-                            val buffer = ByteArray(8192)
-                            var totalBytes = 0
-                            while (true) {
-                                val count = input.read(buffer)
-                                if (count < 0) break
-                                if (count == 0) continue
-                                totalBytes += count
-                                require(totalBytes <= MAX_IMPORTED_FILE_BYTES) {
-                                    "O arquivo ultrapassa o limite de 256 KB para leitura no chat."
-                                }
-                                output.write(buffer, 0, count)
+                        val imageFile = mime.startsWith("image/") ||
+                            extension in setOf("png", "jpg", "jpeg", "webp", "bmp", "heic")
+                        when {
+                            imageFile -> {
+                                val extracted = LocalImageTextExtractor.extract(context, uri)
+                                Triple(
+                                    name,
+                                    "[ANÁLISE LOCAL DA IMAGEM — rótulos visuais aproximados e texto OCR; não é uma descrição visual completa]\n\n" + extracted,
+                                    "image"
+                                )
                             }
-                            output.toByteArray()
-                        } ?: throw IllegalStateException("O Android não conseguiu abrir o arquivo escolhido.")
-
-                        require(bytes.none { it == 0.toByte() }) {
-                            "O arquivo parece binário; escolha um arquivo de texto ou código."
+                            LocalDocumentTextExtractor.supports(name, mime) -> {
+                                Triple(name, LocalDocumentTextExtractor.extract(context, uri, name, mime), "document")
+                            }
+                            else -> {
+                                val textExtensions = setOf(
+                                    "txt", "md", "markdown", "json", "xml", "csv", "log",
+                                    "kt", "kts", "java", "js", "mjs", "ts", "tsx", "jsx",
+                                    "py", "html", "css", "sh", "yml", "yaml", "toml",
+                                    "gradle", "properties", "sql", "c", "h", "cpp", "hpp",
+                                    "go", "rs", "rb", "php", "dart", "swift", "ini", "conf"
+                                )
+                                val recognizedText = mime.startsWith("text/") ||
+                                    mime in setOf("application/json", "application/xml", "application/javascript", "application/x-yaml") ||
+                                    extension in textExtensions
+                                require(recognizedText) {
+                                    "Formato não suportado. Use texto/código, PDF, DOCX, ODT ou uma imagem para análise local."
+                                }
+                                val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+                                    val output = ByteArrayOutputStream()
+                                    val buffer = ByteArray(8192)
+                                    var totalBytes = 0
+                                    while (true) {
+                                        val count = input.read(buffer)
+                                        if (count < 0) break
+                                        if (count == 0) continue
+                                        totalBytes += count
+                                        require(totalBytes <= MAX_IMPORTED_FILE_BYTES) {
+                                            "O arquivo de texto ultrapassa o limite de 256 KB para leitura no chat."
+                                        }
+                                        output.write(buffer, 0, count)
+                                    }
+                                    output.toByteArray()
+                                } ?: throw IllegalStateException("O Android não conseguiu abrir o arquivo escolhido.")
+                                require(bytes.none { it == 0.toByte() }) { "O arquivo parece binário; escolha texto ou código." }
+                                val text = String(bytes, Charsets.UTF_8)
+                                require(text.isNotBlank()) { "O arquivo está vazio." }
+                                Triple(name, text, "text")
+                            }
                         }
-                        val text = String(bytes, Charsets.UTF_8)
-                        require(text.isNotBlank()) { "O arquivo está vazio." }
-                        name to text
                     }
 
                     val currentDraft = draft.trim()
-                    val prefix = "Leia e analise o arquivo \"$fileName\":\n\n"
+                    val prefix = when (attachmentKind) {
+                        "image" -> "Analise a rotulagem visual aproximada e o texto OCR extraídos localmente da imagem \"$fileName\". Não trate as categorias como descrição completa da cena.\n\n"
+                        "document" -> "Leia e analise o documento \"$fileName\":\n\n"
+                        else -> "Leia e analise o arquivo \"$fileName\":\n\n"
+                    }
                     val base = if (currentDraft.isBlank()) "" else "$currentDraft\n\n"
                     val room = MAX_INPUT_CHARS - base.length - prefix.length
                     if (room <= 0) {
@@ -984,10 +1162,11 @@ fun KellvynApp() {
                     } else {
                         val excerpt = fileContent.take(room)
                         draft = base + prefix + excerpt
-                        status = if (excerpt.length < fileContent.length) {
-                            "Arquivo $fileName lido; inseri um trecho dentro do limite de mensagem. Revise antes de enviar."
-                        } else {
-                            "Arquivo $fileName lido e adicionado ao rascunho. Revise antes de enviar."
+                        status = when {
+                            excerpt.length < fileContent.length -> "Extraí um trecho de $fileName dentro do limite de mensagem. Revise antes de enviar."
+                            attachmentKind == "image" -> "Imagem analisada localmente com rótulos visuais aproximados e OCR. A IA textual recebe a análise extraída, não os pixels nem uma descrição completa da cena."
+                            attachmentKind == "document" -> "Documento $fileName extraído localmente e adicionado ao rascunho."
+                            else -> "Arquivo $fileName lido e adicionado ao rascunho. Revise antes de enviar."
                         }
                     }
                 } catch (e: Exception) {
@@ -1019,6 +1198,28 @@ fun KellvynApp() {
         }
     }
 
+    val imageExportPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("image/png")
+    ) { destination ->
+        val source = pendingImageExport
+        pendingImageExport = null
+        if (destination != null && source != null && source.isFile) {
+            val fileToCopy = source
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(destination, "w")?.use { output ->
+                            fileToCopy.inputStream().buffered().use { input -> input.copyTo(output) }
+                        } ?: throw IllegalStateException("O Android não abriu o destino para salvar a imagem.")
+                    }
+                    status = "Imagem salva: " + fileToCopy.name
+                } catch (e: Exception) {
+                    status = "Falha ao salvar a imagem: " + (e.message ?: e.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
     val speechInputLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -1034,13 +1235,13 @@ fun KellvynApp() {
     LaunchedEffect(localEngine) {
         isLoadingModel = true
         try {
-            localEngine.recoverInterruptedModelSwap { progress -> status = progress }
+            localEngine.prepareLocalModel { progress -> status = progress }
             if (localEngine.hasSavedModel()) {
-                status = "Modelo local encontrado; inicializando…"
+                status = "IA local encontrada; inicializando…"
                 updateModelResult(localEngine.loadSavedModel())
             }
         } catch (e: Exception) {
-            status = "Não foi possível recuperar/carregar o modelo local: " +
+            status = "Não foi possível preparar a IA local: " +
                 (e.message ?: e.javaClass.simpleName)
         } finally {
             isLoadingModel = false
@@ -1102,8 +1303,11 @@ fun KellvynApp() {
                 modifier = Modifier.fillMaxWidth().height(44.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = { showConversationsDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    Text("☰", color = accentColor, fontSize = 19.sp)
+                IconButton(
+                    onClick = { showConversationsDialog = true },
+                    modifier = Modifier.size(38.dp).semantics { contentDescription = "Histórico de conversas" }
+                ) {
+                    KellvynLineIcon("menu", accentColor, Modifier.size(19.dp))
                 }
                 Spacer(Modifier.width(2.dp))
                 KellvynMark(26.dp, accentColor)
@@ -1118,11 +1322,17 @@ fun KellvynApp() {
                         maxLines = 1
                     )
                 }
-                TextButton(onClick = { showQuickMenu = true }, contentPadding = PaddingValues(horizontal = 5.dp)) {
-                    Text("▦", color = accentColor, fontSize = 18.sp)
+                IconButton(
+                    onClick = { showQuickMenu = true },
+                    modifier = Modifier.size(38.dp).semantics { contentDescription = "Ferramentas e anexos" }
+                ) {
+                    KellvynLineIcon("tools", accentColor, Modifier.size(18.dp))
                 }
-                TextButton(onClick = { showSettingsDialog = true }, contentPadding = PaddingValues(horizontal = 5.dp)) {
-                    Text("⋮", color = accentColor, fontSize = 22.sp)
+                IconButton(
+                    onClick = { showSettingsDialog = true },
+                    modifier = Modifier.size(38.dp).semantics { contentDescription = "Configurações" }
+                ) {
+                    KellvynLineIcon("more", accentColor, Modifier.size(20.dp))
                 }
                 DropdownMenu(
                     expanded = showQuickMenu,
@@ -1130,7 +1340,7 @@ fun KellvynApp() {
                     modifier = Modifier.background(Panel)
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Ler arquivo de texto/código") },
+                        text = { Text("Anexar arquivo, documento ou imagem") },
                         onClick = {
                             showQuickMenu = false
                             readFileLauncher.launch(arrayOf("*/*"))
@@ -1163,6 +1373,25 @@ fun KellvynApp() {
                             memoryDraft = ""
                             memoryStatus = ""
                             showMemoryDialog = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Assistente flutuante") },
+                        onClick = {
+                            showQuickMenu = false
+                            requestFloatingAssistantStart()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Ativar leitura de tela") },
+                        onClick = {
+                            showQuickMenu = false
+                            status = "Nas Configurações do Android, abra Acessibilidade e ative o serviço de leitura de tela do Kellvyn. Ele captura texto somente quando você toca em Ler tela."
+                            try {
+                                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            } catch (e: Exception) {
+                                status = "Não consegui abrir Acessibilidade: " + (e.message ?: e.javaClass.simpleName)
+                            }
                         }
                     )
                 }
@@ -1204,6 +1433,10 @@ fun KellvynApp() {
                             KellvynMark(26.dp, accentColor)
                             Spacer(Modifier.width(7.dp))
                             Column(Modifier.weight(1f)) {
+                                val imageMarker = Regex("""IMAGEM_LOCAL_GERADA:([A-Za-z0-9._-]+)""")
+                                    .find(message.text)?.groupValues?.getOrNull(1)
+                                val visibleAssistantText = if (imageMarker == null) message.text
+                                    else message.text.replace("IMAGEM_LOCAL_GERADA:" + imageMarker, "").trim()
                                 Surface(
                                     color = Night,
                                     shape = RoundedCornerShape(topStart = 5.dp, topEnd = 17.dp, bottomEnd = 17.dp, bottomStart = 17.dp),
@@ -1211,12 +1444,53 @@ fun KellvynApp() {
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text(
-                                        message.text,
+                                        visibleAssistantText,
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                                         color = Color(0xFF9ED7C8),
                                         fontSize = 14.sp,
                                         lineHeight = 20.sp
                                     )
+                                }
+                                val generatedImageFile = imageMarker?.let { name ->
+                                    File(File(context.filesDir, "kellvyn_images"), name)
+                                        .takeIf { it.isFile && it.length() > 0L }
+                                }
+                                val generatedImageBitmap = remember(generatedImageFile?.absolutePath) {
+                                    generatedImageFile?.let { file ->
+                                        runCatching { BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap() }.getOrNull()
+                                    }
+                                }
+                                if (generatedImageBitmap != null && generatedImageFile != null) {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                        color = Color(0xFF061F17),
+                                        shape = RoundedCornerShape(13.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.6f))
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth().padding(9.dp),
+                                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                                        ) {
+                                            Text("Ilustração PNG local", color = accentColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Image(
+                                                bitmap = generatedImageBitmap,
+                                                contentDescription = "Ilustração vetorial gerada pelo Kellvyn",
+                                                modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                                TextButton(
+                                                    onClick = {
+                                                        if (generatedImageFile.isFile && generatedImageFile.length() > 0L) {
+                                                            pendingImageExport = generatedImageFile
+                                                            imageExportPicker.launch(generatedImageFile.name)
+                                                        } else status = "O arquivo PNG desta resposta não está mais disponível."
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                                ) { Text("Salvar imagem", color = accentColor, fontSize = 11.sp) }
+                                            }
+                                        }
+                                    }
                                 }
                                 val apkNameFromMessage = if (message.text.contains("APK criado, assinado e verificado no próprio celular.")) {
                                     Regex("""Arquivo:\s+([a-z0-9][a-z0-9-]{0,60}\.apk)\.""", RegexOption.IGNORE_CASE)
@@ -1462,7 +1736,7 @@ fun KellvynApp() {
                                 }
                             },
                             contentAlignment = Alignment.Center
-                        ) { Text("🎙", fontSize = 15.sp, color = accentColor) }
+                        ) { KellvynLineIcon("mic", accentColor, Modifier.size(20.dp)) }
 
                         Spacer(Modifier.weight(1f))
 
@@ -1473,7 +1747,7 @@ fun KellvynApp() {
                             modifier = Modifier.height(34.dp),
                             contentPadding = PaddingValues(horizontal = 11.dp, vertical = 3.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Night)
-                        ) { Text(if (isGenerating) "…" else "↑", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+                        ) { if (isGenerating) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Night) else KellvynLineIcon("send", Night, Modifier.size(17.dp)) }
                     }
                 }
             }
@@ -1718,13 +1992,6 @@ fun KellvynApp() {
                             color = Muted,
                             fontSize = 12.sp
                         )
-                        Divider(color = Color(0xFF143D33))
-                        Text("CHUVA DO MODELO", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            "O efeito original de chuva do modelo não está presente no código atual que consegui verificar. Não coloquei uma animação diferente no lugar nem um controle falso.",
-                            color = Muted,
-                            fontSize = 12.sp
-                        )
                     }
                 },
                 confirmButton = {
@@ -1762,7 +2029,7 @@ fun KellvynApp() {
                                         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Surface(Modifier.size(50.dp), color = Color(0xFF0A2D24), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.5f))) {
                                                 Box(contentAlignment = Alignment.Center) {
-                                                    Text(projectIconGlyph(project), color = accentColor, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                                                    KellvynLineIcon(projectIconKind(project), accentColor, Modifier.size(26.dp))
                                                 }
                                             }
                                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
