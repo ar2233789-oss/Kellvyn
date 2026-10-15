@@ -273,10 +273,10 @@ private fun KellvynMark(diameter: androidx.compose.ui.unit.Dp = 28.dp, accent: C
         val d = this.size.minDimension
         val r = d * 0.46f
         val center = Offset(this.size.width / 2f, this.size.height / 2f)
-        drawCircle(color = accent.copy(alpha = 0.10f), radius = r * 1.22f, center = center)
-        drawCircle(color = accent.copy(alpha = 0.18f), radius = r * 1.08f, center = center)
-        drawCircle(color = Color(0xFF04110D), radius = r, center = center)
-        drawCircle(color = accent.copy(alpha = 0.98f), radius = r * 0.94f, center = center, style = Stroke(width = 1.7.dp.toPx()))
+        drawCircle(color = accent.copy(alpha = 0.22f), radius = r * 1.08f, center = center)
+        drawCircle(color = accent.copy(alpha = 0.34f), radius = r * 0.99f, center = center)
+        drawCircle(color = Color(0xFF03110C), radius = r * 0.93f, center = center)
+        drawCircle(color = accent.copy(alpha = 1.0f), radius = r * 0.89f, center = center, style = Stroke(width = 2.0.dp.toPx()))
 
         val hood = Path().apply {
             moveTo(center.x, center.y - r * 0.78f)
@@ -285,8 +285,8 @@ private fun KellvynMark(diameter: androidx.compose.ui.unit.Dp = 28.dp, accent: C
             cubicTo(center.x + r * 0.58f, center.y + r * 0.33f, center.x + r * 0.67f, center.y - r * 0.45f, center.x, center.y - r * 0.78f)
             close()
         }
-        drawPath(path = hood, color = Color(0xFF147A5A))
-        drawPath(path = hood, color = accent.copy(alpha = 0.88f), style = Stroke(width = 1.0.dp.toPx()))
+        drawPath(path = hood, color = accent.copy(alpha = 0.82f))
+        drawPath(path = hood, color = accent.copy(alpha = 1.0f), style = Stroke(width = 1.25.dp.toPx()))
         val face = Path().apply {
             moveTo(center.x, center.y - r * 0.37f)
             lineTo(center.x - r * 0.28f, center.y - r * 0.03f)
@@ -298,7 +298,7 @@ private fun KellvynMark(diameter: androidx.compose.ui.unit.Dp = 28.dp, accent: C
         drawPath(path = face, color = Night)
         drawLine(color = Color(0xFFBFFFF1), start = Offset(center.x - r * 0.19f, center.y + r * 0.02f), end = Offset(center.x - r * 0.055f, center.y + r * 0.06f), strokeWidth = 1.8.dp.toPx())
         drawLine(color = Color(0xFFBFFFF1), start = Offset(center.x + r * 0.055f, center.y + r * 0.06f), end = Offset(center.x + r * 0.19f, center.y + r * 0.02f), strokeWidth = 1.8.dp.toPx())
-        drawCircle(color = accent.copy(alpha = 0.30f), radius = r * 0.14f, center = Offset(center.x, center.y + r * 0.30f))
+        drawCircle(color = accent.copy(alpha = 0.62f), radius = r * 0.14f, center = Offset(center.x, center.y + r * 0.30f))
     }
 }
 
@@ -1475,7 +1475,7 @@ fun KellvynApp() {
                     KellvynLineIcon("menu", accentColor, Modifier.size(19.dp))
                 }
                 Spacer(Modifier.width(2.dp))
-                KellvynMark(30.dp, accentColor)
+                KellvynMark(34.dp, accentColor)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Kellvyn Assistente", color = accentColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
@@ -1542,7 +1542,7 @@ fun KellvynApp() {
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.Top
                         ) {
-                            KellvynMark(28.dp, accentColor)
+                            KellvynMark(30.dp, accentColor)
                             Spacer(Modifier.width(7.dp))
                             Column(Modifier.weight(1f)) {
                                 val imageMarker = Regex("""IMAGEM_LOCAL_GERADA:([A-Za-z0-9._-]+)""")
