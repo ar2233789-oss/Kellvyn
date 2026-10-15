@@ -796,7 +796,7 @@ fun KellvynApp() {
             "Gerando resposta no aparelho…"
         }
 
-        val selectedEngine: AssistantEngine = localEngine
+        val assistantEngine: AssistantEngine = localEngine
         scope.launch {
             try {
                 if (wantsImage) {
@@ -819,7 +819,7 @@ fun KellvynApp() {
                         }
                     }
                 } else if (wantsBuild) {
-                    when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
+                    when (val result = appBuilderAgent.createProject(assistantEngine, text)) {
                         is AppBuildResult.Success -> {
                             val project = result.project
                             existingProjects.clear()
@@ -856,7 +856,7 @@ fun KellvynApp() {
                                     )
                                 )
                                 status = "Projeto salvo. Iniciando o compilador local…"
-                                buildProjectAndReport(project, repairBrief = text, repairEngine = selectedEngine)
+                                buildProjectAndReport(project, repairBrief = text, repairEngine = assistantEngine)
                             }
                         }
                         is AppBuildResult.Failure -> {
@@ -897,7 +897,7 @@ fun KellvynApp() {
                         messages.add(ChatMessage("Encontrei o projeto \"" + selectedProject.name + "\". Iniciando o build local em segundo plano.", false))
                         val repairEngineForBuild = if (
                             modelReady
-                        ) selectedEngine else null
+                        ) assistantEngine else null
                         buildProjectAndReport(
                             selectedProject,
                             repairBrief = text,
@@ -920,7 +920,7 @@ fun KellvynApp() {
                     val savedEditorBefore = savedEditorBeforeResult?.getOrNull()
                     val agentResult = if (wantsCoder) {
                         assistantAgent.respond(
-                            engine = selectedEngine,
+                            engine = assistantEngine,
                             conversation = turns,
                             internetAllowed = ChatRequestRouter.shouldUseOnlineTools(text),
                             onToolStatus = { toolStatus -> status = toolStatus },
