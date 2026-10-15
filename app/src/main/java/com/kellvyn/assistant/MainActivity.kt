@@ -101,6 +101,7 @@ import com.kellvyn.assistant.runtime.GeneratedProjectKind
 import com.kellvyn.assistant.runtime.GeneratedProjectRuntimeStore
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -119,6 +120,8 @@ private const val MAX_CONTEXT_MESSAGES = 12
 private const val MAX_HISTORY_MESSAGE_CHARS = 800
 private const val MAX_INPUT_CHARS = 12_000
 private const val MAX_IMPORTED_FILE_BYTES = 256 * 1024
+private const val MAX_IMPORTED_IMAGE_BYTES = 20L * 1024L * 1024L
+private const val MAX_IMAGE_PIXELS = 24_000_000L
 private const val MAX_EDITOR_CHARS = 80_000
 
 /** Only compiler diagnostics tied to Java/D8 source are eligible for the automatic code-repair pass. */
@@ -131,7 +134,59 @@ private fun isRepairableSourceBuildFailure(reason: String): Boolean {
         value.contains("cannot fit requested classes in a single dex file")
 }
 
-data class ChatMessage(val text: String, val fromUser: Boolean)
+data class ChatMessage(val text: String, val fromUser: Boolean, val imagePath: String? = null)
+
+private data class PendingChatRequest(val text: String, val imagePath: String? = null)
+
+private fun cacheImageAttachment(context: Context, uri: Uri, displayName: String): File {
+    val resolver = context.contentResolver
+    val mime = resolver.getType(uri)?.lowercase(Locale.ROOT).orEmpty()
+    val suffix = displayName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+    val extension = when {
+        suffix in setOf("jpg", "jpeg", "png", "webp", "bmp", "heic") -> suffix
+        mime == "image/png" -> "png"
+        mime == "image/webp" -> "webp"
+        mime == "image/bmp" -> "bmp"
+        mime == "image/heic" || mime == "image/heif" -> "heic"
+        else -> "jpg"
+    }
+    val directory = File(context.cacheDir, "kellvyn_attachments")
+    check(directory.exists() || directory.mkdirs()) { "Não foi possível preparar o anexo de imagem." }
+    val destination = File(directory, "imagem-${UUID.randomUUID()}.$extension")
+    try {
+        val input = resolver.openInputStream(uri)
+            ?: throw IllegalStateException("O Android não conseguiu abrir a imagem escolhida.")
+        input.use { source ->
+            FileOutputStream(destination).use { output ->
+                val buffer = ByteArray(64 * 1024)
+                var total = 0L
+                while (true) {
+                    val count = source.read(buffer)
+                    if (count < 0) break
+                    if (count == 0) continue
+                    total += count
+                    require(total <= MAX_IMPORTED_IMAGE_BYTES) {
+                        "A imagem ultrapassa 20 MB; escolha uma versão menor."
+                    }
+                    output.write(buffer, 0, count)
+                }
+                output.fd.sync()
+            }
+        }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(destination.absolutePath, bounds)
+        require(bounds.outWidth > 0 && bounds.outHeight > 0) {
+            "O arquivo selecionado não pôde ser lido como imagem."
+        }
+        require(bounds.outWidth.toLong() * bounds.outHeight.toLong() <= MAX_IMAGE_PIXELS) {
+            "A imagem tem resolução excessiva para análise neste aparelho."
+        }
+        return destination
+    } catch (e: Exception) {
+        destination.delete()
+        throw e
+    }
+}
 
 private fun projectIconKind(project: WorkspaceProject): String {
     val description = (project.name + " " + project.description).lowercase(Locale.ROOT)
@@ -325,7 +380,8 @@ fun KellvynApp() {
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
     var draft by remember { mutableStateOf("") }
-    val pendingChatRequests = remember { mutableStateListOf<String>() }
+    var pendingImagePath by remember { mutableStateOf<String?>(null) }
+    val pendingChatRequests = remember { mutableStateListOf<PendingChatRequest>() }
     var streamingReply by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("Kellvyn pronto. Converse pelo chat principal.") }
     var modelReady by remember { mutableStateOf(false) }
@@ -669,7 +725,8 @@ fun KellvynApp() {
                 add(
                     AssistantTurn(
                         role = if (message.fromUser) AssistantTurn.Role.USER else AssistantTurn.Role.ASSISTANT,
-                        content = content
+                        content = content,
+                        imagePath = if (index == latestUserIndex) message.imagePath else null
                     )
                 )
             }
@@ -844,53 +901,54 @@ fun KellvynApp() {
 
     fun installLatestApk() = installApkFile(latestBuiltApk)
 
-    fun submitDraft(alreadyQueued: Boolean = false) {
-        val text = draft.trim()
-        if (text.isEmpty()) return
+    fun submitDraft(alreadyQueued: Boolean = false, queuedRequest: PendingChatRequest? = null) {
+        val text = queuedRequest?.text ?: draft.trim()
+        val requestImagePath = queuedRequest?.imagePath ?: pendingImagePath
+        if (text.isEmpty() && requestImagePath == null) return
         if (isGenerating && !alreadyQueued) {
-            pendingChatRequests.add(text)
+            pendingChatRequests.add(PendingChatRequest(text, requestImagePath))
             draft = ""
+            pendingImagePath = null
             status = "Mensagem na fila (${pendingChatRequests.size}). Pode continuar enviando."
             return
         }
         if (KellvynIdentity.isIdentityQuestion(text)) {
-            if (!alreadyQueued) messages.add(ChatMessage(text, true))
+            messages.add(ChatMessage(text, true, requestImagePath))
             messages.add(ChatMessage(KellvynIdentity.answer(), false))
             draft = ""
+            pendingImagePath = null
             saveHistory()
             status = "Kellvyn IA — identidade do assistente"
             if (alreadyQueued && pendingChatRequests.isNotEmpty()) {
                 val nextRequest = pendingChatRequests.removeAt(0)
-                messages.add(ChatMessage(nextRequest, true))
-                draft = nextRequest
-                scope.launch { submitDraft(alreadyQueued = true) }
+                scope.launch { submitDraft(alreadyQueued = true, queuedRequest = nextRequest) }
             }
             return
         }
-        val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
-        val wantsImage = ChatRequestRouter.shouldGenerateImage(text)
+        val existingBuildOnly = requestImagePath == null && ChatRequestRouter.shouldCompileExistingProject(text)
+        val wantsImage = requestImagePath == null && ChatRequestRouter.shouldGenerateImage(text)
         if (!modelReady && !existingBuildOnly) {
-            if (!alreadyQueued) messages.add(ChatMessage(text, true))
+            messages.add(ChatMessage(text, true, requestImagePath))
             messages.add(ChatMessage("A IA local ainda está iniciando. Confira o status na tela e tente novamente quando ela estiver pronta.", false))
             saveHistory()
             draft = ""
+            pendingImagePath = null
             status = "IA local não inicializada."
             if (alreadyQueued && pendingChatRequests.isNotEmpty()) {
                 val nextRequest = pendingChatRequests.removeAt(0)
-                messages.add(ChatMessage(nextRequest, true))
-                draft = nextRequest
-                scope.launch { submitDraft(alreadyQueued = true) }
+                scope.launch { submitDraft(alreadyQueued = true, queuedRequest = nextRequest) }
             }
             return
         }
 
-        if (!alreadyQueued) messages.add(ChatMessage(text, true))
+        messages.add(ChatMessage(text, true, requestImagePath))
         saveHistory()
         draft = ""
-        val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
-        val wantsBuild = !wantsImage && !wantsExistingBuild &&
+        pendingImagePath = null
+        val wantsExistingBuild = requestImagePath == null && ChatRequestRouter.shouldCompileExistingProject(text)
+        val wantsBuild = requestImagePath == null && !wantsImage && !wantsExistingBuild &&
             ChatRequestRouter.shouldBuild(text)
-        val wantsCoder = !wantsImage && (
+        val wantsCoder = requestImagePath == null && !wantsImage && (
             wantsBuild || wantsExistingBuild ||
                 ChatRequestRouter.shouldPreferCoder(text) ||
                 ChatRequestRouter.shouldUseOnlineTools(text) ||
@@ -1178,9 +1236,7 @@ fun KellvynApp() {
                 isGenerating = false
                 if (pendingChatRequests.isNotEmpty()) {
                     val nextRequest = pendingChatRequests.removeAt(0)
-                    messages.add(ChatMessage(nextRequest, true))
-                    draft = nextRequest
-                    submitDraft(alreadyQueued = true)
+                    submitDraft(alreadyQueued = true, queuedRequest = nextRequest)
                 }
             }
         }
@@ -1264,6 +1320,10 @@ fun KellvynApp() {
         if (uri != null) {
             scope.launch {
                 try {
+                    val previousImagePath = pendingImagePath
+                    pendingImagePath = null
+                    previousImagePath?.let { File(it).delete() }
+                    var cachedImagePath: String? = null
                     val (fileName, fileContent, attachmentKind) = withContext(Dispatchers.IO) {
                         val name = context.contentResolver.query(
                             uri,
@@ -1282,12 +1342,9 @@ fun KellvynApp() {
                             extension in setOf("png", "jpg", "jpeg", "webp", "bmp", "heic")
                         when {
                             imageFile -> {
-                                val extracted = LocalImageTextExtractor.extract(context, uri)
-                                Triple(
-                                    name,
-                                    "[ANÁLISE LOCAL DA IMAGEM — rótulos visuais aproximados e texto OCR; não é uma descrição visual completa]\n\n" + extracted,
-                                    "image"
-                                )
+                                val cachedImage = cacheImageAttachment(context, uri, name)
+                                cachedImagePath = cachedImage.absolutePath
+                                Triple(name, "", "image")
                             }
                             LocalDocumentTextExtractor.supports(name, mime) -> {
                                 Triple(name, LocalDocumentTextExtractor.extract(context, uri, name, mime), "document")
@@ -1331,23 +1388,32 @@ fun KellvynApp() {
                     }
 
                     val currentDraft = draft.trim()
-                    val prefix = when (attachmentKind) {
-                        "image" -> "Analise a rotulagem visual aproximada e o texto OCR extraídos localmente da imagem \"$fileName\". Não trate as categorias como descrição completa da cena.\n\n"
-                        "document" -> "Leia e analise o documento \"$fileName\":\n\n"
-                        else -> "Leia e analise o arquivo \"$fileName\":\n\n"
-                    }
-                    val base = if (currentDraft.isBlank()) "" else "$currentDraft\n\n"
-                    val room = MAX_INPUT_CHARS - base.length - prefix.length
-                    if (room <= 0) {
-                        status = "O campo de mensagem está cheio. Envie ou limpe o texto atual antes de ler o arquivo."
+                    if (attachmentKind == "image") {
+                        pendingImagePath = cachedImagePath
+                        draft = if (currentDraft.isBlank()) {
+                            "Analise a imagem anexada: $fileName."
+                        } else {
+                            "$currentDraft\n\n[Imagem anexada: $fileName]"
+                        }.take(MAX_INPUT_CHARS)
+                        status = "Imagem anexada e pronta para ser analisada pela Kellvyn IA."
                     } else {
-                        val excerpt = fileContent.take(room)
-                        draft = base + prefix + excerpt
-                        status = when {
-                            excerpt.length < fileContent.length -> "Extraí um trecho de $fileName dentro do limite de mensagem. Revise antes de enviar."
-                            attachmentKind == "image" -> "Imagem analisada localmente com rótulos visuais aproximados e OCR. A IA textual recebe a análise extraída, não os pixels nem uma descrição completa da cena."
-                            attachmentKind == "document" -> "Documento $fileName extraído localmente e adicionado ao rascunho."
-                            else -> "Arquivo $fileName lido e adicionado ao rascunho. Revise antes de enviar."
+                        val prefix = if (attachmentKind == "document") {
+                            "Leia e analise o documento \"$fileName\":\n\n"
+                        } else {
+                            "Leia e analise o arquivo \"$fileName\":\n\n"
+                        }
+                        val base = if (currentDraft.isBlank()) "" else "$currentDraft\n\n"
+                        val room = MAX_INPUT_CHARS - base.length - prefix.length
+                        if (room <= 0) {
+                            status = "O campo de mensagem está cheio. Envie ou limpe o texto atual antes de ler o arquivo."
+                        } else {
+                            val excerpt = fileContent.take(room)
+                            draft = base + prefix + excerpt
+                            status = when {
+                                excerpt.length < fileContent.length -> "Extraí um trecho de $fileName dentro do limite de mensagem. Revise antes de enviar."
+                                attachmentKind == "document" -> "Documento $fileName extraído e adicionado ao rascunho."
+                                else -> "Arquivo $fileName lido e adicionado ao rascunho. Revise antes de enviar."
+                            }
                         }
                     }
                 } catch (e: CancellationException) {
@@ -1464,8 +1530,23 @@ fun KellvynApp() {
             val activeEngine = engineHolder[0]
             if (result == TextToSpeech.SUCCESS && activeEngine != null) {
                 val languageResult = activeEngine.setLanguage(Locale("pt", "BR"))
-                ttsReady = languageResult != TextToSpeech.LANG_MISSING_DATA &&
+                val supportedLanguage = languageResult != TextToSpeech.LANG_MISSING_DATA &&
                     languageResult != TextToSpeech.LANG_NOT_SUPPORTED
+                if (supportedLanguage) {
+                    val portugueseVoices = activeEngine.voices.orEmpty().filter {
+                        it.locale.language == "pt" && it.locale.country.equals("BR", ignoreCase = true)
+                    }
+                    val deeperVoice = portugueseVoices.sortedWith(
+                        compareBy<android.speech.tts.Voice> {
+                            if (listOf("male", "masc", "grave", "low").any { key -> it.name.contains(key, ignoreCase = true) }) 0 else 1
+                        }.thenBy { if (it.isNetworkConnectionRequired) 1 else 0 }
+                            .thenByDescending { it.quality }
+                    ).firstOrNull()
+                    if (deeperVoice != null) activeEngine.voice = deeperVoice
+                    activeEngine.setPitch(0.62f)
+                    activeEngine.setSpeechRate(0.86f)
+                }
+                ttsReady = supportedLanguage
             } else {
                 ttsReady = false
             }
@@ -1582,13 +1663,30 @@ fun KellvynApp() {
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF14634D)),
                                 modifier = Modifier.fillMaxWidth(0.88f)
                             ) {
-                                Text(
-                                    message.text,
+                                Column(
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                                    color = Color(0xFFE1FFF5),
-                                    fontSize = 14.sp,
-                                    lineHeight = 20.sp
-                                )
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    val attachedImage = remember(message.imagePath) {
+                                        message.imagePath?.let { path ->
+                                            runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull()
+                                        }
+                                    }
+                                    if (attachedImage != null) {
+                                        Image(
+                                            bitmap = attachedImage,
+                                            contentDescription = "Imagem enviada para análise pela Kellvyn IA",
+                                            modifier = Modifier.fillMaxWidth().heightIn(max = 230.dp),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    }
+                                    Text(
+                                        message.text,
+                                        color = Color(0xFFE1FFF5),
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp
+                                    )
+                                }
                             }
                         }
                     } else {
