@@ -14,6 +14,7 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 - O agente principal trabalha diretamente pelo chat: consulta e altera arquivos do workspace, planeja tarefas, cria projetos, compila e apresenta diagnósticos. Pesquisa web/GitHub só é acionada quando a mensagem pede explicitamente esse acesso; usa a conexão já ativa do Android sem etapas manuais de configuração.
 - Não existe aba ou ícone independente de terminal. O terminal/Termux é um recurso independente e nunca é acionado nem utilizado pelo chat principal para tarefas de programação.
 - O construtor é uma ferramenta interna do chat, sem tela, botão ou alternância de modo. O editor serve para guardar e consultar códigos, não atua como agente separado. O menu de aplicativos/ferramentas deve reunir leitura de arquivos, voz e demais funções solicitadas. Pedidos de criação e correção começam no chat principal.
+- O runtime nativo para bots compatíveis do Telegram foi adicionado ao código: token protegido pelo Android Keystore, comandos definidos por manifesto e conexão pela Bot API oficial com long polling, ativável pelo catálogo Apps. A integração ainda precisa de build e teste real no aparelho. Bots do WhatsApp Business continuam como código-fonte porque o recebimento de mensagens depende de webhook HTTPS público.
 
 ## Requisitos que não podem ser violados
 
