@@ -26,6 +26,17 @@ class AgentApprovalPolicyTest {
     }
 
     @Test
+    fun reinforcedProtectionRequiresConsentForNormalChangesButLeavesReadsAvailable() {
+        assertFalse(AgentApprovalPolicy.requiresApproval("write_file"))
+        assertFalse(AgentApprovalPolicy.requiresApproval("patch_file"))
+        assertTrue(AgentApprovalPolicy.requiresApproval("write_file", reinforcedProtection = true))
+        assertTrue(AgentApprovalPolicy.requiresApproval("patch_file", reinforcedProtection = true))
+        assertTrue(AgentApprovalPolicy.requiresApproval("build_project_apk", reinforcedProtection = true))
+        assertFalse(AgentApprovalPolicy.requiresApproval("read_file", reinforcedProtection = true))
+        assertFalse(AgentApprovalPolicy.requiresApproval("list_projects", reinforcedProtection = true))
+    }
+
+    @Test
     fun readOnlyAndUnknownActionsDoNotRequestMutationApproval() {
         assertFalse(AgentApprovalPolicy.requiresApproval("read_file"))
         assertFalse(AgentApprovalPolicy.requiresApproval("list_projects"))
