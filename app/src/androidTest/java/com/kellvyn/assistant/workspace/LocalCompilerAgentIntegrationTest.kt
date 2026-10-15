@@ -681,7 +681,7 @@ class LocalCompilerAgentIntegrationTest {
             calls++
             val system = conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }?.content.orEmpty()
             assertTrue("O agente não recebeu a definição da ferramenta Termux.", system.contains("termux_run_command {command"))
-            assertTrue("A política não exige aprovação por comando.", system.contains("cada execução exige aprovação"))
+            assertTrue("A política não exige aprovação por comando.", system.contains("cada comando exige aprovação"))
             val lastUser = conversation.lastOrNull { it.role == AssistantTurn.Role.USER }?.content.orEmpty()
             return if (lastUser.contains("recusou esta ação", ignoreCase = true)) {
                 AssistantResult.Success(
