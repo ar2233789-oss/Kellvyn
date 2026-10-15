@@ -893,10 +893,12 @@ fun KellvynApp() {
         scope.launch {
             try {
                 if (wantsImage) {
-                    when (val generated = LocalSvgImageGenerator.generate(context, localEngine, text) { progress ->
-                        scope.launch(Dispatchers.Main.immediate) {
-                            status = progress
-                            streamingReply = progress
+                    when (val generated = withTimeoutOrNull(240_000L) {
+                        LocalSvgImageGenerator.generate(context, localEngine, text) { progress ->
+                            scope.launch(Dispatchers.Main.immediate) {
+                                status = progress
+                                streamingReply = progress
+                            }
                         }
                     }) {
                         is LocalSvgGenerationResult.Success -> {
@@ -909,6 +911,11 @@ fun KellvynApp() {
                         is LocalSvgGenerationResult.Failure -> {
                             messages.add(ChatMessage("Não consegui gerar a imagem: " + generated.reason, false))
                             status = generated.reason
+                        }
+                        null -> {
+                            val reason = "A geração de imagem demorou mais de 4 minutos. O pedido foi encerrado para liberar o chat; tente uma descrição mais simples."
+                            messages.add(ChatMessage(reason, false))
+                            status = reason
                         }
                     }
                 } else if (wantsBuild) {
