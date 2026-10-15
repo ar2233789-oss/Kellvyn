@@ -22,12 +22,15 @@ object ChatRequestRouter {
     fun shouldGenerateImage(text: String): Boolean {
         val value = text.trim().lowercase(Locale.ROOT)
         return listOf(
-            "gere uma imagem", "gerar uma imagem", "crie uma imagem", "criar uma imagem",
-            "desenhe uma imagem", "desenhar uma imagem", "faça uma imagem", "faca uma imagem",
-            "gere imagem", "gerar imagem", "crie imagem", "criar imagem",
-            "gere uma foto", "gerar uma foto", "crie uma foto", "gere uma ilustração",
-            "gere uma ilustracao", "crie uma ilustração", "crie uma ilustracao",
-            "create an image", "generate an image", "draw an image"
+            "gere uma imagem", "gera uma imagem", "gerar uma imagem",
+            "crie uma imagem", "criar uma imagem", "faz uma imagem", "fazer uma imagem",
+            "desenhe uma imagem", "desenha uma imagem", "desenhar uma imagem",
+            "faça uma imagem", "faca uma imagem", "gere imagem", "gera imagem", "gerar imagem",
+            "crie imagem", "criar imagem", "faz imagem", "gere uma foto", "gera uma foto",
+            "gerar uma foto", "crie uma foto", "gere uma ilustração", "gera uma ilustração",
+            "gere uma ilustracao", "gera uma ilustracao", "crie uma ilustração",
+            "crie uma ilustracao", "faça uma ilustração", "faca uma ilustracao",
+            "crie um desenho", "criar um desenho", "generate an image", "create an image", "draw an image"
         ).any { it in value }
     }
 
