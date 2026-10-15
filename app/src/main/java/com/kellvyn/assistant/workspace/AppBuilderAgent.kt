@@ -149,7 +149,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     (0 until array.length()).mapNotNull { index -> array.optJSONObject(index) }
                 }.orEmpty()
                 val sourceFromFiles = entries.firstOrNull {
-                    it.optString("path").trim().replace('\\\\', '/')
+                    it.optString("path").trim().replace('\\', '/')
                         .substringAfterLast('/').equals("MainActivity.java", ignoreCase = true)
                 }?.optString("content").orEmpty()
                 val candidateSource = sourceFromFiles.ifBlank { raw }
@@ -172,7 +172,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     )
                 }
                 val structuralProblem = GeneratedAndroidProjectValidator.validate(
-                    files.associate { it.path.replace('\\\\', '/') to it.content }
+                    files.associate { it.path.replace('\\', '/') to it.content }
                 )
                 if (structuralProblem != null) {
                     return@withContext AppBuildResult.Failure(
