@@ -82,6 +82,33 @@ class ChatRequestRouterTest {
     }
 
     @Test
+    fun externalAndCurrentFactsEnableNetworkToolsWithoutExactSearchWording() {
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Quem é o CEO da NVIDIA?"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Quanto custa o Poco F6 atualmente?"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Quais restaurantes são bons perto de mim?"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Qual é a versão atual do Android?"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Me explica as regras atuais do benefício BPC"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Quais são as diferenças entre estes dois produtos?"))
+    }
+
+    @Test
+    fun substantialUnclassifiedRequestsCanUseNetworkToolsForAgentDecisions() {
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Quem foi Napoleão Bonaparte?"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Me ajude a entender este assunto específico"))
+    }
+
+    @Test
+    fun explicitOfflinePreferenceAndClearlyLocalWorkRemainLocal() {
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("Não pesquise na internet; responda só com o que já sabe"))
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("Não use a internet para esta resposta"))
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("Corrija o arquivo MainActivity.kt"))
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("Adicione login ao meu app existente"))
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("Compile o projeto que você criou"))
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("Bom dia"))
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("Explique o que é Kotlin"))
+    }
+
+    @Test
     fun installedCoderIsPreferredForCodeWorkButNotOrdinaryQuestions() {
         assertTrue(ChatRequestRouter.shouldPreferCoder("Corrija o arquivo MainActivity.kt"))
         assertTrue(ChatRequestRouter.shouldPreferCoder("Adicione login ao meu app existente"))
