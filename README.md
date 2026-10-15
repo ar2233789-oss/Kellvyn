@@ -4,14 +4,14 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 
 ## Código implementado até agora
 
-- Interface nativa preta/esmeralda: tela principal dedicada ao chat, cabeçalho compacto, mensagens organizadas e compositor próximo ao rodapé. Não há barra inferior de abas; conversas ficam no botão ☰ e leitura de arquivos de texto/código, códigos guardados, Apps/APKs e memória ficam no menu superior. Pedidos de conversa, criação, correção e compilação começam no mesmo chat.
+- Interface nativa preta/esmeralda: tela principal dedicada ao chat, cabeçalho compacto, mensagens organizadas e compositor próximo ao rodapé. O hambúrguer abre o histórico de conversas; o menu de ferramentas reúne anexos, códigos guardados, Apps/APKs, memória e assistente flutuante; os três pontos abrem configurações. Pedidos de conversa, criação, correção, imagens vetoriais e compilação começam no mesmo chat.
 - Botão de copiar (ícone de folhas/páginas) embaixo das respostas do assistente.
-- O compositor é compacto e contém somente campo de mensagem, estado real da IA e botão de envio; não mostra controles decorativos ou sem função.
+- O compositor é compacto e adaptável: campo de mensagem, estado da IA, ditado e envio. Os ícones principais agora são vetoriais desenhados no próprio app, com tamanho em dp; a validação visual final no Poco F6 continua pendente.
 - Histórico local limitado e apagável.
 - Memória explícita controlada pelo usuário: guardar, visualizar e apagar fatos.
-- Adaptador LiteRT-LM de modelo único: se o modelo não estiver embutido no APK, o app baixa uma vez a cópia pública verificada (aprox. 374 MB) e a guarda no armazenamento privado. Depois a inferência ocorre localmente, sem enviar prompts para um provedor externo; não há seleção de modelos nem alternância de modos.
+- Adaptador LiteRT-LM de modelo único: se o modelo não estiver embutido no APK, a preparação inicial baixa automaticamente a cópia pública verificada (aprox. 374 MB) e a guarda no armazenamento privado. Não há botão para trocar/excluir núcleo nem seletor de modelo; depois da preparação, a inferência ocorre localmente, sem enviar prompts para um provedor externo.
 - O chat usa somente o motor local; não há provedor externo de IA ou tela de configuração de endpoint. As ferramentas de internet só são usadas quando a mensagem pede explicitamente uma pesquisa ou ação sobre um link.
-- O agente principal trabalha diretamente pelo chat: consulta e altera arquivos do workspace, planeja tarefas, cria projetos, compila e apresenta diagnósticos. Pesquisa web/GitHub só é acionada quando a mensagem pede explicitamente esse acesso; usa a conexão já ativa do Android sem etapas manuais de configuração.
+- O agente principal trabalha diretamente pelo chat: consulta e altera arquivos do workspace, planeja tarefas, cria projetos, compila e apresenta diagnósticos. As respostas em streaming publicam o primeiro trecho assim que chega, e o chat mostra estado de processamento desde o envio. Pesquisa web/GitHub só é acionada quando a mensagem pede explicitamente esse acesso.
 - Não existe aba ou ícone independente de terminal. O terminal/Termux é um recurso independente e nunca é acionado nem utilizado pelo chat principal para tarefas de programação.
 - O construtor é uma ferramenta interna do chat, sem tela, botão ou alternância de modo. O editor serve para guardar e consultar códigos, não atua como agente separado. O menu de aplicativos/ferramentas deve reunir leitura de arquivos, voz e demais funções solicitadas. Pedidos de criação e correção começam no chat principal.
 - O runtime nativo para bots compatíveis do Telegram foi adicionado ao código: token protegido pelo Android Keystore, comandos definidos por manifesto e conexão pela Bot API oficial com long polling, ativável pelo catálogo Apps. A integração ainda precisa de build e teste real no aparelho. Bots do WhatsApp Business continuam como código-fonte porque o recebimento de mensagens depende de webhook HTTPS público.
@@ -39,5 +39,5 @@ A conversa usa o modelo local integrado. Pesquisa web/GitHub só ocorre quando a
 - [Roadmap técnico](docs/ROADMAP.md)
 - [Arquitetura de compilação local estilo mini Android Studio](docs/LOCAL_BUILD_ARCHITECTURE.md)
 
-## Build do próprio Kellvyn durante o desenvolvimento
+## Validação pendente\nAs rotas de PDF/DOCX/ODT, OCR, renderização SVG→PNG, sobreposição e recuperação do SDK receberam código e testes de instrumentação. Ainda é necessário executar o build/testes Android reais; o repositório não contém APK novo validado.\n\n## Build do próprio Kellvyn durante o desenvolvimento
 Os workflows de build e teste em nuvem foram removidos. O repositório não contém um APK novo validado para esta revisão. Não anunciar a distribuição como pronta até fornecer o modelo ausente, executar a compilação local do aplicativo anfitrião e verificar pacote/assinatura.
