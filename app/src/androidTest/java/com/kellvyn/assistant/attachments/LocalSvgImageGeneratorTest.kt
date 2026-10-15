@@ -100,6 +100,17 @@ class LocalSvgImageGeneratorTest {
     }
 
     @Test
+    fun generatedSvgGetsDefaultViewportWhenTheModelOmitsIt() {
+        val source = """<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><rect x="0" y="0" width="1024" height="1024" fill="#061f17"/></svg>"""
+
+        assertTrue("Strict validation should reject a missing viewport.",
+            runCatching { LocalSvgImageGenerator.extractAndValidate(source) }.isFailure)
+
+        val normalized = LocalSvgImageGenerator.extractGeneratedAndValidate(source)
+        assertTrue(normalized.contains("viewBox=\\\"0 0 1024 1024\\\""))
+    }
+
+    @Test
     fun allowsInternalGradientsWithoutAllowingExternalUrls() {
         val gradient = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><linearGradient id="g"><stop offset="0" stop-color="#38e6bc"/><stop offset="1" stop-color="#061f17"/></linearGradient></defs><rect x="0" y="0" width="10" height="10" fill="url(#g)"/></svg>"""
         assertTrue(LocalSvgImageGenerator.extractAndValidate(gradient).contains("url(#g)"))
