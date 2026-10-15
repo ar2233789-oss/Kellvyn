@@ -24,7 +24,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Editor de código mantém rascunhos não salvos e sincroniza alterações feitas pelo agente com proteção contra sobrescrita.
 - [x] Ferramentas Git locais por JGit; nenhuma aba/ícone Terminal ou Git na navegação principal.
 - [x] Pipeline local inicial ECJ → D8 → manifesto Android binário → assinatura/verificação para projetos Java nativos.
-- [x] Código da ponte Termux RUN_COMMAND, recepção de resultado real e política de uso pelo agente principal em tarefas que precisam de shell e foram solicitadas no chat; confirmação antes de cada comando. A integração ainda precisa de build e teste real.
+- [x] Código da ponte Termux RUN_COMMAND e recepção de resultado real. O Termux é um aplicativo independente e a IA só pode conectar quando a pessoa pedir ajuda com Termux explicitamente pelo chat principal; cada comando exige confirmação. A integração ainda precisa de build e teste real.
 - [x] Fluxo do chat consulta o compilador e mostra o resultado/diagnósticos; o APK mais recente pode ser salvo ou instalado.
 - [x] Exportação de projetos em arquivo compactado removida. O resultado de criação de aplicativos é o APK, não um arquivo compactado.
 - [x] Separação do tipo de build: a CI compila/publica somente o APK anfitrião de debug e roda testes de aceitação com projetos-fixture descartáveis; a compilação de projetos solicitados pelo usuário no uso real permanece responsabilidade do compilador local no aparelho, sem Replit ou servidores remotos.
