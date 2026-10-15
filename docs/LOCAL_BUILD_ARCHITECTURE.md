@@ -4,7 +4,7 @@
 
 O usuário pede tudo pelo chat principal. O agente pode criar e corrigir o projeto e iniciar a compilação local sem uma tela ou modo manual de Build. O resultado esperado é um APK Android nativo validado e apresentado no próprio chat.
 
-A compilação de projetos gerados deve ocorrer no aparelho. A integração Termux serve apenas para pedidos explícitos do usuário sobre o terminal e exige confirmação antes de cada comando; o construtor e o compilador local não encaminham tarefas para o Termux. Não usar Replit, GitHub Actions, tokens, servidores ou serviços de build na nuvem. Não oferecer arquivos compactados como substituto do APK.
+A compilação de projetos gerados deve ocorrer no aparelho. A integração Termux pode ser usada pelo agente principal para tarefas solicitadas pelo chat que precisem de shell real e exige confirmação antes de cada comando; o construtor e o compilador local não encaminham tarefas para o Termux. Não usar Replit, GitHub Actions, tokens, servidores ou serviços de build na nuvem. Não oferecer arquivos compactados como substituto do APK.
 
 ## Pipeline local já presente no código
 
