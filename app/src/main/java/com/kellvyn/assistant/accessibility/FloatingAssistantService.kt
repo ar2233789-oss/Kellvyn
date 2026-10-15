@@ -236,7 +236,20 @@ class FloatingAssistantService : Service() {
                     if (!engine.hasSavedModel()) {
                         engine.prepareLocalModel { progress -> setStatus(progress) }
                     }
-                    val loaded = engine.loadSavedModel()
+                    var loaded = engine.loadSavedModel()
+                    if (loaded !is AssistantResult.Success) {
+                        // A damaged/incompatible cache should not leave the floating assistant
+                        // permanently dead. Re-run the checksum-verified preparation once.
+                        loaded = try {
+                            engine.prepareLocalModel { progress -> setStatus(progress) }
+                            engine.loadSavedModel()
+                        } catch (e: Exception) {
+                            AssistantResult.Failure(
+                                "Não foi possível preparar a IA local para o assistente flutuante: " +
+                                    (e.message ?: e.javaClass.simpleName)
+                            )
+                        }
+                    }
                     if (loaded !is AssistantResult.Success) {
                         loaded
                     } else {
