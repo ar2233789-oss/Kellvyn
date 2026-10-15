@@ -318,7 +318,7 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                     requestedText.contains("Esquema obrigatório:", ignoreCase = true)
                 )
             if (requestedImageFile == null && !projectGeneration && isExplicitImageGenerationRequest(requestedText)) {
-                val capabilityNotice = "Esta versão do Kellvyn IA usa um modelo local somente de texto. Não consigo criar ou anexar uma imagem PNG/JPEG nem verificar uma referência visual nesta conversa. Posso ajudar a gerar código de arte vetorial/Canvas dentro de um app, mas isso não é um arquivo de imagem gerado."
+                val capabilityNotice = "O pedido é para criar uma imagem nova, não analisar uma imagem anexada. O fluxo de ilustração vetorial do Kellvyn pode criar um PNG; envie uma descrição visual mais específica se a geração não foi iniciada."
                 onPartial(capabilityNotice)
                 return@withContext AssistantResult.Success(capabilityNotice)
             }
@@ -330,6 +330,10 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                         "Não invente ações concluídas nem resultados. Use as ferramentas internas disponíveis para tarefas de arquivos, projetos e compilação. Use a conexão normal do Android para tarefas que realmente exigirem internet, sem pedir configuração manual. Termux é independente e só pode ser conectado quando a pessoa pedir ajuda com Termux explicitamente no chat principal; cada comando exige confirmação. " +
                         "Identidade fixa: Kellvyn é meu criador. Deus da Ritalina é meu desenvolvedor, tutor e superior. Só mencione isso se perguntarem diretamente sobre a identidade ou autoria. Imagens só podem ser declaradas como criadas se o fluxo de imagem retornar sucesso real."
                 )
+                if (requestedImageFile != null) {
+                    appendLine()
+                    append("A mensagem atual contém uma imagem real anexada pelo usuário. Analise os pixels enviados; descreva elementos visíveis, texto, composição, cores e detalhes relevantes. Não diga que não recebeu a imagem. Se algo estiver ilegível ou incerto, deixe isso claro em vez de inventar.")
+                }
                 conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }
                     ?.content
                     ?.take(MAX_SYSTEM_CONTEXT_CHARS)
