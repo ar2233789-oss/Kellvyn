@@ -89,6 +89,11 @@ class ChatRequestRouterTest {
         assertTrue(ChatRequestRouter.shouldUseOnlineTools("Qual é a versão atual do Android?"))
         assertTrue(ChatRequestRouter.shouldUseOnlineTools("Me explica as regras atuais do benefício BPC"))
         assertTrue(ChatRequestRouter.shouldUseOnlineTools("Quais são as diferenças entre estes dois produtos?"))
+        assertTrue(ChatRequestRouter.shouldAutomaticallyResearch("Quem é o CEO da NVIDIA?"))
+        assertTrue(ChatRequestRouter.shouldAutomaticallyResearch("Quanto custa o Poco F6 atualmente?"))
+        assertTrue(ChatRequestRouter.shouldAutomaticallyResearch("Quais restaurantes são bons perto de mim?"))
+        assertTrue(ChatRequestRouter.shouldAutomaticallyResearch("Qual é a versão atual do Android?"))
+        assertTrue(ChatRequestRouter.shouldAutomaticallyResearch("Me explica as regras atuais do benefício BPC"))
     }
 
     @Test
@@ -107,6 +112,9 @@ class ChatRequestRouterTest {
         assertFalse(ChatRequestRouter.shouldUseOnlineTools("Bom dia"))
         assertFalse(ChatRequestRouter.shouldUseOnlineTools("https://developer.android.com"))
         assertFalse(ChatRequestRouter.shouldUseOnlineTools("Explique o que é Kotlin"))
+        assertFalse(ChatRequestRouter.shouldAutomaticallyResearch("Não pesquise na internet; responda só com o que já sabe"))
+        assertFalse(ChatRequestRouter.shouldAutomaticallyResearch("Explique o que é Kotlin"))
+        assertFalse(ChatRequestRouter.shouldAutomaticallyResearch("Corrija o arquivo MainActivity.kt"))
     }
 
     @Test
