@@ -2147,39 +2147,6 @@ fun KellvynApp() {
                             )
                         }
                         Divider(color = Color(0xFF143D33))
-                        Text("SEGURANÇA", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            "Ações destrutivas e operações Git que alteram dados sempre exigem confirmação. Ative a proteção reforçada para também confirmar gravações, correções de arquivos e compilação de APK.",
-                            color = Muted,
-                            fontSize = 12.sp
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text("Proteção reforçada da IA", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    if (reinforcedProtection) "Ativada: pede autorização antes de criar/alterar projetos, corrigir arquivos ou compilar." else "Desativada: edições pedidas no chat continuam automáticas.",
-                                    color = Muted,
-                                    fontSize = 11.sp
-                                )
-                            }
-                            Switch(
-                                checked = reinforcedProtection,
-                                onCheckedChange = { enabled ->
-                                    reinforcedProtection = enabled
-                                    securityPreferences.edit().putBoolean("reinforced_protection", enabled).apply()
-                                    status = if (enabled) {
-                                        "Proteção reforçada ativada. O chat pedirá confirmação antes de gravar, corrigir arquivos ou compilar APK."
-                                    } else {
-                                        "Proteção reforçada desativada. As confirmações para ações destrutivas continuam ativas."
-                                    }
-                                }
-                            )
-                        }
-                        Divider(color = Color(0xFF143D33))
                         Text("ATALHOS", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -2233,6 +2200,39 @@ fun KellvynApp() {
                                 modifier = Modifier.weight(1f),
                                 contentPadding = PaddingValues(horizontal = 2.dp, vertical = 3.dp)
                             ) { Text("Leitura de tela", color = accentColor, fontSize = 10.sp) }
+                        }
+                        Divider(color = Color(0xFF143D33))
+                        Text("SEGURANÇA", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Ações destrutivas e operações Git que alteram dados sempre exigem confirmação. Ative a proteção reforçada para também confirmar gravações, correções de arquivos e compilação de APK.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("Proteção reforçada da IA", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    if (reinforcedProtection) "Ativada: pede autorização antes de criar/alterar projetos, corrigir arquivos ou compilar." else "Desativada: edições pedidas no chat continuam automáticas.",
+                                    color = Muted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Switch(
+                                checked = reinforcedProtection,
+                                onCheckedChange = { enabled ->
+                                    reinforcedProtection = enabled
+                                    securityPreferences.edit().putBoolean("reinforced_protection", enabled).apply()
+                                    status = if (enabled) {
+                                        "Proteção reforçada ativada. O chat pedirá confirmação antes de gravar, corrigir arquivos ou compilar APK."
+                                    } else {
+                                        "Proteção reforçada desativada. As confirmações para ações destrutivas continuam ativas."
+                                    }
+                                }
+                            )
                         }
                     }
                 },
