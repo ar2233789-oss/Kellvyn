@@ -48,6 +48,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -1301,7 +1303,10 @@ fun KellvynApp() {
                 modifier = Modifier.fillMaxWidth().height(44.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { showConversationsDialog = true }, modifier = Modifier.size(38.dp)) {
+                IconButton(
+                    onClick = { showConversationsDialog = true },
+                    modifier = Modifier.size(38.dp).semantics { contentDescription = "Histórico de conversas" }
+                ) {
                     KellvynLineIcon("menu", accentColor, Modifier.size(19.dp))
                 }
                 Spacer(Modifier.width(2.dp))
@@ -1317,10 +1322,16 @@ fun KellvynApp() {
                         maxLines = 1
                     )
                 }
-                IconButton(onClick = { showQuickMenu = true }, modifier = Modifier.size(38.dp)) {
+                IconButton(
+                    onClick = { showQuickMenu = true },
+                    modifier = Modifier.size(38.dp).semantics { contentDescription = "Ferramentas e anexos" }
+                ) {
                     KellvynLineIcon("tools", accentColor, Modifier.size(18.dp))
                 }
-                IconButton(onClick = { showSettingsDialog = true }, modifier = Modifier.size(38.dp)) {
+                IconButton(
+                    onClick = { showSettingsDialog = true },
+                    modifier = Modifier.size(38.dp).semantics { contentDescription = "Configurações" }
+                ) {
                     KellvynLineIcon("more", accentColor, Modifier.size(20.dp))
                 }
                 DropdownMenu(
