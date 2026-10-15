@@ -132,33 +132,33 @@ object LocalDocumentTextExtractor {
                         if (!ocrBudgetExhausted) {
                             var bitmap: Bitmap? = null
                             try {
-                            val box = document.getPage(pageIndex).cropBox
-                            val longestEdge = maxOf(box.width, box.height).coerceAtLeast(1f)
-                            val scale = (MAX_PDF_OCR_BITMAP_EDGE / longestEdge)
-                                .coerceAtMost(MAX_PDF_OCR_SCALE)
-                                .coerceAtLeast(0.25f)
-                            bitmap = renderer.renderImage(pageIndex, scale, ImageType.RGB)
-                            val activeRecognizer = recognizer
-                                ?: TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).also {
-                                    recognizer = it
+                                val box = document.getPage(pageIndex).cropBox
+                                val longestEdge = maxOf(box.width, box.height).coerceAtLeast(1f)
+                                val scale = (MAX_PDF_OCR_BITMAP_EDGE / longestEdge)
+                                    .coerceAtMost(MAX_PDF_OCR_SCALE)
+                                    .coerceAtLeast(0.25f)
+                                bitmap = renderer.renderImage(pageIndex, scale, ImageType.RGB)
+                                val activeRecognizer = recognizer
+                                    ?: TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).also {
+                                        recognizer = it
+                                    }
+                                val remainingNanos = ocrDeadlineNanos - System.nanoTime()
+                                if (remainingNanos <= 0L) {
+                                    ocrBudgetExhausted = true
+                                    ocrFailures++
+                                } else {
+                                    val remainingSeconds = TimeUnit.NANOSECONDS.toSeconds(remainingNanos)
+                                        .coerceAtLeast(1L)
+                                    val timeoutSeconds = minOf(PDF_OCR_PAGE_TIMEOUT_SECONDS, remainingSeconds)
+                                    val recognizedText = Tasks.await(
+                                        activeRecognizer.process(InputImage.fromBitmap(bitmap, 0)),
+                                        timeoutSeconds,
+                                        TimeUnit.SECONDS
+                                    ).text.trim()
+                                    if (recognizedText.isNotBlank()) {
+                                        pageText = "[Página ${pageIndex + 1} — OCR local]\n$recognizedText"
+                                    }
                                 }
-                            val remainingNanos = ocrDeadlineNanos - System.nanoTime()
-                            if (remainingNanos <= 0L) {
-                                ocrBudgetExhausted = true
-                                ocrFailures++
-                            } else {
-                                val remainingSeconds = TimeUnit.NANOSECONDS.toSeconds(remainingNanos)
-                                    .coerceAtLeast(1L)
-                                val timeoutSeconds = minOf(PDF_OCR_PAGE_TIMEOUT_SECONDS, remainingSeconds)
-                                val recognizedText = Tasks.await(
-                                    activeRecognizer.process(InputImage.fromBitmap(bitmap, 0)),
-                                    timeoutSeconds,
-                                    TimeUnit.SECONDS
-                                ).text.trim()
-                                if (recognizedText.isNotBlank()) {
-                                    pageText = "[Página ${pageIndex + 1} — OCR local]\n$recognizedText"
-                                }
-                            }
                             } catch (_: Exception) {
                                 ocrFailures++
                                 if (System.nanoTime() >= ocrDeadlineNanos) ocrBudgetExhausted = true
