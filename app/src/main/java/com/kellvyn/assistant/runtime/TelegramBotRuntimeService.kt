@@ -294,8 +294,7 @@ private class TelegramBotPollingClient(
         val text = message.optString("text").trim()
         if (!text.startsWith("/")) return
 
-        val firstToken = text.takeWhile { !it.isWhitespace() }.trim()
-        val commandName = firstToken.substringBefore('@').removePrefix("/").lowercase(Locale.ROOT)
+        val commandName = TelegramBotCommandInterpreter.commandName(text) ?: return
         val command = definition.commands.firstOrNull { it.name == commandName } ?: return
         val from = message.optJSONObject("from")
         val userName = from?.optString("first_name").orEmpty().ifBlank {
@@ -304,18 +303,7 @@ private class TelegramBotPollingClient(
         val now = java.time.ZonedDateTime.now().format(
             java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss", Locale("pt", "BR"))
         )
-        val response = when (command.action) {
-            "ping" -> "Pong! Estou ativo."
-            "current_time" -> "Agora são " + now + "."
-            "roll_dice" -> "🎲 Resultado: " + kotlin.random.Random.nextInt(1, 21)
-            "coin_flip" -> "🪙 " + if (kotlin.random.Random.nextBoolean()) "Cara!" else "Coroa!"
-            "user_name" -> "Você está falando comigo, " + userName + "."
-            "echo" -> {
-                val afterCommand = text.substringAfter(' ', "").trim()
-                afterCommand.ifBlank { "Você não enviou texto para repetir." }.take(3500)
-            }
-            else -> command.response.replace("{user}", userName).replace("{time}", now)
-        }.take(3800)
+        val response = TelegramBotCommandInterpreter.respond(command, text, userName, now)
         api("sendMessage", JSONObject().put("chat_id", chatId).put("text", response))
     }
 
