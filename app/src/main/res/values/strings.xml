@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kellvyn_accessibility_service_label">Leitor de tela do Kellvyn</string>
+    <string name="kellvyn_accessibility_service_description">Permite que o usuário toque em Ler tela no assistente flutuante para capturar o texto visível e pedir ajuda. Não registra eventos continuamente, não mantém histórico da tela e não envia conteúdo para servidores.</string>
+</resources>
