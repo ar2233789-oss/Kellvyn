@@ -501,7 +501,9 @@ fun KellvynApp() {
 
     fun requestFloatingAssistantStart() {
         if (!Settings.canDrawOverlays(context)) {
-            status = "Permita a sobreposição do Kellvyn nas Configurações do Android; depois toque em Assistente flutuante novamente."
+            floatingAssistantEnabled = false
+            uiPreferences.edit().putBoolean("floating_assistant_enabled", false).apply()
+            status = "Permita a sobreposição do Kellvyn nas Configurações do Android; depois ative o assistente virtual novamente."
             try {
                 context.startActivity(
                     Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName))
@@ -1840,16 +1842,24 @@ fun KellvynApp() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-                        Text(
-                            when {
-                                modelReady -> "● IA local"
-                                isLoadingModel || !modelInitializationAttempted -> "◌ Preparando IA"
-                                else -> "IA local indisponível"
-                            },
-                            color = if (modelReady) accentColor else Muted,
-                            fontSize = 10.sp,
-                            maxLines = 1
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            modifier = Modifier.padding(end = 2.dp)
+                        ) {
+                            Text("✧", color = accentColor, fontSize = 17.sp)
+                            Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                                Text("Kellvyn IA", color = accentColor, fontSize = 10.sp, maxLines = 1, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    when {
+                                        modelReady -> "LOCAL • PRONTA"
+                                        isLoadingModel || !modelInitializationAttempted -> "INICIALIZANDO"
+                                        else -> "INDISPONÍVEL"
+                                    },
+                                    color = Muted, fontSize = 7.sp, maxLines = 1
+                                )
+                            }
+                        }
 
                         Box(
                             modifier = Modifier.size(30.dp).clickable(enabled = !isGenerating) {
