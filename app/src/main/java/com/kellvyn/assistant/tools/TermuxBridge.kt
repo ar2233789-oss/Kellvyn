@@ -117,7 +117,7 @@ class TermuxBridge(context: Context) {
                 putExtra(EXTRA_COMMAND_LABEL, "Kellvyn IA")
                 putExtra(
                     EXTRA_COMMAND_DESCRIPTION,
-                    "Comando solicitado explicitamente no chat ou no terminal do Kellvyn."
+                    "Comando autorizado pelo usuário no chat principal ou solicitado diretamente no terminal do Kellvyn."
                 )
                 putExtra(EXTRA_PENDING_INTENT, resultPendingIntent)
             }
