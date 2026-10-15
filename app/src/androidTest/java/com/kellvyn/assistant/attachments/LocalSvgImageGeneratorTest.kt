@@ -111,6 +111,12 @@ class LocalSvgImageGeneratorTest {
     }
 
     @Test
+    fun acceptsTheOfficialSvgNamespacePrefixDeclaration() {
+        val source = """<svg:svg xmlns:svg="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><svg:rect x="0" y="0" width="10" height="10" fill="#38e6bc"/></svg:svg>"""
+        assertTrue(LocalSvgImageGenerator.extractAndValidate(source).contains("xmlns:svg="))
+    }
+
+    @Test
     fun allowsInternalGradientsWithoutAllowingExternalUrls() {
         val gradient = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><linearGradient id="g"><stop offset="0" stop-color="#38e6bc"/><stop offset="1" stop-color="#061f17"/></linearGradient></defs><rect x="0" y="0" width="10" height="10" fill="url(#g)"/></svg>"""
         assertTrue(LocalSvgImageGenerator.extractAndValidate(gradient).contains("url(#g)"))
