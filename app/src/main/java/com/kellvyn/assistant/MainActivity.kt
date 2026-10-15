@@ -1102,7 +1102,7 @@ fun KellvynApp() {
                                 val extracted = LocalImageTextExtractor.extract(context, uri)
                                 Triple(
                                     name,
-                                    "[OCR LOCAL DA IMAGEM — texto reconhecido, não descrição visual completa]\n\n" + extracted,
+                                    "[ANÁLISE LOCAL DA IMAGEM — rótulos visuais aproximados e texto OCR; não é uma descrição visual completa]\n\n" + extracted,
                                     "image"
                                 )
                             }
@@ -1162,7 +1162,7 @@ fun KellvynApp() {
                         draft = base + prefix + excerpt
                         status = when {
                             excerpt.length < fileContent.length -> "Extraí um trecho de $fileName dentro do limite de mensagem. Revise antes de enviar."
-                            attachmentKind == "image" -> "Imagem recebida; o OCR local extraiu texto. A IA não recebeu pixels nem fez descrição completa da cena."
+                            attachmentKind == "image" -> "Imagem analisada localmente com rótulos visuais aproximados e OCR. A IA textual recebe a análise extraída, não os pixels nem uma descrição completa da cena."
                             attachmentKind == "document" -> "Documento $fileName extraído localmente e adicionado ao rascunho."
                             else -> "Arquivo $fileName lido e adicionado ao rascunho. Revise antes de enviar."
                         }
