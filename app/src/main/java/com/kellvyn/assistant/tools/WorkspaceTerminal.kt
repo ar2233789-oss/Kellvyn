@@ -73,7 +73,7 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
             "git" -> gitCommand(args)
             "gradle", "./gradlew", "gradlew", "kotlinc", "java", "aapt2", "d8", "r8", "zipalign", "apksigner" ->
                 "$command não é executado pelo terminal interno. O compilador Android local está integrado ao modo Build e ao agente de chat; usa ECJ → D8 → manifesto binário → APK assinado/verificado e aceita Java com APIs do Android, sem Gradle, Kotlin/Compose ou bibliotecas externas. Nenhum build foi executado por este comando."
-            else -> "Comando não reconhecido: $command. Digite help. Os comandos não são executados por um shell do sistema."
+            else -> "Comando interno desconhecido: $command. Digite help; na sessão interativa, os comandos padrão são encaminhados ao shell Android."
         }
     }
 
