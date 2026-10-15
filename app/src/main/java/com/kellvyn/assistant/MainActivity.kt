@@ -84,6 +84,8 @@ import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.WorkspaceProject
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
 import com.kellvyn.assistant.workspace.LocalApkBuildResult
+import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
+import com.kellvyn.assistant.tools.WorkspaceTerminal
 import com.kellvyn.assistant.runtime.DiscordBotCredentialsStore
 import com.kellvyn.assistant.runtime.DiscordBotRuntimeService
 import com.kellvyn.assistant.runtime.TelegramBotCredentialsStore
@@ -299,6 +301,7 @@ fun KellvynApp() {
     val workspaceStore = remember(context) { ProjectWorkspaceStore(context) }
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
     val localAndroidCompiler = remember(context, workspaceStore) { LocalAndroidCompiler(context, workspaceStore) }
+    val workspaceTerminal = remember(workspaceStore) { WorkspaceTerminal(workspaceStore) }
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
     var draft by remember { mutableStateOf("") }
@@ -308,6 +311,7 @@ fun KellvynApp() {
     var isGenerating by remember { mutableStateOf(false) }
     var isLoadingModel by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
+    var showTerminalDialog by remember { mutableStateOf(false) }
     var showConversationsDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     val uiPreferences = remember(context) { context.getSharedPreferences("kellvyn_ui", Context.MODE_PRIVATE) }
@@ -1404,6 +1408,13 @@ fun KellvynApp() {
                         }
                     )
                     DropdownMenuItem(
+                        text = { Text("Terminal independente") },
+                        onClick = {
+                            showQuickMenu = false
+                            showTerminalDialog = true
+                        }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Ativar leitura de tela") },
                         onClick = {
                             showQuickMenu = false
@@ -1976,6 +1987,14 @@ fun KellvynApp() {
                 }
             }
         }
+        if (showTerminalDialog) {
+            WorkspaceConsoleDialog(
+                workspace = workspaceStore,
+                terminal = workspaceTerminal,
+                onDismiss = { showTerminalDialog = false }
+            )
+        }
+
         if (showSettingsDialog) {
             AlertDialog(
                 onDismissRequest = { showSettingsDialog = false },
