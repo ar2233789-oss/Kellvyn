@@ -189,6 +189,13 @@ class FloatingAssistantService : Service() {
         top.addView(button("×") { togglePanel() })
         outer.addView(top)
 
+        statusText = TextView(this).apply {
+            text = "Pronto para conversar."
+            textSize = 10f
+            setTextColor(Color.rgb(145, 184, 173))
+        }
+        outer.addView(statusText)
+
         val scroll = ScrollView(this)
         resultText = TextView(this).apply {
             text = "Converse comigo."
