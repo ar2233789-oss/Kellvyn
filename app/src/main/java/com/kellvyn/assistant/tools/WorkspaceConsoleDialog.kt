@@ -49,8 +49,8 @@ private val ConsoleBorder = Color(0xFF164638)
 private const val MAX_OUTPUT_CHARS = 128_000
 
 /**
- * Native Android shell terminal. Commands typed here run as the app UID, inside its private
- * workspace only. The terminal has no AI agent; the main chat may explicitly request a command.
+ * Native Android shell terminal. It starts in the private workspace and runs as the app UID,
+ * without root. The independent console is not wired into the chat agent; the user runs commands here.
  */
 @Composable
 fun WorkspaceConsoleDialog(
