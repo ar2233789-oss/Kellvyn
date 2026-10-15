@@ -15,6 +15,7 @@ import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -82,6 +83,42 @@ class LocalAttachmentExtractionTest {
             )
             assertTrue("PDF text was not extracted: $text", text.contains("Kellvyn PDF local test"))
         } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun extractsTextFromScannedPdfWithOnDeviceOcr() {
+        PDFBoxResourceLoader.init(context)
+        val file = File(context.cacheDir, "kellvyn-scanned-pdf-test.pdf")
+        val bitmap = Bitmap.createBitmap(1200, 320, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(Color.WHITE)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.BLACK
+                textSize = 92f
+                typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            }
+            canvas.drawText("KELLVYN SCANNED TEST", 26f, 210f, paint)
+            PDDocument().use { document ->
+                val page = PDPage(PDRectangle.LETTER)
+                document.addPage(page)
+                val image = LosslessFactory.createFromImage(document, bitmap)
+                PDPageContentStream(document, page).use { stream ->
+                    stream.drawImage(image, 40f, 340f, 532f, 142f)
+                }
+                document.save(file)
+            }
+
+            val text = LocalDocumentTextExtractor.extract(
+                context, Uri.fromFile(file), file.name, "application/pdf"
+            )
+            assertTrue("OCR did not read a scanned PDF page: $text",
+                text.uppercase().contains("KELLVYN") && text.uppercase().contains("SCANNED"))
+            assertTrue("Scanned PDF OCR should be labeled in the output.", text.contains("OCR local"))
+        } finally {
+            bitmap.recycle()
             file.delete()
         }
     }
