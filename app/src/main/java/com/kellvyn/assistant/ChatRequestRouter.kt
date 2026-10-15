@@ -35,8 +35,8 @@ object ChatRequestRouter {
     }
 
     /**
-     * Web/GitHub tools are offered only when this message explicitly asks for online research
-     * or supplies a link and requests an action on it. Ordinary chat stays on the local model.
+     * The same Kellvyn assistant uses local inference and can call web/GitHub tools over the phone
+     * network when the request needs current/external information or an action on a link. No second AI or mode selector is involved.
      */
     fun shouldUseOnlineTools(text: String): Boolean {
         val value = text.trim().lowercase(Locale.ROOT)
