@@ -363,7 +363,6 @@ fun KellvynApp() {
     var memoryDraft by remember { mutableStateOf("") }
     var memoryStatus by remember { mutableStateOf("") }
     val savedMemories = remember(memoryStore) { mutableStateListOf<MemoryFact>().apply { addAll(memoryStore.list()) } }
-    var showProjectsDialog by remember { mutableStateOf(false) }
     var projectToDelete by remember { mutableStateOf<WorkspaceProject?>(null) }
     var showEditorDialog by remember { mutableStateOf(false) }
     var activeEditProject by remember { mutableStateOf<WorkspaceProject?>(null) }
@@ -1891,48 +1890,118 @@ fun KellvynApp() {
                 onDismissRequest = { if (!isSavingFile) showEditorDialog = false },
                 properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = true)
             ) {
-                Surface(Modifier.fillMaxSize().padding(6.dp), color = Night, shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))) {
+                Surface(
+                    Modifier.fillMaxSize().padding(6.dp),
+                    color = Night,
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                ) {
                     Column(Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("EDITOR DE CÓDIGO", color = accentColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Text(activeEditProject?.name ?: "Projeto", color = Muted, fontSize = 10.sp, maxLines = 1)
+                                Text("CÓDIGOS SALVOS", color = accentColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("Escolha um projeto, edite um arquivo e salve nesta mesma tela.", color = Muted, fontSize = 10.sp, maxLines = 2)
                             }
                             TextButton(enabled = !isSavingFile, onClick = { showEditorDialog = false }) { Text("Fechar", color = Color.White) }
                         }
-                        Text("ARQUIVOS", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Surface(Modifier.fillMaxWidth().heightIn(max = 100.dp), color = Panel, shape = RoundedCornerShape(10.dp)) {
-                            Column(Modifier.verticalScroll(rememberScrollState()).padding(3.dp)) {
-                                editablePaths.forEach { path ->
-                                    TextButton(onClick = {
-                                        val project = activeEditProject
-                                        if (project != null) {
-                                            try {
-                                                val fileText = workspaceStore.readFile(project.id, path)
-                                                if (fileText.length > MAX_EDITOR_CHARS) editorStatus = "Arquivo muito grande para editar aqui. O arquivo permanece salvo; use o chat para pedir alterações específicas."
-                                                else { activeFilePath = path; editorContent = fileText; editorStatus = "" }
-                                            } catch (e: Exception) { editorStatus = "Falha ao abrir: " + (e.message ?: e.javaClass.simpleName) }
+
+                        Text("PROJETOS", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Surface(Modifier.fillMaxWidth().heightIn(max = 112.dp), color = Panel, shape = RoundedCornerShape(10.dp)) {
+                            Column(Modifier.verticalScroll(rememberScrollState()).padding(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                if (existingProjects.isEmpty()) {
+                                    Text("Nenhum código salvo ainda. Peça ao chat principal para criar um projeto; ele aparecerá aqui.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(6.dp))
+                                } else {
+                                    existingProjects.forEach { project ->
+                                        Row(
+                                            Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 1.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                        ) {
+                                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                                Text(project.name, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                                Text("${project.fileCount} arquivos · ${project.id}", color = Muted, fontSize = 9.sp, maxLines = 1)
+                                            }
+                                            TextButton(
+                                                onClick = {
+                                                    try {
+                                                        val paths = workspaceStore.listFiles(project.id)
+                                                        val firstPath = paths.firstOrNull().orEmpty()
+                                                        val firstContent = if (firstPath.isNotBlank()) workspaceStore.readFile(project.id, firstPath) else ""
+                                                        activeEditProject = project
+                                                        editablePaths = paths
+                                                        if (firstContent.length > MAX_EDITOR_CHARS) {
+                                                            activeFilePath = ""
+                                                            editorContent = ""
+                                                            editorStatus = "O primeiro arquivo é grande demais para editar aqui; ele continua salvo."
+                                                        } else {
+                                                            activeFilePath = firstPath
+                                                            editorContent = firstContent
+                                                            editorStatus = if (firstPath.isBlank()) "Projeto sem arquivos editáveis." else ""
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        editorStatus = "Falha ao abrir o código: " + (e.message ?: e.javaClass.simpleName)
+                                                    }
+                                                },
+                                                contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)
+                                            ) { Text(if (activeEditProject?.id == project.id) "Aberto" else "Abrir", color = accentColor, fontSize = 10.sp) }
+                                            TextButton(
+                                                onClick = { projectToDelete = project },
+                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                            ) { Text("Apagar", color = Warning, fontSize = 10.sp) }
                                         }
-                                    }, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
-                                        Text((if (path == activeFilePath) "▸ " else "") + path, color = if (path == activeFilePath) accentColor else Color.White, fontSize = 10.sp, maxLines = 1)
                                     }
                                 }
                             }
                         }
-                        if (activeFilePath.isBlank()) {
-                            Text("Escolha um arquivo na lista.", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+
+                        if (activeEditProject == null) {
+                            Text("Selecione um projeto acima para ver e salvar os códigos.", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                         } else {
-                            Text(activeFilePath, color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                            OutlinedTextField(
-                                value = editorContent,
-                                onValueChange = { if (it.length <= MAX_EDITOR_CHARS) editorContent = it },
-                                modifier = Modifier.fillMaxWidth().weight(1f),
-                                textStyle = androidx.compose.ui.text.TextStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 12.sp, lineHeight = 16.sp),
-                                minLines = 1,
-                                maxLines = 50,
-                                label = { Text("Código") },
-                                placeholder = { Text("Conteúdo do arquivo…") }
-                            )
+                            Text("ARQUIVOS · ${activeEditProject?.name.orEmpty()}", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Surface(Modifier.fillMaxWidth().heightIn(max = 76.dp), color = Panel, shape = RoundedCornerShape(10.dp)) {
+                                Column(Modifier.verticalScroll(rememberScrollState()).padding(3.dp)) {
+                                    editablePaths.forEach { path ->
+                                        TextButton(
+                                            onClick = {
+                                                val project = activeEditProject
+                                                if (project != null) {
+                                                    try {
+                                                        val fileText = workspaceStore.readFile(project.id, path)
+                                                        if (fileText.length > MAX_EDITOR_CHARS) {
+                                                            editorStatus = "Arquivo muito grande para editar aqui. O arquivo permanece salvo; use o chat para pedir alterações específicas."
+                                                        } else {
+                                                            activeFilePath = path
+                                                            editorContent = fileText
+                                                            editorStatus = ""
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        editorStatus = "Falha ao abrir: " + (e.message ?: e.javaClass.simpleName)
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                        ) {
+                                            Text((if (path == activeFilePath) "▸ " else "") + path, color = if (path == activeFilePath) accentColor else Color.White, fontSize = 10.sp, maxLines = 1)
+                                        }
+                                    }
+                                }
+                            }
+                            if (activeFilePath.isBlank()) {
+                                Text("Escolha um arquivo na lista para editar.", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                            } else {
+                                Text(activeFilePath, color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                OutlinedTextField(
+                                    value = editorContent,
+                                    onValueChange = { if (it.length <= MAX_EDITOR_CHARS) editorContent = it },
+                                    modifier = Modifier.fillMaxWidth().weight(1f),
+                                    textStyle = androidx.compose.ui.text.TextStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 12.sp, lineHeight = 16.sp),
+                                    minLines = 1,
+                                    maxLines = 50,
+                                    label = { Text("Código") },
+                                    placeholder = { Text("Conteúdo do arquivo…") }
+                                )
+                            }
                         }
                         if (editorStatus.isNotBlank()) Text(editorStatus, color = if (editorStatus.startsWith("Arquivo salvo")) accentColor else Warning, fontSize = 10.sp, maxLines = 3)
                         if (isSavingFile) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -1943,87 +2012,36 @@ fun KellvynApp() {
                                 fileExportPicker.launch(pendingFileExportName)
                             }) { Text("Baixar arquivo", color = Muted, fontSize = 10.sp) }
                             Spacer(Modifier.weight(1f))
-                            Button(enabled = !isSavingFile && activeEditProject != null && activeFilePath.isNotBlank(), onClick = {
-                                val project = activeEditProject
-                                if (project != null) {
-                                    isSavingFile = true
-                                    editorStatus = "Salvando…"
-                                    scope.launch {
-                                        try {
-                                            withContext(Dispatchers.IO) { workspaceStore.addOrReplaceFiles(project.id, listOf(ProjectFileInput(activeFilePath, editorContent))) }
-                                            existingProjects.clear(); existingProjects.addAll(workspaceStore.listProjects())
-                                            activeEditProject = workspaceStore.getProject(project.id)
-                                            editorStatus = "Arquivo salvo. Para compilar, peça ao chat principal para gerar ou corrigir o APK."
-                                        } catch (e: CancellationException) {
-                                            throw e
-                                        } catch (e: Exception) {
-                                            editorStatus = "Falha ao salvar: " + (e.message ?: e.javaClass.simpleName)
-                                        } finally { isSavingFile = false }
+                            Button(
+                                enabled = !isSavingFile && activeEditProject != null && activeFilePath.isNotBlank(),
+                                onClick = {
+                                    val project = activeEditProject
+                                    if (project != null) {
+                                        isSavingFile = true
+                                        editorStatus = "Salvando…"
+                                        scope.launch {
+                                            try {
+                                                withContext(Dispatchers.IO) { workspaceStore.addOrReplaceFiles(project.id, listOf(ProjectFileInput(activeFilePath, editorContent))) }
+                                                existingProjects.clear()
+                                                existingProjects.addAll(workspaceStore.listProjects())
+                                                activeEditProject = workspaceStore.getProject(project.id)
+                                                editorStatus = "Arquivo salvo."
+                                            } catch (e: CancellationException) {
+                                                throw e
+                                            } catch (e: Exception) {
+                                                editorStatus = "Falha ao salvar: " + (e.message ?: e.javaClass.simpleName)
+                                            } finally {
+                                                isSavingFile = false
+                                            }
+                                        }
                                     }
-                                }
-                            }, colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Night)) { Text("Salvar", fontSize = 11.sp) }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Night)
+                            ) { Text("Salvar código", fontSize = 11.sp) }
                         }
                     }
                 }
             }
-        }
-        if (showProjectsDialog) {
-            AlertDialog(
-                onDismissRequest = { showProjectsDialog = false },
-                title = { Text("Códigos guardados") },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        if (existingProjects.isEmpty()) {
-                            Text("Os códigos criados pelo chat ficam guardados aqui. Para criar ou modificar um aplicativo, peça diretamente no chat principal.", color = Muted)
-                        } else {
-                            existingProjects.forEach { project ->
-                                Surface(color = Panel, shape = RoundedCornerShape(12.dp)) {
-                                    Column(Modifier.padding(10.dp)) {
-                                        Text(project.name, color = Color.White, fontWeight = FontWeight.Bold)
-                                        Text("${project.fileCount} arquivos · ${project.id}", color = Muted, fontSize = 10.sp)
-                                        if (project.description.isNotBlank()) {
-                                            Text(project.description, color = Muted, fontSize = 11.sp, maxLines = 3)
-                                        }
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            TextButton(onClick = {
-                                                try {
-                                                    val paths = workspaceStore.listFiles(project.id)
-                                                    activeEditProject = project
-                                                    editablePaths = paths
-                                                    activeFilePath = paths.firstOrNull().orEmpty()
-                                                    editorContent = if (activeFilePath.isNotBlank()) {
-                                                        workspaceStore.readFile(project.id, activeFilePath).take(MAX_EDITOR_CHARS)
-                                                    } else ""
-                                                    editorStatus = if (activeFilePath.isBlank()) "Projeto sem arquivos editáveis." else ""
-                                                    showProjectsDialog = false
-                                                    showEditorDialog = true
-                                                } catch (e: Exception) {
-                                                    status = "Não foi possível abrir o editor: " + (e.message ?: e.javaClass.simpleName)
-                                                }
-                                            }) { Text("Editor") }
-                                            TextButton(onClick = { projectToDelete = project }) { Text("Apagar", color = Warning) }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showProjectsDialog = false }) { Text("Fechar") }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        showProjectsDialog = false
-                    }) { Text("Voltar ao chat") }
-                }
-            )
         }
 
         if (projectToDelete != null) {
@@ -2040,7 +2058,6 @@ fun KellvynApp() {
                                 workspaceStore.deleteProject(target.id)
                                 existingProjects.removeAll { it.id == target.id }
                                 if (activeEditProject?.id == target.id) {
-                                    showEditorDialog = false
                                     activeEditProject = null
                                     editablePaths = emptyList()
                                     activeFilePath = ""
@@ -2259,7 +2276,14 @@ fun KellvynApp() {
                                     showAppsDialog = false
                                     existingProjects.clear()
                                     existingProjects.addAll(workspaceStore.listProjects())
-                                    showProjectsDialog = true
+                                    if (activeEditProject?.id !in existingProjects.map { it.id }) {
+                                        activeEditProject = null
+                                        editablePaths = emptyList()
+                                        activeFilePath = ""
+                                        editorContent = ""
+                                        editorStatus = ""
+                                    }
+                                    showEditorDialog = true
                                 }
                             ) { Text("Códigos", color = accentColor, fontSize = 11.sp) }
                             TextButton(
@@ -2295,11 +2319,19 @@ fun KellvynApp() {
                                                     TextButton(onClick = {
                                                         try {
                                                             val paths = workspaceStore.listFiles(project.id)
+                                                            val firstPath = paths.firstOrNull().orEmpty()
+                                                            val firstContent = if (firstPath.isNotBlank()) workspaceStore.readFile(project.id, firstPath) else ""
                                                             activeEditProject = project
                                                             editablePaths = paths
-                                                            activeFilePath = paths.firstOrNull().orEmpty()
-                                                            editorContent = if (activeFilePath.isNotBlank()) workspaceStore.readFile(project.id, activeFilePath).take(MAX_EDITOR_CHARS) else ""
-                                                            editorStatus = if (activeFilePath.isBlank()) "Projeto sem arquivos editáveis." else ""
+                                                            if (firstContent.length > MAX_EDITOR_CHARS) {
+                                                                activeFilePath = ""
+                                                                editorContent = ""
+                                                                editorStatus = "O primeiro arquivo é grande demais para editar aqui; ele continua salvo."
+                                                            } else {
+                                                                activeFilePath = firstPath
+                                                                editorContent = firstContent
+                                                                editorStatus = if (firstPath.isBlank()) "Projeto sem arquivos editáveis." else ""
+                                                            }
                                                             showAppsDialog = false
                                                             showEditorDialog = true
                                                         } catch (e: Exception) { status = "Falha ao abrir o código: " + (e.message ?: e.javaClass.simpleName) }
