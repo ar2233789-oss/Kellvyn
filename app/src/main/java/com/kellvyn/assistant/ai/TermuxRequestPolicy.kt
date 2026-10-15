@@ -15,6 +15,7 @@ internal object TermuxRequestPolicy {
         val explicitNoExecution = listOf(
             "não execute nenhum comando", "nao execute nenhum comando",
             "não execute comandos", "nao execute comandos",
+            "não, não execute", "nao, nao execute",
             "não execute nenhum comando por mim", "nao execute nenhum comando por mim",
             "não rode nenhum comando", "nao rode nenhum comando",
             "não use o termux", "nao use o termux",
