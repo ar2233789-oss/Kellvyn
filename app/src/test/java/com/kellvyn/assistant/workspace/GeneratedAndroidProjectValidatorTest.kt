@@ -12,6 +12,12 @@ class GeneratedAndroidProjectValidatorTest {
     }
 
     @Test
+    fun acceptsProjectMapsWithWindowsStylePaths() {
+        val windowsPaths = validProject().mapKeys { (path, _) -> path.replace('/', '\\') }
+        assertNull(GeneratedAndroidProjectValidator.validate(windowsPaths))
+    }
+
+    @Test
     fun rejectsWrongPackage() {
         val files = validProject().toMutableMap()
         files["app/src/main/java/com/example/app/MainActivity.java"] =
