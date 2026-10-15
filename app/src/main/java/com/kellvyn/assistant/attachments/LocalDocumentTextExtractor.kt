@@ -132,18 +132,24 @@ object LocalDocumentTextExtractor {
             }
         }
         val bytes = xmlBytes ?: throw IllegalArgumentException("O documento não contém o arquivo de texto esperado: $entryName")
+        val xmlText = String(bytes, Charsets.UTF_8)
+        require(!xmlText.contains("<!doctype", ignoreCase = true) && !xmlText.contains("<!entity", ignoreCase = true)) {
+            "O documento contém declarações XML externas que não são permitidas."
+        }
         val factory = DocumentBuilderFactory.newInstance().apply {
             isNamespaceAware = true
             isXIncludeAware = false
             isExpandEntityReferences = false
-            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-            setFeature("http://xml.org/sax/features/external-general-entities", false)
-            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-            setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            // Different Android XML parsers support different optional feature URIs.
+            // The source is also checked above to reject DTD/entity declarations.
+            runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+            runCatching { setFeature("http://xml.org/sax/features/external-general-entities", false) }
+            runCatching { setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
+            runCatching { setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false) }
             runCatching { setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD, "") }
             runCatching { setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA, "") }
         }
-        val root = factory.newDocumentBuilder().parse(bytes.inputStream()).documentElement
+        val root = factory.newDocumentBuilder().parse(xmlText.byteInputStream()).documentElement
         val tags = if (entryName == "word/document.xml") setOf("p") else setOf("p", "h")
         val result = StringBuilder()
         appendParagraphs(root, tags, result)
