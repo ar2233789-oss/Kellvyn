@@ -6,8 +6,8 @@ package com.kellvyn.assistant.workspace
  */
 internal object GeneratedAndroidProjectValidator {
     fun validate(files: Map<String, String>): String? {
-        fun content(path: String) = files[path.replace('\\', '/')].orEmpty()
         val normalized = files.mapKeys { it.key.replace('\\', '/') }
+        fun content(path: String) = normalized[path.replace('\\', '/')].orEmpty()
         val rootBuild = content("build.gradle.kts")
         val settings = content("settings.gradle.kts")
         val properties = content("gradle.properties")
