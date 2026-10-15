@@ -132,11 +132,11 @@ class LocalSvgImageGeneratorTest {
         val normalized = LocalSvgImageGenerator.extractGeneratedAndValidate(source)
         assertFalse("Generated SVG must not retain the legacy xlink namespace.", normalized.contains("xmlns:xlink"))
         assertFalse("Generated SVG must normalize xlink:href.", normalized.contains("xlink:href"))
-        assertTrue("A local gradient reference must be preserved.", normalized.contains("""href="#base""""))
+        assertTrue("A local gradient reference must be preserved.", normalized.contains("href=\"#base\""))
         assertTrue("Normalized SVG must still pass strict validation.",
             runCatching { LocalSvgImageGenerator.extractAndValidate(normalized) }.isSuccess)
 
-        val externalReference = source.replace("""xlink:href="#base"""", """xlink:href="https://example.org/image.svg"""")
+        val externalReference = source.replace("xlink:href=\"#base\"", "xlink:href=\"https://example.org/image.svg\"")
         assertTrue("External xlink references must remain rejected.",
             runCatching { LocalSvgImageGenerator.extractGeneratedAndValidate(externalReference) }.isFailure)
     }
