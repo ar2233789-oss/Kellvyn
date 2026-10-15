@@ -2657,16 +2657,23 @@ fun KellvynApp() {
             )
         }
 
+        val isTermuxApproval = pendingAgentApproval?.startsWith("Executar no Termux o comando:") == true
         if (pendingAgentApproval != null) {
             AlertDialog(
                 onDismissRequest = {
                     agentApprovalGate?.complete(false)
                 },
-                title = { Text("Autorizar ação do Kellvyn?") },
+                title = {
+                    Text(if (isTermuxApproval) "Autorizar comando no Termux?" else "Autorizar ação do Kellvyn?")
+                },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            "A IA solicitou uma operação que altera arquivos ou o Git. Ela só será executada no workspace privado deste aplicativo depois da sua confirmação.",
+                            if (isTermuxApproval) {
+                                "A IA pediu para executar este comando no ambiente Termux. Confira o comando inteiro antes de autorizar."
+                            } else {
+                                "A IA solicitou uma operação que altera arquivos ou o Git. Ela só será executada no workspace privado deste aplicativo depois da sua confirmação."
+                            },
                             color = Muted,
                             fontSize = 12.sp
                         )
@@ -2678,11 +2685,23 @@ fun KellvynApp() {
                             Text(
                                 pendingAgentApproval.orEmpty(),
                                 color = Color.White,
-                                fontSize = 13.sp,
-                                modifier = Modifier.fillMaxWidth().padding(12.dp)
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                modifier = Modifier.fillMaxWidth()
+                                    .heightIn(max = 220.dp)
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(12.dp)
                             )
                         }
-                        Text("Não é um shell do Android: comandos arbitrários e encadeamento de comandos são bloqueados.", color = Muted, fontSize = 11.sp)
+                        Text(
+                            if (isTermuxApproval) {
+                                "Esse comando será executado no Termux e pode alterar arquivos, instalar pacotes ou mudar dados. A autorização vale somente para este comando. Cancele se não reconhecer tudo o que está escrito."
+                            } else {
+                                "Não é um shell do Android: comandos arbitrários e encadeamento de comandos são bloqueados."
+                            },
+                            color = Muted,
+                            fontSize = 11.sp
+                        )
                     }
                 },
                 confirmButton = {
