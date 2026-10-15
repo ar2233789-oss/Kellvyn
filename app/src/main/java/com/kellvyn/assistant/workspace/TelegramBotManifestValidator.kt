@@ -9,7 +9,8 @@ internal object TelegramBotManifestValidator {
         "response", "ping", "current_time", "roll_dice", "coin_flip", "user_name", "echo"
     )
 
-    fun validate(content: String): String? = try {
+    fun validate(content: String): String? {
+        return try {
         val json = JSONObject(content)
         if (!json.optString("platform").equals("telegram", ignoreCase = true)) {
             return "platform precisa ser telegram."
@@ -32,7 +33,8 @@ internal object TelegramBotManifestValidator {
             names += name
         }
         if (names.distinct().size != names.size) "há nomes de comando repetidos." else null
-    } catch (error: Exception) {
-        "JSON inválido (" + (error.message ?: error.javaClass.simpleName) + ")."
+        } catch (error: Exception) {
+            "JSON inválido (" + (error.message ?: error.javaClass.simpleName) + ")."
+        }
     }
 }
