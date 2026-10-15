@@ -66,11 +66,14 @@ object LocalSvgImageGenerator {
                         lastError = e.message ?: lastError
                         if (attempt == 0) {
                             onProgress("Corrigindo a estrutura da ilustração…")
+                            val rejectedSvg = candidate.text.take(MAX_SVG_CHARS)
                             candidate = engine.generateSvgSource(
-                                "Corrija o SVG abaixo para ficar válido e seguro. Erro detectado: $lastError. " +
-                                    "Devolva somente um SVG completo, sem markdown nem explicações. " +
-                                    "Não adicione imagens, links, CSS, scripts ou tags fora da lista permitida.\n\n" +
-                                    candidate.text.take(MAX_SVG_CHARS)
+                                "Crie a ilustração descrita originalmente: " + prompt.take(2_000) + ". " +
+                                    "A resposta anterior falhou nesta validação: $lastError. " +
+                                    "Gere uma versão nova e corrigida que atenda à descrição original. " +
+                                    "Retorne somente SVG completo, sem markdown. Não use links, CSS, scripts, imagem externa ou tags fora da lista permitida. " +
+                                    "O SVG anterior com erro é apenas referência de tentativa, não é o assunto da ilustração:\\n" +
+                                    rejectedSvg
                             )
                         }
                     }
