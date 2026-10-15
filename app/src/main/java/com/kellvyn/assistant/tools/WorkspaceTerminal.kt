@@ -82,33 +82,33 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
     }
 
     private fun helpText() = """
-        KELLVYN WORKSPACE TERMINAL — comandos locais
-        pwd                         mostra a pasta atual
+        KELLVYN TERMINAL — comandos de workspace e shell Android
+        pwd                         mostra a pasta atual do workspace
         ls [caminho]                lista arquivos e pastas
-        cd <pasta>                  muda a pasta (limite: /workspace)
+        cd <pasta>                  muda a pasta atual dentro de /workspace
         tree [caminho]              árvore curta de arquivos
         find [caminho]              procura/lista arquivos do workspace
-        cat <arquivo>               exibe um arquivo de texto
+        cat <arquivo>               exibe arquivos de texto
         head [-n linhas] <arquivo>  primeiras linhas
         tail [-n linhas] <arquivo>  últimas linhas
         grep <texto> <arquivo>      procura texto literal
         wc <arquivo>                conta linhas/palavras/caracteres
-        mkdir <pasta>               cria pasta
-        touch <arquivo>             cria arquivo vazio
-        write <arquivo> <texto>     grava texto (substitui)
-        append <arquivo> <texto>    acrescenta texto
-        cp <origem> <destino>       copia arquivo
-        mv <origem> <destino>       move/renomeia arquivo
-        rm <arquivo>                apaga um arquivo (não pastas)
-        stat <caminho>               detalhes de arquivo
+        mkdir, touch, write, append  cria e grava arquivos no workspace
+        cp, mv, rm, stat            operações locais em arquivos
         projects                    lista projetos Kellvyn
-        status                      status da pasta e do compilador
-        git init|status|add|diff|log|branch|commit <mensagem>
+        status                      estado do workspace e do compilador
+        git status|diff|log|branch  consulta Git local
+        git init|add|commit          alterações Git com confirmações quando exigidas
         clear                       limpa a tela do terminal
-       
-        Segurança: operações confinadas à pasta privada de projetos; sem shell arbitrário,
-        sem comandos encadeados, sem acesso a caminhos fora do workspace.
-        O compilador Android local já está integrado ao modo Build e ao agente de chat: ECJ → D8 → manifesto binário → APK assinado/verificado. Este terminal não executa Gradle/Gradle Wrapper; o perfil atual aceita Java nativo com APIs Android, sem Kotlin/Compose, recursos externos ou bibliotecas externas.
+
+        Outros comandos são passados ao /system/bin/sh do Android como o UID do app, sem root.
+        Só funcionam comandos que realmente estejam instalados no Android; esta aplicação não inclui
+        o gerenciador de pacotes nem a coleção de binários do Termux. Cada comando tem limite de 120 s
+        e saída de 128 KB. O shell manual é independente do agente de IA e não é usado pelo chat.
+
+        O compilador do chat é separado: ECJ → D8 → manifesto binário → APK assinado/verificado.
+        O perfil inicial de APK aceita Java nativo com APIs Android, sem Kotlin/Compose, bibliotecas
+        externas ou recursos externos.
     """.trimIndent()
 
     private fun changeDirectory(args: List<String>): String {
