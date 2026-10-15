@@ -1234,7 +1234,7 @@ class AssistantAgent(
                     if (name.isBlank()) return AssistantResult.Failure("A IA propôs uma ferramenta sem nome.")
                     if (name == "termux_run_command" && !TermuxRequestPolicy.mayUseTermux(lastUser)) {
                         turns.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, modelResult.text))
-                        turns.add(AssistantTurn(AssistantTurn.Role.USER, "FERRAMENTA TERMUX RECUSADA: esta solicitação não foi identificada como uma tarefa que precise de shell real. Responda sem executar comandos."))
+                        turns.add(AssistantTurn(AssistantTurn.Role.USER, "FERRAMENTA TERMUX RECUSADA: a pessoa não pediu explicitamente ajuda com Termux no chat principal. Responda sem executar comandos."))
                         return@repeat
                     }
                     if (name in setOf("web_search", "open_web_page", "github_search", "github_file", "github_tree", "github_import") && !internetAllowed) {
