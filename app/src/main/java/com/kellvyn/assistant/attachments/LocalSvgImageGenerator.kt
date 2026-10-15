@@ -36,7 +36,7 @@ object LocalSvgImageGenerator {
         "cx", "cy", "r", "rx", "ry", "fill", "stroke", "stroke-width", "opacity", "fill-opacity",
         "stroke-opacity", "points", "d", "transform", "offset", "stop-color", "stop-opacity",
         "font-family", "font-size", "font-weight", "font-style", "text-anchor", "dominant-baseline",
-        "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "fill-rule", "clip-rule",
+        "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "fill-rule", "clip-rule", "href",
         "gradientUnits", "gradientTransform", "spreadMethod"
     )
 
@@ -152,12 +152,21 @@ object LocalSvgImageGenerator {
             Regex("""(?is)<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\b[^>]*>.*?</(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\s*>"""),
             ""
         )
-        return withoutClipPaths.replace(
-            Regex("""(?is)\s+clip-path\s*=\s*(?:"[^"]*"|'[^']*')"""),
+        val withoutClipReferences = withoutClipPaths.replace(
+            Regex("""(?is)\s+clip-path\s*=\s*("[^"]*"|'[^']*')"""),
             ""
         )
+        // Remove legacy namespace metadata, and normalize xlink:href only for generated SVG.
+        // Validation below permits href only when it points to a local #id fragment.
+        val withoutXlinkNamespace = withoutClipReferences.replace(
+            Regex("""(?is)\s+xmlns:xlink\s*=\s*("[^"]*"|'[^']*')"""),
+            ""
+        )
+        return withoutXlinkNamespace.replace(
+            Regex("""(?i)\bxlink:href(?=\s*=)"""),
+            "href"
+        )
     }
-
     private fun ensureModelSvgViewport(source: String): String {
         val start = source.indexOf("<svg", ignoreCase = true)
         if (start < 0) return source
@@ -181,11 +190,16 @@ object LocalSvgImageGenerator {
     fun extractAndValidate(source: String): String {
         require(source.length <= MAX_SVG_CHARS + 12_000) { "A resposta de imagem ultrapassou o limite de texto permitido." }
         val lower = source.lowercase()
-        val start = lower.indexOf("<svg")
-        val end = lower.lastIndexOf("</svg>")
-        require(start >= 0) { "A IA não retornou uma tag SVG completa." }
+        // Accept the default root and the official svg:svg namespace prefix. Match the same
+        // qualified closing tag so </svg:svg> is not mistaken for an incomplete document.
+        val rootMatch = Regex("""<(svg:svg|svg)\b""", RegexOption.IGNORE_CASE).find(source)
+        require(rootMatch != null) { "A IA não retornou uma tag SVG completa." }
+        val start = rootMatch.range.first
+        val qualifiedRoot = rootMatch.groupValues[1]
+        val closingRoot = "</$qualifiedRoot>"
+        val end = lower.lastIndexOf(closingRoot.lowercase())
         val svg = if (end > start) {
-            source.substring(start, end + "</svg>".length).trim()
+            source.substring(start, end + closingRoot.length).trim()
         } else {
             repairTruncatedSvg(source.substring(start))
                 ?: throw IllegalArgumentException("A IA não retornou uma tag SVG completa.")
@@ -280,6 +294,11 @@ object LocalSvgImageGenerator {
                 require(attrName in allowedAttributes) { "O SVG contém o atributo não permitido $attrName." }
                 if (attrName == "id") {
                     require(value.matches(Regex("[A-Za-z][A-Za-z0-9_-]{0,40}"))) { "O SVG contém um identificador inválido." }
+                }
+                if (attrName == "href") {
+                    require(value.matches(Regex("""#[A-Za-z][A-Za-z0-9_-]{0,40}"""))) {
+                        "O SVG só pode usar referências href internas a identificadores locais."
+                    }
                 }
                 val normalized = value.lowercase()
                 if (attrName == "xmlns") {
