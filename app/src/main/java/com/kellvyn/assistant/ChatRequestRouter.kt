@@ -18,6 +18,19 @@ object ChatRequestRouter {
     fun shouldBuild(text: String): Boolean =
         isExplicitAppBuildRequest(text) || isBuildBrief(text)
 
+    /** Direct requests create an image artifact; questions and image analysis stay in chat. */
+    fun shouldGenerateImage(text: String): Boolean {
+        val value = text.trim().lowercase(Locale.ROOT)
+        return listOf(
+            "gere uma imagem", "gerar uma imagem", "crie uma imagem", "criar uma imagem",
+            "desenhe uma imagem", "desenhar uma imagem", "faça uma imagem", "faca uma imagem",
+            "gere imagem", "gerar imagem", "crie imagem", "criar imagem",
+            "gere uma foto", "gerar uma foto", "crie uma foto", "gere uma ilustração",
+            "gere uma ilustracao", "crie uma ilustração", "crie uma ilustracao",
+            "create an image", "generate an image", "draw an image"
+        ).any { it in value }
+    }
+
     /**
      * Web/GitHub tools are offered only when this message explicitly asks for online research
      * or supplies a link and requests an action on it. Ordinary chat stays on the local model.
