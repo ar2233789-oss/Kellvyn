@@ -246,6 +246,9 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             candidate = null
             try { previous?.close() } catch (_: Exception) { }
             AssistantResult.Success("Kellvyn IA pronta para conversar.")
+        } catch (e: CancellationException) {
+            try { candidate?.close() } catch (_: Exception) { }
+            throw e
         } catch (e: Exception) {
             try { candidate?.close() } catch (_: Exception) { }
             AssistantResult.Failure(
