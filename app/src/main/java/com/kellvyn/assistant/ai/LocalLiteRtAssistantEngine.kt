@@ -22,6 +22,7 @@ import java.security.MessageDigest
 import java.util.Locale
 
 private const val MAX_CHAT_OUTPUT_TOKENS = 1024
+private const val MAX_SVG_OUTPUT_TOKENS = 2048
 private const val MAX_PROJECT_OUTPUT_TOKENS = 8192
 private const val MODEL_CONTEXT_TOKEN_LIMIT = 8192
 private const val CONTEXT_SAFETY_TOKEN_RESERVE = 384
@@ -293,10 +294,16 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
             val answer = StringBuilder()
             var lastPublishedLength = 0
             val requestedText = conversation[lastUserIndex].content
-            val projectGeneration = requestedText.contains("TAREFA: criar um projeto", ignoreCase = true) ||
-                requestedText.contains("TAREFA: criar código-fonte funcional", ignoreCase = true) ||
-                requestedText.contains("REGRAS TÉCNICAS E ESQUEMA:", ignoreCase = true) ||
-                requestedText.contains("Esquema obrigatório:", ignoreCase = true)
+            val svgGeneration = requestedText.contains(
+                "TAREFA: criar código-fonte funcional de uma ilustração vetorial SVG autossuficiente.",
+                ignoreCase = true
+            )
+            val projectGeneration = !svgGeneration && (
+                requestedText.contains("TAREFA: criar um projeto", ignoreCase = true) ||
+                    requestedText.contains("TAREFA: criar código-fonte funcional", ignoreCase = true) ||
+                    requestedText.contains("REGRAS TÉCNICAS E ESQUEMA:", ignoreCase = true) ||
+                    requestedText.contains("Esquema obrigatório:", ignoreCase = true)
+                )
             if (!projectGeneration && isExplicitImageGenerationRequest(requestedText)) {
                 val capabilityNotice = "Esta versão do Kellvyn IA usa um modelo local somente de texto. Não consigo criar ou anexar uma imagem PNG/JPEG nem verificar uma referência visual nesta conversa. Posso ajudar a gerar código de arte vetorial/Canvas dentro de um app, mas isso não é um arquivo de imagem gerado."
                 onPartial(capabilityNotice)
@@ -316,7 +323,11 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                     ?.takeIf { it.isNotBlank() }
                     ?.let { appendLine(); appendLine(); append(it) }
             }
-            val requestedOutputLimit = if (projectGeneration) MAX_PROJECT_OUTPUT_TOKENS else MAX_CHAT_OUTPUT_TOKENS
+            val requestedOutputLimit = when {
+                svgGeneration -> MAX_SVG_OUTPUT_TOKENS
+                projectGeneration -> MAX_PROJECT_OUTPUT_TOKENS
+                else -> MAX_CHAT_OUTPUT_TOKENS
+            }
             val boundedPrompt = boundLocalPrompt(
                 systemInstruction = baseSystemInstruction,
                 priorTurns = conversation.take(lastUserIndex).filter { it.role != AssistantTurn.Role.SYSTEM },
@@ -338,7 +349,7 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                 samplerConfig = SamplerConfig(
                     topK = 40,
                     topP = 0.9,
-                    temperature = if (projectGeneration) 0.2 else 0.7,
+                    temperature = if (projectGeneration || svgGeneration) 0.2 else 0.7,
                     seed = System.nanoTime().toInt()
                 )
             )
@@ -378,26 +389,26 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
         onPartial: suspend (String) -> Unit = {}
     ): AssistantResult {
         val system = """
-            You are generating a local vector illustration. Return only one complete standalone SVG document.
-            This is a constrained SVG drawing, not photorealistic diffusion. Use viewBox="0 0 1024 1024".
-            Allowed elements only: svg, g, defs, linearGradient, radialGradient, stop, rect, circle, ellipse,
-            line, polyline, polygon, path, text, tspan. Use direct presentation attributes, never style attributes.
-            Allowed attributes only: xmlns, width, height, viewBox, version, id, x, y, x1, y1, x2, y2, cx, cy,
-            r, rx, ry, fill, stroke, stroke-width, opacity, fill-opacity, stroke-opacity, points, d, transform,
-            offset, stop-color, stop-opacity, font-family, font-size, font-weight, font-style, text-anchor,
-            dominant-baseline, stroke-linecap, stroke-linejoin, stroke-miterlimit, fill-rule, clip-rule,
-            gradientUnits, gradientTransform, spreadMethod.
-            Use only gradients referenced as url(#localId). No links, image tags, CSS, scripts, foreignObject,
-            event handlers, entities, external references, or explanations. Produce an attractive, balanced
-            vector illustration with layered shapes, deliberate colors, and clear composition. Make sure XML
-            special characters in text nodes are escaped. Use transparent background only if the design needs it.
+            Generate one compact, complete standalone SVG illustration and return only the SVG markup.
+            Use viewBox="0 0 1024 1024" and the standard SVG namespace. Keep the whole SVG under
+            3,500 characters and use at most 14 visible drawing shapes. Favor simple, self-closing
+            rect, circle, ellipse, line, polyline, polygon and path elements. Avoid text, groups,
+            defs, gradients, comments and deeply nested markup unless absolutely necessary.
+            Use only direct presentation attributes from this allow-list: xmlns, width, height, viewBox,
+            version, x, y, x1, y1, x2, y2, cx, cy, r, rx, ry, fill, stroke, stroke-width, opacity,
+            fill-opacity, stroke-opacity, points, d, transform, font-family, font-size, font-weight,
+            font-style, text-anchor, dominant-baseline, stroke-linecap, stroke-linejoin, fill-rule.
+            Never use style, links, scripts, foreignObject, event handlers, entities, external references,
+            embedded HTML or explanations. Escape XML special characters in text. The final output must
+            include the exact closing tag </svg>; do not stop after the last shape.
         """.trimIndent()
         val task = buildString {
             appendLine("TAREFA: criar código-fonte funcional de uma ilustração vetorial SVG autossuficiente.")
             appendLine("Descrição da ilustração solicitada: ")
-            appendLine(prompt.take(4_000))
+            appendLine(prompt.take(1_800))
             appendLine()
-            appendLine("Devolva somente o SVG completo. O aplicativo irá validá-lo e renderizá-lo como PNG localmente.")
+            appendLine("Limite: até 14 formas simples e 3.500 caracteres no total.")
+            appendLine("Retorne somente um SVG completo, com a tag final </svg>; sem markdown ou explicações.")
         }
         return replyStreaming(
             listOf(

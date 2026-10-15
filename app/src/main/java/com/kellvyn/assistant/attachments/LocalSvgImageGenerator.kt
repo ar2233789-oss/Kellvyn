@@ -67,14 +67,11 @@ object LocalSvgImageGenerator {
                         lastError = e.message ?: lastError
                         if (attempt == 0) {
                             onProgress("Corrigindo a estrutura da ilustração…")
-                            val rejectedSvg = responseText.take(MAX_SVG_CHARS)
                             candidate = engine.generateSvgSource(
-                                "Crie a ilustração descrita originalmente: " + prompt.take(2_000) + ". " +
-                                    "A resposta anterior falhou nesta validação: $lastError. " +
-                                    "Gere uma versão nova e corrigida que atenda à descrição original. " +
-                                    "Retorne somente SVG completo, sem markdown. Não use links, CSS, scripts, imagem externa ou tags fora da lista permitida. " +
-                                    "O SVG anterior com erro é apenas referência de tentativa, não é o assunto da ilustração:\n" +
-                                    rejectedSvg
+                                "Crie uma versão mais simples da mesma ilustração. Descrição original: " +
+                                    prompt.take(1_200) + ". Erro de validação: " + lastError + ". " +
+                                    "Devolva somente um SVG válido e completo, começando por <svg e terminando por </svg>. " +
+                                    "Use no máximo 14 formas simples, sem explicações, markdown, comentários, links, CSS, scripts ou imagens externas."
                             )
                         }
                     }
@@ -137,8 +134,13 @@ object LocalSvgImageGenerator {
         val lower = source.lowercase()
         val start = lower.indexOf("<svg")
         val end = lower.lastIndexOf("</svg>")
-        require(start >= 0 && end > start) { "A IA não retornou uma tag SVG completa." }
-        val svg = source.substring(start, end + "</svg>".length).trim()
+        require(start >= 0) { "A IA não retornou uma tag SVG completa." }
+        val svg = if (end > start) {
+            source.substring(start, end + "</svg>".length).trim()
+        } else {
+            repairTruncatedSvg(source.substring(start))
+                ?: throw IllegalArgumentException("A IA não retornou uma tag SVG completa.")
+        }
         require(svg.length <= MAX_SVG_CHARS) { "O SVG ultrapassou o limite de 48.000 caracteres." }
         require(!svg.contains("<!doctype", ignoreCase = true) && !svg.contains("<!entity", ignoreCase = true)) {
             "O SVG tentou declarar entidades XML que não são permitidas."
@@ -163,6 +165,53 @@ object LocalSvgImageGenerator {
         require(root.getAttribute("viewBox").isNotBlank()) { "O SVG precisa definir viewBox para ser renderizado de forma previsível." }
         validateNode(root)
         return svg
+    }
+
+    /**
+     * Repairs only a truncated tail when the SVG root and at least one complete drawing shape
+     * already exist. The repaired document still goes through the full XML and allow-list checks.
+     */
+    private fun repairTruncatedSvg(fragment: String): String? {
+        var candidate = fragment.trim()
+        if (candidate.length > MAX_SVG_CHARS || !candidate.startsWith("<svg")) return null
+
+        // If generation stopped in the middle of a tag/attribute, discard just that unfinished tail.
+        val lastOpen = candidate.lastIndexOf('<')
+        val lastClose = candidate.lastIndexOf('>')
+        if (lastOpen > lastClose) candidate = candidate.substring(0, lastOpen).trimEnd()
+        if (candidate.isBlank() || candidate.length > MAX_SVG_CHARS) return null
+
+        val tagPattern = Regex("""<(/?)([A-Za-z][A-Za-z0-9:_-]*)([^<>]*?)(/?)>""")
+        val tags = tagPattern.findAll(candidate).toList()
+        if (tags.isEmpty()) return null
+        val root = tags.first()
+        if (root.range.first != 0 || root.groupValues[1].isNotEmpty() || root.groupValues[2] != "svg" || root.groupValues[4] == "/") {
+            return null
+        }
+
+        val stack = mutableListOf<String>()
+        val drawableElements = setOf("rect", "circle", "ellipse", "line", "polyline", "polygon", "path", "text", "tspan")
+        var drawableCount = 0
+        var cursor = 0
+        for (tag in tags) {
+            if (candidate.substring(cursor, tag.range.first).contains('<')) return null
+            val isClosing = tag.groupValues[1] == "/"
+            val name = tag.groupValues[2]
+            val isSelfClosing = tag.groupValues[4] == "/"
+            if (isClosing) {
+                if (stack.lastOrNull() != name) return null
+                stack.removeAt(stack.lastIndex)
+            } else {
+                if (name in drawableElements) drawableCount++
+                if (!isSelfClosing) stack.add(name)
+            }
+            cursor = tag.range.last + 1
+        }
+        if (candidate.substring(cursor).contains('<')) return null
+        if (stack.firstOrNull() != "svg" || stack.isEmpty() || drawableCount == 0) return null
+
+        val repaired = candidate + stack.asReversed().joinToString(separator = "") { "</$it>" }
+        return repaired.takeIf { it.length <= MAX_SVG_CHARS }
     }
 
     private fun validateNode(node: Node) {
