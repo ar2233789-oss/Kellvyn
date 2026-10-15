@@ -766,10 +766,10 @@ fun KellvynApp() {
         val wantsImage = ChatRequestRouter.shouldGenerateImage(text)
         if (!modelReady && !existingBuildOnly) {
             messages.add(ChatMessage(text, true))
-            messages.add(ChatMessage("O núcleo de IA ainda não iniciou. Confira o estado exibido na tela e tente novamente quando o carregamento terminar.", false))
+            messages.add(ChatMessage("A IA local ainda está iniciando. Confira o status na tela e tente novamente quando ela estiver pronta.", false))
             saveHistory()
             draft = ""
-            status = "Núcleo local não inicializado."
+            status = "IA local não inicializada."
             return
         }
 
@@ -785,7 +785,7 @@ fun KellvynApp() {
         status = if (wantsImage) {
             "Criando uma ilustração vetorial com a IA local…"
         } else if (wantsBuild) {
-            "Planejando e gerando o projeto com o núcleo local…"
+            "Planejando e gerando o projeto com a IA local…"
         } else if (wantsExistingBuild) {
             "Selecionando o projeto e iniciando a compilação local…"
         } else {
@@ -1235,11 +1235,11 @@ fun KellvynApp() {
         try {
             localEngine.prepareLocalModel { progress -> status = progress }
             if (localEngine.hasSavedModel()) {
-                status = "Modelo local encontrado; inicializando…"
+                status = "IA local encontrada; inicializando…"
                 updateModelResult(localEngine.loadSavedModel())
             }
         } catch (e: Exception) {
-            status = "Não foi possível recuperar/carregar o modelo local: " +
+            status = "Não foi possível preparar a IA local: " +
                 (e.message ?: e.javaClass.simpleName)
         } finally {
             isLoadingModel = false
