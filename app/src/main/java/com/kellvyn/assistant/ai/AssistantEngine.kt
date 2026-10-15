@@ -31,3 +31,18 @@ fun AssistantResult.reasonOrText(): String = when (this) {
     is AssistantResult.Unavailable -> reason
     is AssistantResult.Failure -> reason
 }
+
+/**
+ * Optional streaming capability for engines that can report generated text as it arrives.
+ * Agents may use the stream for responsive progress without exposing intermediate tool JSON
+ * or hidden planning content to the chat transcript.
+ */
+interface StreamingAssistantEngine : AssistantEngine {
+    suspend fun replyStreaming(
+        conversation: List<AssistantTurn>,
+        onPartial: suspend (String) -> Unit
+    ): AssistantResult
+
+    override suspend fun reply(conversation: List<AssistantTurn>): AssistantResult =
+        replyStreaming(conversation) { }
+}
