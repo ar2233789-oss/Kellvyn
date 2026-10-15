@@ -525,7 +525,7 @@ fun KellvynApp() {
                         (if (autoRepaired) "O agente corrigiu o código após o primeiro erro. " else "") +
                             "APK criado, assinado e verificado no próprio celular. Pacote: " + result.applicationId + ". " +
                             "Tempo: " + (result.durationMs / 1000.0) + "s. Arquivo: " + result.apk.name + ". " +
-                            "Use o cartão de APK aqui no chat para salvar ou instalar o arquivo.",
+                            "Os botões Salvar APK e Instalar APK aparecem logo abaixo desta resposta.",
                         false
                     )
                 )
@@ -1218,6 +1218,59 @@ fun KellvynApp() {
                                         lineHeight = 20.sp
                                     )
                                 }
+                                val apkNameFromMessage = if (message.text.contains("APK criado, assinado e verificado no próprio celular.")) {
+                                    Regex("""Arquivo:\s+([a-z0-9][a-z0-9-]{0,60}\.apk)\.""", RegexOption.IGNORE_CASE)
+                                        .find(message.text)?.groupValues?.getOrNull(1)
+                                } else null
+                                val apkForThisMessage = apkNameFromMessage?.let { name ->
+                                    File(File(context.filesDir, "kellvyn_builds"), name)
+                                        .takeIf { it.isFile && it.length() > 0L }
+                                }
+                                if (apkForThisMessage != null) {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                        color = Color(0xFF061F17),
+                                        shape = RoundedCornerShape(13.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.6f))
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text("APK compilado", color = accentColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                Spacer(Modifier.weight(1f))
+                                                Text(
+                                                    "%.1f MB".format(Locale.ROOT, apkForThisMessage.length() / (1024.0 * 1024.0)),
+                                                    color = Muted,
+                                                    fontSize = 10.sp
+                                                )
+                                            }
+                                            Text(apkForThisMessage.name, color = Color.White, fontSize = 11.sp)
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                TextButton(
+                                                    onClick = {
+                                                        if (apkForThisMessage.isFile && apkForThisMessage.length() > 0L) {
+                                                            pendingApkExport = apkForThisMessage
+                                                            apkExportPicker.launch(apkForThisMessage.name)
+                                                        } else {
+                                                            status = "O arquivo APK desta resposta não está mais disponível."
+                                                        }
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                                ) { Text("Salvar APK", color = accentColor, fontSize = 11.sp) }
+                                                TextButton(
+                                                    onClick = { installApkFile(apkForThisMessage) },
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                                ) { Text("Instalar APK", color = accentColor, fontSize = 11.sp) }
+                                            }
+                                        }
+                                    }
+                                }
                                 val clipboard = LocalClipboardManager.current
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(start = 3.dp, end = 3.dp),
@@ -1307,19 +1360,25 @@ fun KellvynApp() {
                 }
 
             }
-            if (latestBuiltApk?.isFile == true) {
+            val currentLatestApk = latestBuiltApk?.takeIf { it.isFile && it.length() > 0L }
+            val latestApkHasCardInCurrentConversation = currentLatestApk?.let { apk ->
+                messages.any { message ->
+                    message.text.contains("APK criado, assinado e verificado no próprio celular.") &&
+                        message.text.contains("Arquivo: " + apk.name + ".")
+                }
+            } == true
+            if (currentLatestApk != null && !latestApkHasCardInCurrentConversation) {
                 Row(
                     modifier = Modifier.fillMaxWidth().height(28.dp).padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("APK pronto", color = accentColor, fontSize = 9.sp)
+                    Text("Último APK", color = accentColor, fontSize = 9.sp)
                     Spacer(Modifier.weight(1f))
                     TextButton(
                         onClick = {
-                            val apk = latestBuiltApk
-                            if (apk != null && apk.isFile) {
-                                pendingApkExport = apk
-                                apkExportPicker.launch(apk.name)
+                            if (currentLatestApk.isFile && currentLatestApk.length() > 0L) {
+                                pendingApkExport = currentLatestApk
+                                apkExportPicker.launch(currentLatestApk.name)
                             } else {
                                 status = "O arquivo APK não está mais disponível."
                             }
@@ -1327,7 +1386,7 @@ fun KellvynApp() {
                         contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
                     ) { Text("Salvar APK", color = accentColor, fontSize = 10.sp) }
                     TextButton(
-                        onClick = { installLatestApk() },
+                        onClick = { installApkFile(currentLatestApk) },
                         contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)
                     ) { Text("Instalar", color = accentColor, fontSize = 10.sp) }
                 }
