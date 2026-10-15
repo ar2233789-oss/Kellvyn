@@ -46,7 +46,7 @@ private val ConsolePanel = Color(0xFF071713)
 private val ConsoleNeon = Color(0xFF38E6BC)
 private val ConsoleMuted = Color(0xFF91B8AD)
 private val ConsoleBorder = Color(0xFF164638)
-private const val MAX_OUTPUT_CHARS = 48_000
+private const val MAX_OUTPUT_CHARS = 128_000
 
 /**
  * Native Android shell terminal. Commands typed here run as the app UID, inside its private
@@ -66,7 +66,7 @@ fun WorkspaceConsoleDialog(
             terminal.storedOutput().ifBlank {
                 "KELLVYN TERMINAL  •  ANDROID SHELL\n" +
                     "Pasta: ${terminal.pathLabel()}\n" +
-                    "Digite help para ver os comandos. Comandos comuns: pwd, ls, cat, mkdir, touch, grep, find, git.\n"
+                    "Digite help para ver os comandos locais e do /system/bin/sh.\n"
             }
         )
     }
@@ -143,7 +143,7 @@ fun WorkspaceConsoleDialog(
                 ) {
                     OutlinedTextField(
                         value = command,
-                        onValueChange = { command = it.take(2_000) },
+                        onValueChange = { command = it.take(4_000) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         label = { Text("Comando") },
@@ -158,7 +158,7 @@ fun WorkspaceConsoleDialog(
                     ) { Text(if (terminalBusy) "…" else "▶") }
                 }
                 Text(
-                    "Shell Android real, limitado ao espaço privado do Kellvyn. Não é root nem um Termux completo do sistema.",
+                    "Shell Android independente (não root). Comandos ausentes do Android não estarão disponíveis; o chat não executa comandos neste terminal.",
                     color = ConsoleMuted,
                     fontSize = 9.sp
                 )
