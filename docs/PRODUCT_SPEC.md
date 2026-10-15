@@ -25,7 +25,7 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - O modo de IA local deve funcionar sem rede depois que o modelo tiver sido instalado. A primeira transferência do modelo pode exigir internet.
 - Não há seletor de núcleos/modelos nem ação para trocar ou apagar o núcleo. A preparação única pode baixar automaticamente a cópia fixada quando o modelo ainda não existir no armazenamento privado; depois a inferência é local.
 - Pedidos diretos de imagem usam geração de ilustrações vetoriais via SVG pelo modelo textual local, validação restritiva e renderização PNG no aparelho. Isto não equivale a difusão fotorrealista e não permite analisar visualmente a imagem de entrada.
-- A entrada de anexos aceita texto/código, PDF com camada de texto, DOCX, ODT e imagens para OCR local. Conteúdo é extraído no aparelho e inserido no rascunho para análise; OCR não é descrição visual geral.
+- A entrada de anexos aceita texto/código, PDF com camada de texto, DOCX, ODT e imagens para rotulagem visual aproximada + OCR local. O conteúdo extraído no aparelho é inserido no rascunho; isso não é visão computacional geral nem legenda detalhada da imagem.
 - A ajuda flutuante precisa de permissão Android de sobreposição; leitura da tela exige ativação explícita do serviço de acessibilidade e só captura quando o usuário aciona a ação correspondente.
 - O chat conversacional usa o motor local empacotado no aplicativo; não há provedor externo de IA nem configuração de endpoint. Pesquisa web/GitHub é uma capacidade separada e só é acionada quando a mensagem atual solicita explicitamente esse acesso.
 - Nunca embutir segredos ou tokens no APK/código.
