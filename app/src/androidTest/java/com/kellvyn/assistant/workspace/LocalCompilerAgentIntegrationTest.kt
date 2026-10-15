@@ -642,42 +642,56 @@ class LocalCompilerAgentIntegrationTest {
     }
 
     @Test
-    fun mainChatGivesOrganizedTermuxGuidanceWithoutExecutingCommands() = runBlocking {
+    fun explicitTermuxRequestRequiresApprovalBeforeCommandExecution() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val workspace = ProjectWorkspaceStore(context)
-        val terminal = WorkspaceTerminal(workspace)
-        val engine = MainChatTerminalGuidanceFixtureEngine()
+        val engine = MainChatTermuxApprovalFixtureEngine()
+        var approvalCount = 0
         val result = AssistantAgent(AgentToolRouter(workspace)).respond(
             engine = engine,
             conversation = listOf(AssistantTurn(
                 AssistantTurn.Role.USER,
-                "Me passe o comando para eu executar echo KELLVYN_AGENT_TERMINAL no Termux, organizado para copiar."
+                "Me ajuda a diagnosticar esse erro no Termux. Execute echo KELLVYN_AGENT_TERMUX_APPROVAL e me mostre o resultado."
             )),
             internetAllowed = false,
-            requestApproval = { false },
+            requestApproval = { summary ->
+                approvalCount++
+                assertTrue("A confirmação não mostrou o comando que seria executado: " + summary,
+                    summary.contains("echo KELLVYN_AGENT_TERMUX_APPROVAL"))
+                false
+            }
         )
-        assertTrue("O chat principal não respondeu ao pedido de ajuda com Termux: $result", result is AssistantResult.Success)
-        assertEquals("A orientação manual deve ser respondida no chat sem acionar ferramenta.", 1, engine.calls)
-        assertTrue((result as AssistantResult.Success).text.contains("copiar"))
-        assertTrue("O chat não deixou claro que não executou o comando.", result.text.contains("não executei"))
-        assertEquals("O teste de orientação não deve executar nada no terminal.", "/workspace", terminal.execute("pwd"))
+        assertTrue("O chat principal não concluiu após a recusa de execução: " + result,
+            result is AssistantResult.Success)
+        assertEquals("A ferramenta Termux só pode ser solicitada uma vez antes da recusa.", 1, approvalCount)
+        assertEquals("Depois da recusa, o agente deve responder sem repetir a execução.", 2, engine.calls)
+        assertTrue(
+            "O chat deve informar que nenhum comando foi executado após a recusa.",
+            (result as AssistantResult.Success).text.contains("não executei", ignoreCase = true)
+        )
     }
 
-    private class MainChatTerminalGuidanceFixtureEngine : AssistantEngine {
+    private class MainChatTermuxApprovalFixtureEngine : AssistantEngine {
         var calls: Int = 0
             private set
-        override val displayName: String = "main-chat-terminal-guidance-test-fixture"
+        override val displayName: String = "main-chat-termux-approval-test-fixture"
         override suspend fun isAvailable(): Boolean = true
 
         override suspend fun reply(conversation: List<AssistantTurn>): AssistantResult {
             calls++
             val system = conversation.firstOrNull { it.role == AssistantTurn.Role.SYSTEM }?.content.orEmpty()
-            assertTrue("O chat não recebeu a política de ajuda manual para o terminal.", system.contains("O terminal é uma ferramenta manual opcional"))
-            assertFalse("O chat não deve oferecer um agente para executar comandos no terminal.", system.contains("- terminal_execute {command}"))
-            assertTrue("A política não exige que o chat organize comandos para copiar.", system.contains("organize comandos e arquivos completos"))
-            return AssistantResult.Success(
-                """{"kind":"answer","text":"Copie este comando no Termux: echo KELLVYN_AGENT_TERMINAL. Eu não executei o comando; estou apenas preparando a instrução para você copiar."}"""
-            )
+            assertTrue("O agente não recebeu a definição da ferramenta Termux.", system.contains("termux_run_command {command"))
+            assertTrue("A política não exige aprovação por comando.", system.contains("cada execução exige aprovação"))
+            val lastUser = conversation.lastOrNull { it.role == AssistantTurn.Role.USER }?.content.orEmpty()
+            return if (lastUser.contains("recusou esta ação", ignoreCase = true)) {
+                AssistantResult.Success(
+                    """{"kind":"answer","text":"A execução foi recusada; não executei o comando no Termux."}"""
+                )
+            } else {
+                AssistantResult.Success(
+                    """{"kind":"tool","name":"termux_run_command","arguments":{"command":"echo KELLVYN_AGENT_TERMUX_APPROVAL","working_directory":"~/","timeout_ms":5000}}"""
+                )
+            }
         }
     }
 
