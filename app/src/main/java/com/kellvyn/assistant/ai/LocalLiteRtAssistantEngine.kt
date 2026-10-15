@@ -35,7 +35,7 @@ private const val LONG_GENERATION_SYSTEM_RESERVE_TOKENS = 2048
  * On-device inference engine. It prefers a checksum-verified .litertlm asset in the APK
  * and otherwise downloads the pinned public model into private storage once. Inference is local.
  */
-class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoCloseable {
+class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, AutoCloseable {
     private companion object {
         const val MAX_SYSTEM_CONTEXT_CHARS = 12_000
         const val MODEL_CONNECT_TIMEOUT_MS = 20_000
@@ -273,12 +273,12 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
     }
 
     override suspend fun reply(conversation: List<AssistantTurn>): AssistantResult =
-        replyStreaming(conversation)
+        replyStreaming(conversation) { }
 
     /** Emits partial text while local inference is running, so the chat never looks frozen. */
-    suspend fun replyStreaming(
+    override suspend fun replyStreaming(
         conversation: List<AssistantTurn>,
-        onPartial: suspend (String) -> Unit = {}
+        onPartial: suspend (String) -> Unit
     ): AssistantResult = withContext(Dispatchers.IO) {
         val activeEngine = engine
             ?: return@withContext AssistantResult.Unavailable("A IA local ainda está inicializando. Tente enviar novamente quando o status indicar que está pronta.")
