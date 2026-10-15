@@ -21,6 +21,15 @@ import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.Locale
 
+private const val MAX_CHAT_OUTPUT_TOKENS = 1024
+private const val MAX_PROJECT_OUTPUT_TOKENS = 8192
+private const val MODEL_CONTEXT_TOKEN_LIMIT = 8192
+private const val CONTEXT_SAFETY_TOKEN_RESERVE = 384
+private const val TEMPLATE_OVERHEAD_TOKENS = 256
+private const val CHARS_PER_TOKEN_NUMERATOR = 5
+private const val CHARS_PER_TOKEN_DENOMINATOR = 2
+private const val MIN_OUTPUT_TOKEN_BUDGET = 256
+
 /**
  * On-device inference engine. It prefers a checksum-verified .litertlm asset in the APK
  * and otherwise downloads the pinned public model into private storage once. Inference is local.
@@ -35,14 +44,6 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         const val BUNDLE_VERIFIED_KEY = "bundled_model_verified"
         const val BUNDLED_MODEL_BYTES = 373_719_040L
         const val BUNDLED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
-        const val MAX_CHAT_OUTPUT_TOKENS = 1024
-        const val MAX_PROJECT_OUTPUT_TOKENS = 8192
-        const val MODEL_CONTEXT_TOKEN_LIMIT = 8192
-        const val CONTEXT_SAFETY_TOKEN_RESERVE = 384
-        const val TEMPLATE_OVERHEAD_TOKENS = 256
-        const val CHARS_PER_TOKEN_NUMERATOR = 5
-        const val CHARS_PER_TOKEN_DENOMINATOR = 2
-        const val MIN_OUTPUT_TOKEN_BUDGET = 256
     }
 
     private val appContext = context.applicationContext
