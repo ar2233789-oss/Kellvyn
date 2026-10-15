@@ -34,7 +34,8 @@ object LocalDocumentTextExtractor {
     private const val MIN_NATIVE_PAGE_TEXT_CHARS = 10
     private const val MAX_PDF_OCR_BITMAP_EDGE = 1_700f
     private const val MAX_PDF_OCR_SCALE = 2.0f
-    private const val PDF_OCR_TIMEOUT_SECONDS = 30L
+    private const val PDF_OCR_PAGE_TIMEOUT_SECONDS = 15L
+    private const val MAX_PDF_OCR_TOTAL_TIMEOUT_SECONDS = 90L
 
     fun supports(fileName: String, mimeType: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
@@ -113,6 +114,9 @@ object LocalDocumentTextExtractor {
             var recognizer: com.google.mlkit.vision.text.TextRecognizer? = null
             val output = StringBuilder()
             var ocrFailures = 0
+            var ocrBudgetExhausted = false
+            val ocrDeadlineNanos = System.nanoTime() +
+                TimeUnit.SECONDS.toNanos(MAX_PDF_OCR_TOTAL_TIMEOUT_SECONDS)
             try {
                 for (pageIndex in 0 until pagesToRead) {
                     stripper.startPage = pageIndex + 1
@@ -124,8 +128,10 @@ object LocalDocumentTextExtractor {
                     // Searchable pages stay on the quick text path. Render only scanned pages
                     // (or pages whose text layer is effectively empty) to avoid needless OCR.
                     if (nativeCharacterCount < MIN_NATIVE_PAGE_TEXT_CHARS) {
-                        var bitmap: Bitmap? = null
-                        try {
+                        if (System.nanoTime() >= ocrDeadlineNanos) ocrBudgetExhausted = true
+                        if (!ocrBudgetExhausted) {
+                            var bitmap: Bitmap? = null
+                            try {
                             val box = document.getPage(pageIndex).cropBox
                             val longestEdge = maxOf(box.width, box.height).coerceAtLeast(1f)
                             val scale = (MAX_PDF_OCR_BITMAP_EDGE / longestEdge)
@@ -136,19 +142,30 @@ object LocalDocumentTextExtractor {
                                 ?: TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).also {
                                     recognizer = it
                                 }
-                            val recognizedText = Tasks.await(
-                                activeRecognizer.process(InputImage.fromBitmap(bitmap, 0)),
-                                PDF_OCR_TIMEOUT_SECONDS,
-                                TimeUnit.SECONDS
-                            ).text.trim()
-                            if (recognizedText.isNotBlank()) {
-                                pageText = "[Página ${pageIndex + 1} — OCR local]\n$recognizedText"
+                            val remainingNanos = ocrDeadlineNanos - System.nanoTime()
+                            if (remainingNanos <= 0L) {
+                                ocrBudgetExhausted = true
+                                ocrFailures++
+                            } else {
+                                val remainingSeconds = TimeUnit.NANOSECONDS.toSeconds(remainingNanos)
+                                    .coerceAtLeast(1L)
+                                val timeoutSeconds = minOf(PDF_OCR_PAGE_TIMEOUT_SECONDS, remainingSeconds)
+                                val recognizedText = Tasks.await(
+                                    activeRecognizer.process(InputImage.fromBitmap(bitmap, 0)),
+                                    timeoutSeconds,
+                                    TimeUnit.SECONDS
+                                ).text.trim()
+                                if (recognizedText.isNotBlank()) {
+                                    pageText = "[Página ${pageIndex + 1} — OCR local]\n$recognizedText"
+                                }
                             }
-                        } catch (_: Exception) {
-                            ocrFailures++
-                            // Preserve any small native text rather than losing the page on OCR failure.
-                        } finally {
-                            bitmap?.recycle()
+                            } catch (_: Exception) {
+                                ocrFailures++
+                                if (System.nanoTime() >= ocrDeadlineNanos) ocrBudgetExhausted = true
+                                // Preserve any small native text rather than losing the page on OCR failure.
+                            } finally {
+                                bitmap?.recycle()
+                            }
                         }
                     }
 
@@ -167,6 +184,9 @@ object LocalDocumentTextExtractor {
             }
             if (ocrFailures > 0 && output.isNotBlank()) {
                 output.append("\n\n[Algumas páginas escaneadas não puderam ser reconhecidas por OCR local.]")
+            }
+            if (ocrBudgetExhausted && output.isNotBlank()) {
+                output.append("\n\n[OCR local pausado ao atingir o limite de ${MAX_PDF_OCR_TOTAL_TIMEOUT_SECONDS} segundos; o restante do PDF foi lido apenas pela camada de texto.]")
             }
             return output.toString().take(MAX_EXTRACTED_CHARS)
         }
