@@ -9,9 +9,9 @@ import kotlin.concurrent.thread
 /**
  * Runs commands explicitly typed by the person in the manual terminal.
  *
- * This path is intentionally NOT exposed to the chat agent. The agent uses WorkspaceTerminal's
- * fixed command allowlist instead. Each manual command runs as the app's Android UID in the
- * current app-private workspace directory; it is not root and does not have a persistent shell.
+ * This path is intentionally NOT exposed to the chat agent. Each manually typed command runs as
+ * the app's Android UID with /workspace as its initial directory; it is not root and does not have
+ * a persistent PTY session. Only commands actually installed on Android can run.
  */
 class ManualShellExecutor(
     private val workspaceRoot: File,
