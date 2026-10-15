@@ -12,6 +12,10 @@ internal object TermuxRequestPolicy {
         val text = userMessage.trim().lowercase(Locale.ROOT)
         if (text.isBlank() || !Regex("\\btermux\\b").containsMatchIn(text)) return false
 
+        if (Regex("""\\b(não|nao)\\s+(execute|executar|rode|rodar|use|usar|acesse|acessar|teste|testar)\\b""")
+                .containsMatchIn(text)
+        ) return false
+
         val explicitNoExecution = listOf(
             "não execute nenhum comando", "nao execute nenhum comando",
             "não execute comandos", "nao execute comandos",
@@ -58,16 +62,21 @@ internal object TermuxRequestPolicy {
             "analise esse erro no termux", "analisa esse erro no termux",
             "verifique esse erro no termux", "veja esse erro no termux",
             "execute esse comando no termux", "executa esse comando no termux",
-            "pode executar esse comando no termux", "pode executar no termux",
-            "pode rodar no termux", "pode usar o termux para verificar",
-            "faça isso no termux para mim", "faca isso no termux para mim",
-            "execute isso por mim no termux", "executa isso por mim no termux",
-            "rode esse comando no termux", "roda esse comando no termux",
+            "execute o comando no termux", "executa o comando no termux",
+            "execute este comando no termux", "executa este comando no termux",
+            "execute o seguinte comando no termux", "rode o comando no termux",
+            "roda o comando no termux", "no termux, execute", "no termux execute",
+            "no termux, rode", "no termux rode", "no termux, verifique",
+            "no termux verifique", "pode executar esse comando no termux",
+            "pode executar no termux", "pode rodar no termux",
+            "pode usar o termux para verificar", "faça isso no termux para mim",
+            "faca isso no termux para mim", "execute isso por mim no termux",
+            "executa isso por mim no termux", "rode esse comando no termux", "roda esse comando no termux",
             "execute um comando no termux", "executa um comando no termux",
             "rode um comando no termux", "roda um comando no termux"
         ).any { it in text }
 
-        if (asksForInstructions && !directRequestOverride) return false
+        if (asksForInstructions) return false
         return directRequestOverride
     }
 }
