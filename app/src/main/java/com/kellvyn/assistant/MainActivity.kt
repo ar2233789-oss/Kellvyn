@@ -66,7 +66,6 @@ import androidx.compose.ui.unit.sp
 import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.accessibility.FloatingAssistantService
 import com.kellvyn.assistant.attachments.LocalDocumentTextExtractor
-import com.kellvyn.assistant.attachments.LocalImageTextExtractor
 import com.kellvyn.assistant.attachments.LocalSvgImageGenerator
 import com.kellvyn.assistant.attachments.LocalSvgGenerationResult
 import com.kellvyn.assistant.ai.AssistantAgent
@@ -138,6 +137,17 @@ data class ChatMessage(val text: String, val fromUser: Boolean, val imagePath: S
 
 private data class PendingChatRequest(val text: String, val imagePath: String? = null)
 
+private fun loadImagePreview(path: String): androidx.compose.ui.graphics.ImageBitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    val largestDimension = maxOf(bounds.outWidth, bounds.outHeight)
+    var sampleSize = 1
+    while (largestDimension / sampleSize > 1200) sampleSize *= 2
+    val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+    return runCatching { BitmapFactory.decodeFile(path, options)?.asImageBitmap() }.getOrNull()
+}
+
 private fun cacheImageAttachment(context: Context, uri: Uri, displayName: String): File {
     val resolver = context.contentResolver
     val mime = resolver.getType(uri)?.lowercase(Locale.ROOT).orEmpty()
@@ -148,7 +158,8 @@ private fun cacheImageAttachment(context: Context, uri: Uri, displayName: String
         mime == "image/webp" -> "webp"
         mime == "image/bmp" -> "bmp"
         mime == "image/heic" || mime == "image/heif" -> "heic"
-        else -> "jpg"
+        mime == "image/jpeg" || mime == "image/jpg" -> "jpg"
+        else -> throw IllegalArgumentException("Formato de imagem não suportado. Use JPG, PNG, WEBP, BMP ou HEIC.")
     }
     val directory = File(context.cacheDir, "kellvyn_attachments")
     check(directory.exists() || directory.mkdirs()) { "Não foi possível preparar o anexo de imagem." }
@@ -1543,7 +1554,7 @@ fun KellvynApp() {
                             .thenByDescending { it.quality }
                     ).firstOrNull()
                     if (deeperVoice != null) activeEngine.voice = deeperVoice
-                    activeEngine.setPitch(0.62f)
+                    activeEngine.setPitch(0.56f)
                     activeEngine.setSpeechRate(0.86f)
                 }
                 ttsReady = supportedLanguage
@@ -1669,7 +1680,7 @@ fun KellvynApp() {
                                 ) {
                                     val attachedImage = remember(message.imagePath) {
                                         message.imagePath?.let { path ->
-                                            runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull()
+                                            loadImagePreview(path)
                                         }
                                     }
                                     if (attachedImage != null) {
