@@ -119,8 +119,8 @@ private const val MAX_CONTEXT_MESSAGES = 12
 private const val MAX_HISTORY_MESSAGE_CHARS = 800
 private const val MAX_INPUT_CHARS = 12_000
 private const val MAX_IMPORTED_FILE_BYTES = 256 * 1024
-private const val MAX_IMPORTED_IMAGE_BYTES = 20L * 1024L * 1024L
-private const val MAX_IMAGE_PIXELS = 24_000_000L
+private const val MAX_IMPORTED_IMAGE_BYTES = 50L * 1024L * 1024L
+private const val MAX_IMAGE_PIXELS = 60_000_000L
 private const val MAX_EDITOR_CHARS = 80_000
 
 /** Only compiler diagnostics tied to Java/D8 source are eligible for the automatic code-repair pass. */
@@ -177,7 +177,7 @@ private fun cacheImageAttachment(context: Context, uri: Uri, displayName: String
                     if (count == 0) continue
                     total += count
                     require(total <= MAX_IMPORTED_IMAGE_BYTES) {
-                        "A imagem ultrapassa 20 MB; escolha uma versão menor."
+                        "A imagem ultrapassa 50 MB; escolha uma versão menor."
                     }
                     output.write(buffer, 0, count)
                 }
