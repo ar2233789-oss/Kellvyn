@@ -140,8 +140,8 @@ object LocalDocumentTextExtractor {
             setFeature("http://xml.org/sax/features/external-general-entities", false)
             setFeature("http://xml.org/sax/features/external-parameter-entities", false)
             setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-            setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD, "")
-            setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA, "")
+            runCatching { setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD, "") }
+            runCatching { setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA, "") }
         }
         val root = factory.newDocumentBuilder().parse(bytes.inputStream()).documentElement
         val tags = if (entryName == "word/document.xml") setOf("p") else setOf("p", "h")
