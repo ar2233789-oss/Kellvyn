@@ -36,7 +36,7 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
      */
         fun executeInteractive(raw: String): String {
         val command = tokenize(raw).firstOrNull()?.lowercase(Locale.ROOT) ?: return ""
-        return if (shouldUseWorkspaceTerminalHandler(command)) {
+        return if (shouldUseWorkspaceTerminalHandler(raw)) {
             execute(raw)
         } else {
             ManualShellExecutor(root).execute(raw, currentDirectoryFile())
@@ -486,5 +486,16 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
  * Custom commands that must preserve workspace navigation or use the app's JGit API.
  * All ordinary shell utilities are delegated to Android's shell for standard flags/pipelines.
  */
-internal fun shouldUseWorkspaceTerminalHandler(command: String): Boolean =
-    command.lowercase(Locale.ROOT) in setOf("help", "pwd", "cd", "tree", "write", "append", "status", "projects", "git")
+internal fun shouldUseWorkspaceTerminalHandler(rawCommand: String): Boolean {
+    val input = rawCommand.trim()
+    val command = input.substringBefore(Regex("\\s+")).lowercase(Locale.ROOT)
+    if (command == "cd") {
+        val arguments = input.substringAfter(Regex("\\s+"), missingDelimiterValue = "")
+        // A standalone cd updates the terminal's persistent workspace directory. With shell
+        // operators, leave the whole expression to /system/bin/sh (e.g. "cd app && ls -la").
+        return !Regex("""(?:&&|\|\||[;|<>\x60])""").containsMatchIn(arguments) &&
+            !arguments.contains("$(")
+    }
+    return command in setOf("help", "pwd", "tree", "write", "append", "status", "projects", "git")
+}
+
