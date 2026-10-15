@@ -102,6 +102,8 @@ class LocalAttachmentExtractionTest {
             file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             val text = LocalImageTextExtractor.extract(context, Uri.fromFile(file))
             assertTrue("OCR did not detect the expected word: $text", text.uppercase().contains("KELLVYN"))
+            assertTrue("Image labeling section was not returned: $text", text.contains("ROTULAGEM VISUAL LOCAL"))
+            assertTrue("OCR section was not returned: $text", text.contains("TEXTO DETECTADO LOCALMENTE"))
         } finally {
             bitmap.recycle()
             file.delete()
