@@ -202,7 +202,9 @@ class LocalCompilerAgentIntegrationTest {
         }
         suspend fun ask(title: String, prompt: String, history: MutableList<AssistantTurn>): String {
             history.add(AssistantTurn(AssistantTurn.Role.USER, prompt))
+            val startedAt = SystemClock.elapsedRealtime()
             val result = engine.reply(history.toList())
+            val elapsedMs = SystemClock.elapsedRealtime() - startedAt
             val answer = when (result) {
                 is AssistantResult.Success -> result.text
                 is AssistantResult.Unavailable -> "ERRO/INDISPONÍVEL: " + result.reason
@@ -213,7 +215,7 @@ class LocalCompilerAgentIntegrationTest {
             } else {
                 failures.add("Conversa: " + title + " — " + answer)
             }
-            section("Conversa real: " + title, "**Prompt enviado:**\n\n" + prompt + "\n\n**Resposta real do modelo:**\n\n" + answer)
+            section("Conversa real: " + title, "**Tempo de resposta:** " + elapsedMs + " ms\n\n**Prompt enviado:**\n\n" + prompt + "\n\n**Resposta real do modelo:**\n\n" + answer)
             return answer
         }
         fun shell(command: String): String {
@@ -326,6 +328,7 @@ class LocalCompilerAgentIntegrationTest {
             ask("planejamento técnico complexo", "Planeje um jogo Android 2D offline de aventura com clima dinâmico. Liste arquitetura, estado da partida, física simples, controles, chuva como partículas, pausa, reinício e como testar se cada botão realmente altera o estado.", history)
             ask("raciocínio de depuração e bateria", "Na versão de teste, as gotas continuam animando depois de Pausar, o botão de chuva só muda a cor mas não afeta as partículas e o aparelho esquenta. Diagnostique causas prováveis e dê uma sequência concreta de verificações e correções priorizando bateria.", history)
             ask("continuidade da conversa", "Usando o plano e os problemas que discutimos, forneça uma matriz curta com testes, ação do usuário, resultado esperado e evidência que comprova o resultado. Não repita a explicação inteira.", history)
+            val imageStartedAt = SystemClock.elapsedRealtime()
             when (val image = LocalSvgImageGenerator.generate(
                 context,
                 engine,
@@ -339,14 +342,14 @@ class LocalCompilerAgentIntegrationTest {
                     bitmap?.recycle()
                     section(
                         "Geração de imagem local",
-                        "O gerador do modelo local retornou SVG validado, e o renderizador produziu PNG.\\nPNG: " +
+                        "Tempo total de geração: " + (SystemClock.elapsedRealtime() - imageStartedAt) + " ms\\nO gerador do modelo local retornou SVG validado, e o renderizador produziu PNG.\\nPNG: " +
                             image.pngFile.absolutePath + "\\nSVG: " + image.svgFile.absolutePath +
                             "\\nPNG válido 1024x1024: " + pngValid + "\\nTamanho: " + image.pngFile.length() + " bytes"
                     )
                     if (!pngValid || image.pngFile.length() == 0L) failures.add("A geração local de imagem não produziu um PNG válido.")
                 }
                 is LocalSvgGenerationResult.Failure -> {
-                    section("Geração de imagem local", "FALHOU: " + image.reason)
+                    section("Geração de imagem local", "Tempo até falha: " + (SystemClock.elapsedRealtime() - imageStartedAt) + " ms\\nFALHOU: " + image.reason)
                     failures.add("Geração de imagem local falhou: " + image.reason)
                 }
             }
