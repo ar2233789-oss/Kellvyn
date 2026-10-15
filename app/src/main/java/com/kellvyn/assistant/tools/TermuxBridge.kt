@@ -104,7 +104,7 @@ class TermuxBridge(context: Context) {
             appContext,
             requestCode,
             resultIntent,
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_MUTABLE
+            PendingIntent.FLAG_ONE_SHOT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
         )
 
         try {
