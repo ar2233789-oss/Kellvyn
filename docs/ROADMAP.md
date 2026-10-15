@@ -4,6 +4,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 
 ## Código presente nesta revisão
 
+- [x] Acesso à internet ligado à tarefa na única Kellvyn IA: o mesmo agente usa o modelo local e pode pesquisar dados atuais/externos pela conexão do celular sem frase obrigatória; pedidos explicitamente offline e tarefas claramente locais continuam sem rede. Roteamento e pesquisa automática passaram nos testes unitários e build da revisão `a6b734fa`; validação física no Poco F6 continua separada.
 - [x] Aplicativo Android nativo em Kotlin/Jetpack Compose, com uma tela principal de conversa.
 - [x] Criar, corrigir e compilar projetos é solicitado pelo chat principal; não existe seletor manual de “conversar/criar”.
 - [x] Sem modo leve/pesado, sem seletor de modelo e sem provedor externo de IA.
