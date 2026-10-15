@@ -484,7 +484,9 @@ fun KellvynApp() {
                 .onSuccess { status = "Assistente flutuante iniciado. A bolinha verde ficará sobre os outros aplicativos." }
                 .onFailure { status = "Não consegui iniciar o assistente flutuante: " + (it.message ?: it.javaClass.simpleName) }
         } else if (shouldStart) {
-            status = "A permissão de notificação foi negada; o assistente flutuante não foi iniciado."
+            floatingAssistantEnabled = false
+            uiPreferences.edit().putBoolean("floating_assistant_enabled", false).apply()
+            status = "A permissão de notificação foi negada; o assistente virtual não foi iniciado."
         }
     }
 
