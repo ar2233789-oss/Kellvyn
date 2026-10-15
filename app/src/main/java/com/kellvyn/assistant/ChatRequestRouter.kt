@@ -103,8 +103,13 @@ object ChatRequestRouter {
         // A bare URL is not an instruction to fetch it; require context or an action.
         if (hasLink) return false
 
+        val greetingOnly = Regex(
+            """^(oi|olá|ola)(?:[!,.? ]+(tudo bem|como vai|tudo certo|como você está|como voce esta))?[!,.? ]*$"""
+        ).matches(value)
+        if (greetingOnly) return false
+
         val ordinaryLocalRequest = listOf(
-            "bom dia", "boa tarde", "boa noite", "olá", "ola", "oi", "obrigado", "obrigada",
+            "bom dia", "boa tarde", "boa noite", "obrigado", "obrigada",
             "explique o que é", "explique o que e", "o que é", "o que e", "o que significa",
             "defina ", "traduza ", "tradução de", "traducao de", "reescreva ", "corrija a frase",
             "resuma o texto", "resuma esse texto", "escreva uma mensagem", "redija uma mensagem",
