@@ -251,10 +251,20 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             throw e
         } catch (e: Exception) {
             try { candidate?.close() } catch (_: Exception) { }
-            AssistantResult.Failure(
-                "Não foi possível iniciar esse modelo. Confirme se o arquivo .litertlm é compatível. " +
-                    (e.message ?: "")
-            )
+            // If a previously verified file was truncated/corrupted after the initial download,
+            // clear the cached "verified" marker so the in-chat retry can fetch it again.
+            if (modelFile.isFile && !hasBundledChecksum(modelFile)) {
+                bundlePrefs.edit().remove(BUNDLE_VERIFIED_KEY).apply()
+                modelFile.delete()
+                AssistantResult.Failure(
+                    "A integridade do arquivo local do modelo não confere. O arquivo inválido foi removido; toque em Tentar novamente para baixá-lo outra vez."
+                )
+            } else {
+                AssistantResult.Failure(
+                    "Não foi possível iniciar esse modelo. Confirme se o arquivo .litertlm é compatível. " +
+                        (e.message ?: "")
+                )
+            }
         }
     }
 
