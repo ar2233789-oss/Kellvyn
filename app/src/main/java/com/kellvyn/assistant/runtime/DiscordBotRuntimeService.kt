@@ -64,11 +64,10 @@ class DiscordBotRuntimeService : Service() {
                 stopSelfIfIdle()
             }
             ACTION_STOP_ALL -> {
-                runtimeStore.activeProjectIds().forEach { runtimeStore.setActive(it, false) }
                 clients.keys.toList().forEach(::stopProject)
                 stopSelfIfIdle()
             }
-            else -> runtimeStore.activeProjectIds().forEach(::startDiscordProject)
+            else -> runtimeStore.activeProjectIds().filter(::isDiscordProject).forEach(::startDiscordProject)
         }
         updateNotification()
         return START_STICKY
@@ -81,6 +80,11 @@ class DiscordBotRuntimeService : Service() {
         clients.clear()
         startupExecutor.shutdownNow()
         super.onDestroy()
+    }
+
+    private fun isDiscordProject(id: String): Boolean {
+        val project = workspaceStore.getProject(id) ?: return false
+        return runCatching { DiscordBotDefinition.load(workspaceStore, id, project.name) }.isSuccess
     }
 
     private fun startDiscordProject(id: String) {
@@ -119,7 +123,7 @@ class DiscordBotRuntimeService : Service() {
     }
 
     private fun stopSelfIfIdle() {
-        if (runtimeStore.activeProjectIds().isEmpty() && clients.isEmpty()) {
+        if (clients.isEmpty()) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -145,7 +149,7 @@ class DiscordBotRuntimeService : Service() {
         )
         mainHandler.post {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            if (runtimeStore.activeProjectIds().isEmpty() && clients.isEmpty()) {
+            if (clients.isEmpty()) {
                 manager.cancel(NOTIFICATION_ID)
             } else {
                 manager.notify(NOTIFICATION_ID, buildNotification(text))
@@ -162,7 +166,7 @@ class DiscordBotRuntimeService : Service() {
             this, 101, Intent(this, DiscordBotRuntimeService::class.java).setAction(ACTION_STOP_ALL),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val count = runtimeStore.activeProjectIds().size
+        val count = clients.size
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
             .setContentTitle("Kellvyn • " + count + if (count == 1) " bot ativo" else " bots ativos")
@@ -170,7 +174,7 @@ class DiscordBotRuntimeService : Service() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(openApp)
             .setOnlyAlertOnce(true)
-            .setOngoing(count > 0 || clients.isNotEmpty())
+            .setOngoing(clients.isNotEmpty())
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .addAction(0, "Desativar todos", stopAll)
             .build()

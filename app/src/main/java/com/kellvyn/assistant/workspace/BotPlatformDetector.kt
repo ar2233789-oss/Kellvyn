@@ -11,8 +11,9 @@ import java.util.Locale
 internal object BotPlatformDetector {
     private val platformPattern = Regex("""(?<![a-z0-9])(?:discord|telegram|whats\s*app|wpp)(?![a-z0-9])""")
 
-    fun isDiscord(brief: String): Boolean {
-        val firstPlatform = platformPattern.find(brief.lowercase(Locale.ROOT))?.value ?: return false
-        return firstPlatform == "discord"
-    }
+    fun primaryPlatform(brief: String): String? =
+        platformPattern.find(brief.lowercase(Locale.ROOT))?.value?.replace(Regex("\\s+"), "")
+
+    fun isDiscord(brief: String): Boolean = primaryPlatform(brief) == "discord"
+    fun isTelegram(brief: String): Boolean = primaryPlatform(brief) == "telegram"
 }

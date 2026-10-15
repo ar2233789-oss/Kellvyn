@@ -34,6 +34,9 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
     fun isDiscordBotRequest(brief: String): Boolean =
         BotPlatformDetector.isDiscord(brief)
 
+    fun isTelegramBotRequest(brief: String): Boolean =
+        BotPlatformDetector.isTelegram(brief)
+
     suspend fun createProject(engine: AssistantEngine, brief: String): AppBuildResult {
         val idea = brief.trim()
         val botProject = isBotProjectRequest(idea)
@@ -53,8 +56,11 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 appendLine("Para WhatsApp, use a WhatsApp Business Cloud API oficial da Meta, com webhook GET de verificação, POST para mensagens recebidas e resposta por /messages. Use META_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN, META_APP_SECRET e META_GRAPH_VERSION apenas por ambiente.")
                 appendLine("Para Telegram, use a Bot API oficial e TELEGRAM_BOT_TOKEN. Para outra plataforma, use a API oficial apropriada e documente os pré-requisitos.")
                 if (isDiscordBotRequest(idea)) {
-                    appendLine("""Além dos arquivos Node.js salvos no workspace, inclua kellvyn.bot.json com JSON válido: {"platform":"discord","name":"nome","commands":[{"name":"ping","description":"descrição curta","action":"ping","response":"opcional para action=response"}]} .""")
-                    appendLine("O runtime nativo do Kellvyn lê kellvyn.bot.json; ele suporta actions response, ping, current_time, roll_dice, coin_flip, user_name, server_id e echo. echo recebe uma opção de texto. Crie comandos úteis e criativos de acordo com o pedido, usando apenas essas actions suportadas; para funcionalidades que precisem executar JavaScript arbitrário ou permissões privilegiadas, explique a limitação no README.")
+                    appendLine("""Inclua kellvyn.bot.json válido para o runtime nativo do Discord: {"platform":"discord","name":"nome","commands":[{"name":"ping","description":"Verifica se o bot está ativo","action":"ping","response":""}]} .""")
+                    appendLine("O runtime nativo do Discord suporta response, ping, current_time, roll_dice, coin_flip, user_name, server_id e echo. Crie comandos úteis com essas ações suportadas; documente no README qualquer função que precise de executar JavaScript arbitrário.")
+                } else if (isTelegramBotRequest(idea)) {
+                    appendLine("""Inclua kellvyn.telegram.json válido para o runtime nativo do Telegram: {"platform":"telegram","name":"nome","commands":[{"name":"start","description":"Iniciar o bot","action":"response","response":"Olá, {user}! Use /ping para testar."},{"name":"ping","description":"Verificar se estou ativo","action":"ping","response":""}]} .""")
+                    appendLine("O runtime nativo do Telegram fica no telefone e suporta response, ping, current_time, roll_dice, coin_flip, user_name e echo. Use nomes de comandos minúsculos, iniciando com letra e contendo somente letras, números e sublinhados. O comando echo repete o texto que vier depois do comando. Documente no README as limitações das ações nativas; não afirme que JavaScript arbitrário executa dentro do app.")
                 }
                 appendLine("Não invente credenciais e não inclua tokens reais. Forneça .env.example com valores vazios em linhas separadas, valide entradas e não registre tokens nos logs.")
                 appendLine("O README precisa documentar requisitos reais, dependências, configuração e limitações. Bots precisam de Node.js e credenciais; WhatsApp Cloud também precisa de conta empresarial, número registrado e webhook HTTPS público.")
@@ -270,6 +276,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             "ultrapassou o limite seguro",
             "json",
             "manifesto de bot inválido",
+            "manifesto de bot telegram inválido",
             "ação não suportada",
             "comandos slash",
             "estrutura"
@@ -341,10 +348,13 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 }
                 val normalizedPaths = normalizedPathList.toSet()
                 val required = if (botProject) {
-                    if (isDiscordBotRequest(idea)) {
-                        listOf("package.json", "src/index.js", ".env.example", "README.md", "kellvyn.bot.json")
-                    } else {
-                        listOf("package.json", "src/index.js", ".env.example", "README.md")
+                    when {
+                        isDiscordBotRequest(idea) ->
+                            listOf("package.json", "src/index.js", ".env.example", "README.md", "kellvyn.bot.json")
+                        isTelegramBotRequest(idea) ->
+                            listOf("package.json", "src/index.js", ".env.example", "README.md", "kellvyn.telegram.json")
+                        else ->
+                            listOf("package.json", "src/index.js", ".env.example", "README.md")
                     }
                 } else {
                     listOf(
@@ -374,6 +384,12 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     val manifestError = validateDiscordBotManifest(manifestContent)
                     if (manifestError != null) {
                         return@withContext AppBuildResult.Failure("Manifesto de bot inválido: " + manifestError)
+                    }
+                } else if (isTelegramBotRequest(idea)) {
+                    val manifestContent = files.firstOrNull { it.path.replace('\\', '/') == "kellvyn.telegram.json" }?.content.orEmpty()
+                    val manifestError = TelegramBotManifestValidator.validate(manifestContent)
+                    if (manifestError != null) {
+                        return@withContext AppBuildResult.Failure("Manifesto de bot Telegram inválido: " + manifestError)
                     }
                 }
 

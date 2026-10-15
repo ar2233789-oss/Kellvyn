@@ -75,6 +75,8 @@ import com.kellvyn.assistant.workspace.LocalAndroidCompiler
 import com.kellvyn.assistant.workspace.LocalApkBuildResult
 import com.kellvyn.assistant.runtime.DiscordBotCredentialsStore
 import com.kellvyn.assistant.runtime.DiscordBotRuntimeService
+import com.kellvyn.assistant.runtime.TelegramBotCredentialsStore
+import com.kellvyn.assistant.runtime.TelegramBotRuntimeService
 import com.kellvyn.assistant.runtime.GeneratedProjectClassifier
 import com.kellvyn.assistant.runtime.GeneratedProjectKind
 import com.kellvyn.assistant.runtime.GeneratedProjectRuntimeStore
@@ -212,6 +214,7 @@ fun KellvynApp() {
     var editorStatus by remember { mutableStateOf("") }
     var isSavingFile by remember { mutableStateOf(false) }
     val discordCredentialsStore = remember(context) { DiscordBotCredentialsStore(context) }
+    val telegramCredentialsStore = remember(context) { TelegramBotCredentialsStore(context) }
     val projectRuntimeStore = remember(context) { GeneratedProjectRuntimeStore(context) }
     val activeRuntimeProjects = remember(projectRuntimeStore) {
         mutableStateListOf<String>().apply { addAll(projectRuntimeStore.activeProjectIds()) }
@@ -222,6 +225,11 @@ fun KellvynApp() {
     var discordApplicationIdDraft by remember { mutableStateOf("") }
     var discordSetupError by remember { mutableStateOf("") }
     var pendingDiscordStartId by remember { mutableStateOf<String?>(null) }
+    var showTelegramConfigDialog by remember { mutableStateOf(false) }
+    var telegramConfigProject by remember { mutableStateOf<WorkspaceProject?>(null) }
+    var telegramTokenDraft by remember { mutableStateOf("") }
+    var telegramSetupError by remember { mutableStateOf("") }
+    var pendingTelegramStartId by remember { mutableStateOf<String?>(null) }
     var pendingFileExportContent by remember { mutableStateOf<String?>(null) }
     var pendingFileExportName by remember { mutableStateOf("") }
     var pendingApkExport by remember { mutableStateOf<File?>(null) }
@@ -240,6 +248,16 @@ fun KellvynApp() {
 
     val existingProjects = remember(workspaceStore) {
         mutableStateListOf<WorkspaceProject>().apply { addAll(workspaceStore.listProjects()) }
+    }
+
+    fun startTelegramRuntimeNow(projectId: String) {
+        try {
+            TelegramBotRuntimeService.startTelegram(context, projectId)
+            if (!activeRuntimeProjects.contains(projectId)) activeRuntimeProjects.add(projectId)
+            status = "Solicitei ao Android para manter o bot Telegram ativo. A notificação mostrará o estado real."
+        } catch (e: Exception) {
+            status = "Não consegui iniciar o runtime Telegram: " + (e.message ?: e.javaClass.simpleName)
+        }
     }
 
     fun startDiscordRuntimeNow(projectId: String) {
@@ -272,6 +290,29 @@ fun KellvynApp() {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             startDiscordRuntimeNow(projectId)
+        }
+    }
+
+    val telegramNotificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val projectId = pendingTelegramStartId
+        pendingTelegramStartId = null
+        if (granted && projectId != null) {
+            startTelegramRuntimeNow(projectId)
+        } else if (projectId != null) {
+            status = "A permissão de notificação foi negada; o bot Telegram não foi iniciado."
+        }
+    }
+
+    fun requestTelegramRuntimeStart(projectId: String) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingTelegramStartId = projectId
+            telegramNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            startTelegramRuntimeNow(projectId)
         }
     }
 
@@ -615,7 +656,7 @@ fun KellvynApp() {
                             val project = result.project
                             existingProjects.clear()
                             existingProjects.addAll(workspaceStore.listProjects())
-                            if (appBuilderAgent.isDiscordBotRequest(text)) {
+                            if (appBuilderAgent.isBotProjectRequest(text) && appBuilderAgent.isDiscordBotRequest(text)) {
                                 messages.add(
                                     ChatMessage(
                                         "O bot \"" + project.name + "\" foi salvo no catálogo Apps. Abra Apps e toque em Manter ativo para configurar o token e o Application ID do Discord. O runtime nativo executa os comandos declarados em kellvyn.bot.json e mostra o estado real numa notificação persistente; o código Node.js continua guardado como fonte.",
@@ -623,14 +664,22 @@ fun KellvynApp() {
                                     )
                                 )
                                 status = "Bot Discord salvo em Apps; ainda precisa configurar as credenciais para conectar."
-                            } else if (appBuilderAgent.isBotProjectRequest(text)) {
+                            } else if (appBuilderAgent.isBotProjectRequest(text) && appBuilderAgent.isTelegramBotRequest(text)) {
                                 messages.add(
                                     ChatMessage(
-                                        "O projeto de bot \"" + project.name + "\" foi salvo em Apps. A geração do código não significa que ele esteja online. O runtime nativo nesta versão só oferece suporte a bots do Discord compatíveis; para outras plataformas, revise o código e os requisitos antes de executar.",
+                                        "O bot Telegram \"" + project.name + "\" foi salvo em Apps. Para ativá-lo, abra Apps, toque em Manter ativo e informe o token do BotFather na configuração protegida. O runtime nativo processa apenas as ações compatíveis declaradas em kellvyn.telegram.json; os arquivos JavaScript Node.js ficam salvos como fonte e não são executados pelo runtime Android.",
                                         false
                                     )
                                 )
-                                status = "Código do bot salvo em Apps; runtime dessa plataforma ainda não está disponível."
+                                status = "Bot Telegram salvo em Apps; falta configurar o token para conectar."
+                            } else if (appBuilderAgent.isBotProjectRequest(text)) {
+                                messages.add(
+                                    ChatMessage(
+                                        "O projeto de bot \"" + project.name + "\" foi salvo em Apps. A geração do código não significa que ele esteja online. Nesta versão, a execução nativa está disponível para bots compatíveis do Discord e do Telegram; WhatsApp Business e outras plataformas permanecem como código-fonte e exigem o runtime ou serviço próprio da plataforma.",
+                                        false
+                                    )
+                                )
+                                status = "Código do bot salvo em Apps; runtime nativo não disponível para esta plataforma."
                             } else {
                                 messages.add(
                                     ChatMessage(
@@ -1707,6 +1756,29 @@ fun KellvynApp() {
                                                                 contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)
                                                             ) { Text(if (isRuntimeActive) "Parar bot" else "Manter ativo", color = if (isRuntimeActive) Warning else accentColor, fontSize = 10.sp) }
                                                         }
+                                                        GeneratedProjectKind.TELEGRAM_BOT -> {
+                                                            TextButton(
+                                                                onClick = {
+                                                                    if (isRuntimeActive) {
+                                                                        projectRuntimeStore.setActive(project.id, false)
+                                                                        activeRuntimeProjects.remove(project.id)
+                                                                        TelegramBotRuntimeService.stopProject(context, project.id)
+                                                                        status = "Pedido para desativar o bot Telegram " + project.name + "."
+                                                                    } else {
+                                                                        val saved = telegramCredentialsStore.get(project.id)
+                                                                        if (saved == null) {
+                                                                            telegramConfigProject = project
+                                                                            telegramTokenDraft = ""
+                                                                            telegramSetupError = ""
+                                                                            showTelegramConfigDialog = true
+                                                                        } else {
+                                                                            requestTelegramRuntimeStart(project.id)
+                                                                        }
+                                                                    }
+                                                                },
+                                                                contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)
+                                                            ) { Text(if (isRuntimeActive) "Parar bot" else "Manter ativo", color = if (isRuntimeActive) Warning else accentColor, fontSize = 10.sp) }
+                                                        }
                                                         else -> {
                                                             Text("Sem runtime", color = Muted, fontSize = 9.sp)
                                                         }
@@ -1793,6 +1865,70 @@ fun KellvynApp() {
                         discordTokenDraft = ""
                         discordApplicationIdDraft = ""
                         discordSetupError = ""
+                    }) { Text("Cancelar") }
+                }
+            )
+        }
+
+        if (showTelegramConfigDialog && telegramConfigProject != null) {
+            val project = telegramConfigProject!!
+            AlertDialog(
+                onDismissRequest = {
+                    showTelegramConfigDialog = false
+                    telegramConfigProject = null
+                    telegramTokenDraft = ""
+                    telegramSetupError = ""
+                },
+                title = { Text("Ativar bot do Telegram") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            "O runtime funciona neste telefone por conexão direta com a Bot API oficial do Telegram. O token fica criptografado pelo Android Keystore e não é enviado ao modelo de IA. Só as ações nativas suportadas declaradas em kellvyn.telegram.json são executadas; o JavaScript Node.js permanece como código-fonte. Você pode desativar o bot no catálogo Apps ou na notificação.",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                        OutlinedTextField(
+                            value = telegramTokenDraft,
+                            onValueChange = { telegramTokenDraft = it.take(200) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            label = { Text("Token do BotFather") },
+                            placeholder = { Text("Token privado do bot Telegram") }
+                        )
+                        if (telegramSetupError.isNotBlank()) {
+                            Text(telegramSetupError, color = Warning, fontSize = 11.sp)
+                        }
+                        Text(
+                            "Crie ou selecione um bot no @BotFather e cole o token aqui. Nunca cole esse token na conversa. O bot precisa estar iniciado pelo usuário no Telegram para receber mensagens privadas.",
+                            color = Muted,
+                            fontSize = 11.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        try {
+                            telegramCredentialsStore.save(project.id, telegramTokenDraft)
+                            showTelegramConfigDialog = false
+                            telegramConfigProject = null
+                            telegramTokenDraft = ""
+                            telegramSetupError = ""
+                            requestTelegramRuntimeStart(project.id)
+                        } catch (e: Exception) {
+                            telegramSetupError = e.message ?: "O token do Telegram não passou na validação."
+                        }
+                    }) { Text("Salvar e ativar", color = accentColor) }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showTelegramConfigDialog = false
+                        telegramConfigProject = null
+                        telegramTokenDraft = ""
+                        telegramSetupError = ""
                     }) { Text("Cancelar") }
                 }
             )
