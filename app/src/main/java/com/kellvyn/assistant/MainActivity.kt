@@ -1767,7 +1767,7 @@ fun KellvynApp() {
                                             }
                                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                                 Text(project.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
-                                                Text(projectKind.label + if (isRuntimeActive) " • ATIVO" else "", color = if (isRuntimeActive) accentColor else Muted, fontSize = 10.sp, maxLines = 1)
+                                                Text(projectKind.label + if (isRuntimeActive) " • HABILITADO" else "", color = if (isRuntimeActive) accentColor else Muted, fontSize = 10.sp, maxLines = 1)
                                                 Text(project.description.ifBlank { project.fileCount.toString() + " arquivos" }, color = Muted, fontSize = 10.sp, maxLines = 2)
                                                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                                                     TextButton(onClick = {
@@ -1849,7 +1849,7 @@ fun KellvynApp() {
                                 }
                             }
                         }
-                        Text("Apps Android mostram o botão de instalação quando o APK existe. Bots compatíveis podem ficar ativos com notificação; outros projetos continuam salvos para editar e baixar arquivos individualmente.", color = Muted, fontSize = 10.sp)
+                        Text("Apps Android mostram o botão de instalação quando o APK existe. HABILITADO significa que o serviço tentará manter o bot ativo; o estado real da conexão aparece na notificação. Projetos sem runtime continuam disponíveis para editar o código.", color = Muted, fontSize = 10.sp)
                     }
                 }
             }
