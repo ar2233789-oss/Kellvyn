@@ -70,11 +70,15 @@ class ChatRequestRouterTest {
     @Test
     fun explicitOnlineRequestsUseWebToolsWithoutMakingOrdinaryChatOnline() {
         assertTrue(ChatRequestRouter.shouldUseOnlineTools("Pesquise na internet sobre Kotlin coroutines"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Pesquise online sobre Kotlin coroutines"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Pesquise sobre a versão mais recente do Android"))
+        assertTrue(ChatRequestRouter.shouldUseOnlineTools("Importe este repositório https://github.com/example/demo"))
         assertTrue(ChatRequestRouter.shouldUseOnlineTools("Pesquise no GitHub o projeto"))
         assertTrue(ChatRequestRouter.shouldUseOnlineTools("Resuma este link https://developer.android.com"))
         assertTrue(ChatRequestRouter.shouldUseOnlineTools("Qual é a previsão do tempo?"))
         assertFalse(ChatRequestRouter.shouldUseOnlineTools("Explique o que é Kotlin"))
         assertFalse(ChatRequestRouter.shouldUseOnlineTools("Bom dia"))
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("Explique o que é acesso à internet no Android"))
     }
 
     @Test

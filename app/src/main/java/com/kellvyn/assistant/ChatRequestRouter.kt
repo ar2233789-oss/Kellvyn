@@ -45,13 +45,22 @@ object ChatRequestRouter {
             "busque na internet", "buscar na internet", "procure na internet", "procurar na internet",
             "pesquise na web", "busque na web", "procure na web",
             "pesquise no github", "busque no github", "procure no github", "consulte o github",
+            "pesquise online", "pesquisa online", "pesquisar online", "busque online", "procure online",
+            "pesquise sobre", "pesquisa sobre", "pesquisar sobre", "consulta na internet", "consulte na internet",
+            "use a internet", "acesse a internet", "acesse a web", "busque informações atuais", "busque informacoes atuais",
+            "últimas versões", "ultimas versoes", "versão mais recente", "versao mais recente",
+            "importe o repositório", "importe o repositorio", "importar o repositório", "importar o repositorio",
+            "inspecione o repositório", "inspecione o repositorio", "liste os arquivos do repositório", "liste os arquivos do repositorio",
             "abra o link", "leia o link", "resuma o link", "analise o link", "analise esse link",
             "verifique o link", "acesse o site", "abra o site", "consulte o site",
             "previsão do tempo", "previsao do tempo", "notícias atuais", "noticias atuais",
             "últimas notícias", "ultimas noticias", "clima de hoje", "cotação atual", "cotacao atual"
         ).any { it in value }
         val hasLink = Regex("""https?://\S+""").containsMatchIn(value)
-        val actionOnLink = hasLink && listOf("leia", "resuma", "analise", "verifique", "compare", "acesse", "abra").any { it in value }
+        val actionOnLink = hasLink && listOf(
+            "leia", "resuma", "analise", "verifique", "compare", "acesse", "abra", "olhe", "olhar",
+            "confira", "investigue", "inspecione", "importe", "importar", "clone", "copie", "liste", "listar"
+        ).any { it in value }
         return explicitRequest || actionOnLink
     }
 

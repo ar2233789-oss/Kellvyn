@@ -916,7 +916,8 @@ fun KellvynApp() {
                             status = result.reason
                         }
                     }
-                } else if (wantsExistingBuild) {
+                } else if (wantsExistingBuild && !modelReady) {
+                    // When ready, the request reaches AssistantAgent, which invokes build_project_apk through AgentToolRouter.
                     val projects = withContext(Dispatchers.IO) { workspaceStore.listProjects() }
                     val lowerRequest = text.lowercase(Locale.ROOT)
                     val named = projects.filter { project ->
