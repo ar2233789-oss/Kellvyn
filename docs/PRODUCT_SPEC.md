@@ -37,6 +37,7 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 
 ## Design e interação
 - Paleta visual seguindo a imagem verde enviada: preto profundo, verde-esmeralda/turquesa luminoso como acento dominante, textos brancos/verde-claro e painéis quase pretos; sem paleta azul dominante.
+- O símbolo da IA e o ícone do aplicativo instalado devem permanecer luminosos e legíveis em tamanhos pequenos, mantendo a paleta verde-esmeralda.
 - Preservar a composição compacta da referência verde: barra superior com nome e ações discretas, chat como área principal e compositor fixo próximo ao rodapé. A navegação implementada permanece nos menus superiores, sem abas inferiores.
 - Incorporar progressivamente as funções vistas na montagem conceitual posterior: projetos/arquivos, editor, console, cartão real de APK e configurações; área de jogos somente quando a integração de observação/controle for real. Sem WebView; toda navegação deve ser nativa.
 - Nomes, tamanhos, porcentagens, logs e resultados ilustrados são exemplos visuais, não dados reais ou promessa de funções prontas.
