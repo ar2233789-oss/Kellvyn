@@ -7,7 +7,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Aplicativo Android nativo em Kotlin/Jetpack Compose, com uma tela principal de conversa.
 - [x] Criar, corrigir e compilar projetos é solicitado pelo chat principal; não existe seletor manual de “conversar/criar”.
 - [x] Sem modo leve/pesado, sem seletor de modelo e sem provedor externo de IA.
-- [x] Navegação superior: hambúrguer abre somente o histórico; atalho Apps/APKs no cabeçalho abre o catálogo; menu de ferramentas reúne anexos, códigos guardados, terminal independente, memória e assistente flutuante; três pontos abrem configurações.
+- [x] Navegação: hambúrguer abre somente o histórico; Apps/APKs abre o catálogo; ⋮ abre configurações. Não existe menu superior de ferramentas; anexos ficam junto ao compositor, e Terminal Termux é acessível a partir de Apps/Configurações.
 - [x] Histórico limitado e apagável; memórias explícitas podem ser guardadas, vistas e apagadas.
 - [x] Contexto recente ampliado para 32 mensagens, com orçamento dinâmico de tokens que preserva o pedido atual, reduz contexto antigo e limita a saída ao espaço disponível do modelo.
 - [x] Falhas de inicialização do modelo mostram erro e ação de tentar novamente; cancelamentos de inferência, geração de projetos, OCR e exportação são propagados em vez de virarem erros genéricos.
@@ -23,6 +23,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Editor de código mantém rascunhos não salvos e sincroniza alterações feitas pelo agente com proteção contra sobrescrita.
 - [x] Ferramentas Git locais por JGit; nenhuma aba/ícone Terminal ou Git na navegação principal.
 - [x] Pipeline local inicial ECJ → D8 → manifesto Android binário → assinatura/verificação para projetos Java nativos.
+- [x] Código da ponte Termux RUN_COMMAND, recepção de resultado real e política que exige pedido explícito no chat; confirmação antes de cada comando. A integração ainda precisa de build e teste real.
 - [x] Fluxo do chat consulta o compilador e mostra o resultado/diagnósticos; o APK mais recente pode ser salvo ou instalado.
 - [x] Exportação de projetos em arquivo compactado removida. O resultado de criação de aplicativos é o APK, não um arquivo compactado.
 - [x] Workflows de build e teste em nuvem removidos; não compilar apps criados via GitHub Actions, Replit ou servidores remotos.
@@ -50,4 +51,4 @@ O pipeline integrado atualmente atende projetos Java nativos baseados nas APIs d
 
 ## Regras que permanecem obrigatórias
 
-O chat principal é o único ponto de entrada para tarefas do usuário. Nenhum modo leve/pesado, seletor de modelo ou provedor. Nenhuma aba/ícone Terminal. Nenhuma compilação na nuvem. Não gerar, oferecer ou entregar arquivo compactado como alternativa. Só anunciar APK pronto após compilação e verificação reais; a entrega final prevista é o APK diretamente no chat principal.
+O chat principal é o único ponto de entrada para tarefas do usuário. Nenhum modo leve/pesado, seletor de modelo ou provedor. Nenhuma aba ou menu superior de ferramentas para Terminal; o terminal Termux é acessível pelo catálogo Apps e pelas Configurações. Nenhuma compilação na nuvem. Não gerar, oferecer ou entregar arquivo compactado como alternativa. Só anunciar APK pronto após compilação e verificação reais; a entrega final prevista é o APK diretamente no chat principal.
