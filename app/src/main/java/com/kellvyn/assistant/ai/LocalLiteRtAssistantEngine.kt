@@ -48,33 +48,14 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
     // One integrated Kellvyn assistant; no light/heavy model modes are exposed.
     override val displayName: String = "Kellvyn IA — núcleo local"
 
-    private fun selectedModelFile(): File = modelFile
-
-    fun hasSavedModel(): Boolean {
-        val selected = selectedModelFile()
-        return selected.isFile && selected.length() > 0L
-    }
-
-    fun savedModelSizeBytes(): Long {
-        val selected = selectedModelFile()
-        return if (selected.isFile) selected.length() else 0L
-    }
-
-    /** Clears the private model cache; the bundled model is copied again at next initialization. */
-    fun removeSavedModel(): Boolean {
-        close()
-        val files = listOf(modelFile, File(modelDirectory, "kellvyn-model.previous"), File(modelDirectory, "kellvyn-model.bundled"), File(modelDirectory, "kellvyn-model.download.part"))
-        var allRemoved = true
-        files.forEach { file -> if (file.exists() && !file.delete()) allRemoved = false }
-        return allRemoved
-    }
+    fun hasSavedModel(): Boolean = modelFile.isFile && modelFile.length() > 0L
 
     /**
      * Prepare the one local model. Prefer a model bundled in the APK; when it is absent,
      * download the pinned, checksum-verified public model into private storage once.
      * Inference stays on-device after the download completes.
      */
-    suspend fun recoverInterruptedModelSwap(onProgress: (String) -> Unit = {}) {
+    suspend fun prepareLocalModel(onProgress: (String) -> Unit = {}) {
         withContext(Dispatchers.IO) {
             if (!modelDirectory.exists() && !modelDirectory.mkdirs()) {
                 throw IllegalStateException("Não foi possível preparar a pasta privada do núcleo local.")
@@ -107,7 +88,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             } else {
                 reportModelProgress(
                     onProgress,
-                    "O modelo não veio dentro do APK. Baixando o núcleo local (aprox. 374 MB); depois ele funciona sem internet…"
+                    "Preparando a IA local pela primeira vez (aprox. 374 MB). O processo é automático; não há troca ou seleção de núcleo…"
                 )
                 downloadPinnedModel(temporary, onProgress)
             }
@@ -337,7 +318,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             activeEngine.createConversation(config).use { chat ->
                 chat.sendMessageAsync(conversation[lastUserIndex].content).collect { part ->
                     answer.append(part.contents.toString())
-                    if (answer.length - lastPublishedLength >= 24) {
+                    if (answer.isNotEmpty() && (lastPublishedLength == 0 || answer.length - lastPublishedLength >= 4)) {
                         onPartial(answer.toString())
                         lastPublishedLength = answer.length
                     }
