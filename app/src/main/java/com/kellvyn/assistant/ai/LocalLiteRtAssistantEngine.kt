@@ -464,9 +464,20 @@ internal fun boundLocalPrompt(
     var remainingHistoryChars = remainingHistoryTokens * CHARS_PER_TOKEN_NUMERATOR / CHARS_PER_TOKEN_DENOMINATOR
     val retainedReversed = ArrayList<AssistantTurn>()
     for (turn in priorTurns.asReversed()) {
-        if (turn.content.length > remainingHistoryChars) break
-        retainedReversed += turn
-        remainingHistoryChars -= turn.content.length
+        if (remainingHistoryChars <= 0) break
+        if (turn.content.length <= remainingHistoryChars) {
+            retainedReversed += turn
+            remainingHistoryChars -= turn.content.length
+        } else {
+            // Do not drop all context just because the newest previous turn barely exceeds the
+            // budget. Keep its tail only when no more recent turn has been retained yet.
+            if (retainedReversed.isEmpty() && remainingHistoryChars > 1) {
+                retainedReversed += turn.copy(
+                    content = "…" + turn.content.takeLast(remainingHistoryChars - 1)
+                )
+            }
+            break
+        }
     }
 
     return BoundedLocalPrompt(
