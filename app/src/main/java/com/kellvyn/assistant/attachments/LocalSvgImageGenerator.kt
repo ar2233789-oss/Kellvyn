@@ -61,7 +61,7 @@ object LocalSvgImageGenerator {
                 is AssistantResult.Success -> {
                     val responseText = candidate.text
                     try {
-                        svg = extractAndValidate(responseText)
+                        svg = extractGeneratedAndValidate(responseText)
                         break
                     } catch (e: Exception) {
                         lastError = e.message ?: lastError
@@ -126,6 +126,34 @@ object LocalSvgImageGenerator {
             svgFile.delete()
             pngFile.delete()
             throw e
+        }
+    }
+
+    /**
+     * The local text model may omit the viewport even when instructed to include one.
+     * Normalize that omission only for generated output; strict validation of imported SVGs
+     * still requires an explicit viewBox attribute.
+     */
+    internal fun extractGeneratedAndValidate(source: String): String =
+        extractAndValidate(ensureModelSvgViewport(source))
+
+    private fun ensureModelSvgViewport(source: String): String {
+        val start = source.indexOf("<svg", ignoreCase = true)
+        if (start < 0) return source
+        val closingBracket = source.indexOf('>', start)
+        if (closingBracket < 0) return source
+        val rootTag = source.substring(start, closingBracket + 1)
+        if (Regex("""\\bviewBox\\s*=""").containsMatchIn(rootTag)) return source
+
+        val insertionPoint = if (closingBracket > start && source[closingBracket - 1] == '/') {
+            closingBracket - 1
+        } else {
+            closingBracket
+        }
+        return buildString(source.length + 28) {
+            append(source, 0, insertionPoint)
+            append(" viewBox=\\\"0 0 1024 1024\\\"")
+            append(source, insertionPoint, source.length)
         }
     }
 
