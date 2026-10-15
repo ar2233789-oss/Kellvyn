@@ -35,11 +35,21 @@ object ChatRequestRouter {
     }
 
     /**
-     * The same Kellvyn assistant uses local inference and can call web/GitHub tools over the phone
-     * network when the request needs current/external information or an action on a link. No second AI or mode selector is involved.
+     * Enables network tools for the single Kellvyn assistant when they may be useful.
+     * The model decides whether the task actually needs external data; this is not a
+     * second AI, provider selector, or a requirement for the user to say "search online".
      */
     fun shouldUseOnlineTools(text: String): Boolean {
         val value = text.trim().lowercase(Locale.ROOT)
+        if (value.isBlank()) return false
+
+        val explicitlyNoNetwork = listOf(
+            "não use a internet", "nao use a internet", "não pesquise", "nao pesquise",
+            "sem pesquisa externa", "responda sem pesquisar", "não acesse a web", "nao acesse a web",
+            "não consulte fontes externas", "nao consulte fontes externas"
+        ).any { it in value }
+        if (explicitlyNoNetwork) return false
+
         val explicitRequest = listOf(
             "pesquise na internet", "pesquisar na internet", "pesquisa na internet",
             "busque na internet", "buscar na internet", "procure na internet", "procurar na internet",
@@ -61,7 +71,49 @@ object ChatRequestRouter {
             "leia", "resuma", "analise", "verifique", "compare", "acesse", "abra", "olhe", "olhar",
             "confira", "investigue", "inspecione", "importe", "importar", "clone", "copie", "liste", "listar"
         ).any { it in value }
-        return explicitRequest || actionOnLink
+        if (explicitRequest || actionOnLink) return true
+
+        // Time-sensitive, commercial, legal, location-based, and public-entity facts
+        // commonly need external verification even when the user doesn't say "search".
+        val externalInformationSignals = listOf(
+            "atual", "atualmente", "hoje", "agora", "esta semana", "este mês", "este mes",
+            "mais recente", "último", "última", "ultimas", "recentemente", "novidade",
+            "preço", "preco", "quanto custa", "valor de mercado", "cotação", "cotacao",
+            "onde comprar", "onde vende", "disponível", "disponivel", "lançamento", "lancamento",
+            "notícia", "noticia", "notícias", "noticias", "clima", "temperatura", "previsão", "previsao",
+            "placar", "resultado do jogo", "horário", "horario", "agenda", "aberto agora",
+            "perto de mim", "perto daqui", "restaurante", "hotel", "hospedagem", "passagem", "voo",
+            "lei vigente", "legislação atual", "legislacao atual", "regra atual", "regra vigente",
+            "regulamento atual", "norma atual", "ceo", "presidente atual", "quem é o presidente",
+            "quem e o presidente", "quem comanda", "quem é o dono", "quem e o dono",
+            "ranking", "avaliações", "avaliacoes", "reviews", "comparar produtos", "compare os",
+            "melhor aplicativo", "melhor celular", "melhor modelo", "recomende um", "recomendações",
+            "recomendacoes", "cotação do", "cotacao do", "ações da", "acoes da", "bolsa de valores"
+        ).any { it in value }
+        if (externalInformationSignals) return true
+
+        // Clear local-only requests don't need internet merely because tools exist.
+        val ordinaryLocalRequest = listOf(
+            "bom dia", "boa tarde", "boa noite", "olá", "ola", "oi", "obrigado", "obrigada",
+            "explique o que é", "explique o que e", "o que é", "o que e", "o que significa",
+            "defina ", "traduza ", "tradução de", "traducao de", "reescreva ", "corrija a frase",
+            "resuma o texto", "resuma esse texto", "escreva uma mensagem", "redija uma mensagem",
+            "crie uma história", "crie uma historia", "conte uma história", "conte uma historia",
+            "quanto é ", "quanto e ", "calcule ", "resolva esta conta", "resolva essa conta"
+        ).any { it in value }
+        if (ordinaryLocalRequest) return false
+
+        val localCodeAction = listOf(
+            "corrija o arquivo", "corrija meu código", "corrija meu codigo", "adicione ao meu app",
+            "adicione ao projeto", "altere o arquivo", "edite o arquivo", "compile o projeto",
+            "gere o apk desse projeto", "corrija meu app existente", "adicione login ao meu app",
+            "finalize a ia", "finalize essa ia", "termine o projeto", "termine a ia"
+        ).any { it in value }
+        if (localCodeAction) return false
+
+        // For other substantial requests, make the web/GitHub tools available to the agent.
+        // The system prompt still tells it to browse only when the task needs outside evidence.
+        return value.length >= 14
     }
 
     fun shouldCompileExistingProject(text: String): Boolean {
