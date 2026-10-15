@@ -107,7 +107,7 @@ class TermuxBridge(context: Context) {
             PendingIntent.FLAG_ONE_SHOT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
         )
 
-        try {
+        return try {
             val commandIntent = Intent(ACTION_RUN_COMMAND).apply {
                 setClassName(TERMUX_PACKAGE, TERMUX_RUN_COMMAND_SERVICE)
                 putExtra(EXTRA_COMMAND_PATH, TERMUX_BASH)
