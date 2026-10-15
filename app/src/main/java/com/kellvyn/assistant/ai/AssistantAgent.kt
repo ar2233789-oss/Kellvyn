@@ -7,6 +7,7 @@ import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
 import com.kellvyn.assistant.workspace.WorkspaceGitService
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
 import com.kellvyn.assistant.workspace.LocalApkBuildResult
+import com.kellvyn.assistant.tools.TermuxBridge
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,7 +30,8 @@ import java.util.Locale
 class AgentToolRouter(
     private val workspace: ProjectWorkspaceStore,
     private val localCompiler: LocalAndroidCompiler? = null,
-    private val onLicenseRequired: (String) -> Unit = {}
+    private val onLicenseRequired: (String) -> Unit = {},
+    private val termuxBridge: TermuxBridge? = null
 ) {
     private val git = WorkspaceGitService(workspace)
     fun explicitGitReadRequest(text: String): Pair<String, JSONObject>? {
@@ -171,6 +173,7 @@ class AgentToolRouter(
         "delete_file" -> "Apagar o arquivo ${args.optString("path")} do projeto ${args.optString("project_id")}"
         "delete_project" -> "Apagar o projeto ${args.optString("project_id")} e seus arquivos locais"
         "build_project_apk" -> "Compilar e assinar o APK do projeto ${args.optString("project_id")} no armazenamento local do aparelho"
+        "termux_run_command" -> "Executar no Termux o comando: ${args.optString("command").take(500)}"
         else -> "Autorizar ferramenta $name"
     }
 
@@ -178,7 +181,8 @@ class AgentToolRouter(
         name: String,
         args: JSONObject,
         internetAllowed: Boolean,
-        onStatus: (String) -> Unit = {}
+        onStatus: (String) -> Unit = {},
+        termuxAllowed: Boolean = false
     ): String = withContext(Dispatchers.IO) {
             when (name) {
                 "build_project_apk" -> {
@@ -208,6 +212,28 @@ class AgentToolRouter(
                                 .toString()
                         }
                     }
+                }
+                "termux_run_command" -> {
+                    require(termuxAllowed) {
+                        "A ferramenta Termux só pode ser usada quando a mensagem atual pede explicitamente ajuda, diagnóstico ou execução no Termux."
+                    }
+                    val bridge = requireNotNull(termuxBridge) {
+                        "A integração real com o Termux não foi conectada a esta sessão."
+                    }
+                    val command = required(args, "command")
+                    val workingDirectory = args.optString("working_directory").ifBlank { TermuxBridge.TERMUX_HOME }
+                    val timeoutMillis = args.optLong("timeout_ms", TermuxBridge.DEFAULT_TIMEOUT_MS)
+                        .coerceIn(TermuxBridge.MIN_TIMEOUT_MS, TermuxBridge.MAX_TIMEOUT_MS)
+                    val result = bridge.runCommand(command, workingDirectory, timeoutMillis)
+                    JSONObject()
+                        .put("status", if (result.succeeded) "success" else "command_failed")
+                        .put("command", command.take(1_000))
+                        .put("working_directory", workingDirectory)
+                        .put("stdout", result.stdout.take(30_000))
+                        .put("stderr", result.stderr.take(15_000))
+                        .put("exit_code", result.exitCode)
+                        .put("internal_error", result.internalError)
+                        .toString()
                 }
                 "workspace_status" -> workspaceStatus()
                 "list_projects" -> listProjects()
