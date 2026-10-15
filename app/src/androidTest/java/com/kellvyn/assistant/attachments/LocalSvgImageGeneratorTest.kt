@@ -107,7 +107,7 @@ class LocalSvgImageGeneratorTest {
             runCatching { LocalSvgImageGenerator.extractAndValidate(source) }.isFailure)
 
         val normalized = LocalSvgImageGenerator.extractGeneratedAndValidate(source)
-        assertTrue(normalized.contains("viewBox=\\\"0 0 1024 1024\\\""))
+        assertTrue(normalized.contains("viewBox=\"0 0 1024 1024\""))
     }
 
     @Test
