@@ -426,6 +426,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
         const val MAX_SOURCE_FILES = 80
         const val MAX_LOG_CHARS = 16_000
         const val MIN_ANDROID_JAR_BYTES = 20_000_000L
+        const val MAX_ANDROID_JAR_BYTES = 100L * 1024L * 1024L
         const val PLATFORM_URL = "https://dl.google.com/android/repository/platform-35_r02.zip"
         const val PLATFORM_ARCHIVE_SHA1 = "0bb560a90a7a2cbd0dd8348224d518b638fe7949"
         const val PLATFORM_ARCHIVE_BYTES = 64_273_788L
