@@ -39,6 +39,7 @@ class ManualShellExecutor(
         }
 
         val captured = ByteArrayOutputStream()
+        val outputTruncated = java.util.concurrent.atomic.AtomicBoolean(false)
         val reader = thread(start = true, isDaemon = true, name = "kellvyn-manual-terminal-output") {
             runCatching {
                 process.inputStream.use { input ->
@@ -49,7 +50,13 @@ class ManualShellExecutor(
                         if (count == 0) continue
                         synchronized(captured) {
                             val remaining = MAX_OUTPUT_BYTES - captured.size()
-                            if (remaining > 0) captured.write(buffer, 0, minOf(count, remaining))
+                            if (remaining > 0) {
+                                val written = minOf(count, remaining)
+                                captured.write(buffer, 0, written)
+                                if (written < count) outputTruncated.set(true)
+                            } else {
+                                outputTruncated.set(true)
+                            }
                         }
                         // Continue draining even when output is capped so the process won't block.
                     }
@@ -77,7 +84,7 @@ class ManualShellExecutor(
         } else {
             "interrompido: limite de ${MAX_RUNTIME_SECONDS}s atingido"
         }
-        val clipped = if (captured.size() >= MAX_OUTPUT_BYTES) "\n[saída limitada a 64 KB]" else ""
+        val clipped = if (outputTruncated.get()) "\n[saída limitada a 128 KiB]" else ""
         return (output.trimEnd() + clipped + "\n" + status).trim()
     }
 
