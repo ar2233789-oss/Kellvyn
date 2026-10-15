@@ -1,6 +1,7 @@
 package com.kellvyn.assistant.attachments
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.net.Uri
 import com.google.android.gms.tasks.Task
 import com.google.mlkit.vision.common.InputImage
@@ -19,9 +20,25 @@ import kotlin.coroutines.resumeWithException
  */
 object LocalImageTextExtractor {
     private const val MAX_TEXT_CHARS = 60_000
+    private const val MAX_INPUT_BYTES = 20L * 1024L * 1024L
+    private const val MAX_IMAGE_PIXELS = 24_000_000L
     private const val MAX_LABELS = 8
 
     suspend fun extract(context: Context, uri: Uri): String {
+        val resolver = context.applicationContext.contentResolver
+        val reportedBytes = runCatching {
+            resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+        }.getOrDefault(-1L)
+        require(reportedBytes < 0L || reportedBytes <= MAX_INPUT_BYTES) {
+            "A imagem ultrapassa o limite local de 20 MB."
+        }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+            ?: throw IllegalStateException("O Android não conseguiu abrir a imagem escolhida.")
+        require(bounds.outWidth > 0 && bounds.outHeight > 0) { "O arquivo escolhido não é uma imagem válida." }
+        require(bounds.outWidth.toLong() * bounds.outHeight.toLong() <= MAX_IMAGE_PIXELS) {
+            "A imagem tem resolução excessiva para análise segura neste aparelho."
+        }
         val image = InputImage.fromFilePath(context.applicationContext, uri)
         val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
