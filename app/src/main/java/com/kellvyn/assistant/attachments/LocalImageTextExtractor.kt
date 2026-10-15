@@ -9,6 +9,7 @@ import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.ImageLabelerOptions
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -50,12 +51,16 @@ object LocalImageTextExtractor {
         try {
             val labels = try {
                 labeler.process(image).awaitResult()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 labelError = e
                 emptyList()
             }
             val detectedText = try {
                 recognizer.process(image).awaitResult().text.trim()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 textError = e
                 ""
@@ -106,7 +111,7 @@ object LocalImageTextExtractor {
             }
             addOnCanceledListener {
                 if (continuation.isActive) {
-                    continuation.resumeWithException(IllegalStateException("A análise local foi cancelada."))
+                    continuation.resumeWithException(CancellationException("A tarefa de análise local foi cancelada."))
                 }
             }
         }
