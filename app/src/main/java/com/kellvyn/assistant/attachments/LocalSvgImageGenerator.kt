@@ -59,20 +59,21 @@ object LocalSvgImageGenerator {
                 is AssistantResult.Unavailable -> return LocalSvgGenerationResult.Failure(candidate.reason)
                 is AssistantResult.Failure -> return LocalSvgGenerationResult.Failure(candidate.reason)
                 is AssistantResult.Success -> {
+                    val responseText = candidate.text
                     try {
-                        svg = extractAndValidate(candidate.text)
+                        svg = extractAndValidate(responseText)
                         break
                     } catch (e: Exception) {
                         lastError = e.message ?: lastError
                         if (attempt == 0) {
                             onProgress("Corrigindo a estrutura da ilustração…")
-                            val rejectedSvg = candidate.text.take(MAX_SVG_CHARS)
+                            val rejectedSvg = responseText.take(MAX_SVG_CHARS)
                             candidate = engine.generateSvgSource(
                                 "Crie a ilustração descrita originalmente: " + prompt.take(2_000) + ". " +
                                     "A resposta anterior falhou nesta validação: $lastError. " +
                                     "Gere uma versão nova e corrigida que atenda à descrição original. " +
                                     "Retorne somente SVG completo, sem markdown. Não use links, CSS, scripts, imagem externa ou tags fora da lista permitida. " +
-                                    "O SVG anterior com erro é apenas referência de tentativa, não é o assunto da ilustração:\\n" +
+                                    "O SVG anterior com erro é apenas referência de tentativa, não é o assunto da ilustração:\n" +
                                     rejectedSvg
                             )
                         }
