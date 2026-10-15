@@ -147,7 +147,9 @@ object LocalSvgImageGenerator {
         }
         val factory = DocumentBuilderFactory.newInstance().apply {
             isNamespaceAware = true
-            isXIncludeAware = false
+            // Android's built-in DocumentBuilderFactory throws UnsupportedOperationException
+            // for setXIncludeAware, so attempt it defensively; DTD/entities are blocked below.
+            runCatching { isXIncludeAware = false }
             isExpandEntityReferences = false
             // Reject DTD/entities in the source itself because not all Android parsers expose
             // the same optional SAX feature URIs.
