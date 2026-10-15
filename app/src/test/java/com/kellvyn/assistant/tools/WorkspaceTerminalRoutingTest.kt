@@ -19,8 +19,15 @@ class WorkspaceTerminalRoutingTest {
 
     @Test
     fun commandRoutingIsCaseInsensitive() {
-        assertTrue(shouldUseWorkspaceTerminalHandler("GIT"))
-        assertTrue(shouldUseWorkspaceTerminalHandler("Cd"))
-        assertFalse(shouldUseWorkspaceTerminalHandler("LS"))
+        assertTrue(shouldUseWorkspaceTerminalHandler("GIT status"))
+        assertTrue(shouldUseWorkspaceTerminalHandler("Cd app"))
+        assertFalse(shouldUseWorkspaceTerminalHandler("LS -la"))
+    }
+
+    @Test
+    fun cdWithShellOperatorsUsesTheActualAndroidShell() {
+        assertFalse(shouldUseWorkspaceTerminalHandler("cd app && ls -la"))
+        assertFalse(shouldUseWorkspaceTerminalHandler("cd app; pwd"))
+        assertFalse(shouldUseWorkspaceTerminalHandler("cd app | cat"))
     }
 }
