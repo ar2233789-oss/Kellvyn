@@ -126,6 +126,22 @@ class LocalSvgImageGeneratorTest {
     }
 
     @Test
+    fun generatedSvgNormalizesXlinkToSafeLocalHrefOnly() {
+        val source = """<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10"><defs><linearGradient id="base"><stop offset="0" stop-color="#38e6bc"/></linearGradient><linearGradient id="derived" xlink:href="#base"/></defs><rect x="0" y="0" width="10" height="10" fill="url(#derived)"/></svg>"""
+
+        val normalized = LocalSvgImageGenerator.extractGeneratedAndValidate(source)
+        assertFalse("Generated SVG must not retain the legacy xlink namespace.", normalized.contains("xmlns:xlink"))
+        assertFalse("Generated SVG must normalize xlink:href.", normalized.contains("xlink:href"))
+        assertTrue("A local gradient reference must be preserved.", normalized.contains("""href="#base""""))
+        assertTrue("Normalized SVG must still pass strict validation.",
+            runCatching { LocalSvgImageGenerator.extractAndValidate(normalized) }.isSuccess)
+
+        val externalReference = source.replace("""xlink:href="#base"""", """xlink:href="https://example.org/image.svg"""")
+        assertTrue("External xlink references must remain rejected.",
+            runCatching { LocalSvgImageGenerator.extractGeneratedAndValidate(externalReference) }.isFailure)
+    }
+
+    @Test
     fun acceptsTheOfficialSvgNamespacePrefixDeclaration() {
         val source = """<svg:svg xmlns:svg="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><svg:rect x="0" y="0" width="10" height="10" fill="#38e6bc"/></svg:svg>"""
         assertTrue(LocalSvgImageGenerator.extractAndValidate(source).contains("xmlns:svg="))
