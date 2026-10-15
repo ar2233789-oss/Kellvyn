@@ -57,6 +57,10 @@ internal object TermuxRequestPolicy {
             "analise esse erro no termux", "analisa esse erro no termux",
             "verifique esse erro no termux", "veja esse erro no termux",
             "execute esse comando no termux", "executa esse comando no termux",
+            "pode executar esse comando no termux", "pode executar no termux",
+            "pode rodar no termux", "pode usar o termux para verificar",
+            "faça isso no termux para mim", "faca isso no termux para mim",
+            "execute isso por mim no termux", "executa isso por mim no termux",
             "rode esse comando no termux", "roda esse comando no termux",
             "execute um comando no termux", "executa um comando no termux",
             "rode um comando no termux", "roda um comando no termux"
