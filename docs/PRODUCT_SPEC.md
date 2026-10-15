@@ -60,7 +60,7 @@ Só alterar um destes pontos por pedido explícito do usuário ou para corrigir 
 - Preservar a composição compacta da referência verde: barra superior com nome e ações discretas, chat como área principal e compositor fixo próximo ao rodapé. A navegação implementada permanece nos menus superiores, sem abas inferiores.
 - Incorporar progressivamente as funções vistas na montagem conceitual posterior: projetos/arquivos, editor, console, cartão real de APK e configurações; área de jogos somente quando a integração de observação/controle for real. Sem WebView; toda navegação deve ser nativa.
 - Nomes, tamanhos, porcentagens, logs e resultados ilustrados são exemplos visuais, não dados reais ou promessa de funções prontas.
-- Chat principal com status do núcleo que mostra estados honestos: planejando, gerando, compilando, testando, concluído ou erro.
+- Chat principal com status da tarefa da IA, mostrando estados honestos: planejando, gerando, compilando, testando, concluído ou erro.
 - Órbita/mascote flutuante discreto é uma meta visual, não algo já concluído.
 - Abaixo de cada resposta da IA: ícone pequeno de folha/páginas com “Copiar”, copiando a resposta inteira.
 - O ditado em português é acionado pelo microfone junto ao compositor, e a leitura em voz alta pela ação “Ouvir” abaixo de cada resposta. Ambos devem informar honestamente quando o serviço do Android não estiver disponível.
