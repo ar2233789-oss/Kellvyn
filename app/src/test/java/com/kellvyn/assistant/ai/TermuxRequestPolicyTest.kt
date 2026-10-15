@@ -13,6 +13,8 @@ class TermuxRequestPolicyTest {
         assertTrue(TermuxRequestPolicy.mayUseTermux("Pode executar esse comando no Termux?"))
         assertTrue(TermuxRequestPolicy.mayUseTermux("Faça isso no Termux para mim"))
         assertTrue(TermuxRequestPolicy.mayUseTermux("Pode usar o Termux para verificar esse erro?"))
+        assertTrue(TermuxRequestPolicy.mayUseTermux("Por favor, execute o comando no Termux"))
+        assertTrue(TermuxRequestPolicy.mayUseTermux("No Termux, rode este comando"))
     }
 
     @Test
@@ -31,5 +33,7 @@ class TermuxRequestPolicyTest {
         assertFalse(TermuxRequestPolicy.mayUseTermux("Me ajuda com esse erro no Termux, mas não execute nenhum comando por mim"))
         assertFalse(TermuxRequestPolicy.mayUseTermux("Não use o Termux; só me explique como resolver"))
         assertFalse(TermuxRequestPolicy.mayUseTermux("Execute no Termux? Não, não execute. Só explique."))
+        assertFalse(TermuxRequestPolicy.mayUseTermux("Como executar este comando no Termux?"))
+        assertFalse(TermuxRequestPolicy.mayUseTermux("Não rode no Termux; só explique."))
     }
 }
