@@ -1981,13 +1981,6 @@ fun KellvynApp() {
                             color = Muted,
                             fontSize = 12.sp
                         )
-                        Divider(color = Color(0xFF143D33))
-                        Text("CHUVA DO MODELO", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            "O efeito original de chuva do modelo não está presente no código atual que consegui verificar. Não coloquei uma animação diferente no lugar nem um controle falso.",
-                            color = Muted,
-                            fontSize = 12.sp
-                        )
                     }
                 },
                 confirmButton = {
