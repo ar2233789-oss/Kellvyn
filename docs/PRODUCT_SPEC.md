@@ -10,6 +10,17 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - Uma alteração só é considerada concluída depois de conferir o diff e verificar a compilação/testes disponíveis. Se a validação no aparelho não for possível, declarar isso como pendência, sem fingir que foi testado.
 - Entregar primeiro o resultado da exigência em andamento; não acumular alterações de partes já prontas no mesmo ciclo.
 
+## Áreas concluídas e congeladas
+
+Só alterar um destes pontos por pedido explícito do usuário ou para corrigir uma regressão reproduzida por teste. Um pedido novo sobre outra parte não autoriza retrabalho nesses itens.
+
+- Navegação já definida: chat único; ☰ abre apenas histórico; Apps/APKs abre o catálogo; ⋮ abre configurações. Não recriar abas inferiores, menu superior de ferramentas, tela manual de Build ou seletor de modo/provedor.
+- Aparência já corrigida: manter o símbolo/ícone da IA esmeralda luminoso e legível; não redesenhar nem voltar ao contraste apagado sem pedido.
+- Termux já corrigido: o agente principal pode propor comandos quando a tarefa precisar de shell real, com confirmação individual; acesso manual pelo catálogo Apps/Configurações. Não restaurar a exigência de a pessoa escrever “Termux” nem alterar essa regra ao trabalhar noutra área.
+- Identidade e rede já definidas: uma única Kellvyn IA, inferência conversacional local e ferramentas que usam a internet do próprio celular quando a tarefa precisar. Não criar uma segunda IA, seletor, modo ou provedor.
+- Entrega e compilação já definidas: construtor/compilador interno, compilação dos apps criados no aparelho, resultado APK direto no chat; nunca oferecer ZIP, Replit ou build remoto como substituto.
+- Preservar as demais partes implementadas sem relação com a tarefa ativa. Não fazer limpeza, refatoração ou ajustes paralelos por iniciativa própria.
+
 ## Identidade e objetivo
 - Nome: **Kellvyn IA**. Não usar Brian/Brain como nome e não apresentar o app como produto oficial da OpenAI.
 - Assistente Android nativo com IA real, planejamento, geração/revisão de código e, como objetivo central, capacidade de criar aplicativos instaláveis.
