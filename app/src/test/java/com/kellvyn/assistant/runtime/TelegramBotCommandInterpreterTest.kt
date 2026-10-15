@@ -11,7 +11,8 @@ class TelegramBotCommandInterpreterTest {
     @Test
     fun parsesCommandsWithOptionalBotUsername() {
         assertEquals("ping", TelegramBotCommandInterpreter.commandName("/ping"))
-        assertEquals("ping", TelegramBotCommandInterpreter.commandName("/ping@KellvynHelperBot"))
+        assertEquals("ping", TelegramBotCommandInterpreter.commandName("/ping@KellvynHelperBot", "KellvynHelperBot"))
+        assertNull(TelegramBotCommandInterpreter.commandName("/ping@OtherBot", "KellvynHelperBot"))
         assertEquals("echo", TelegramBotCommandInterpreter.commandName("  /echo texto livre"))
     }
 
