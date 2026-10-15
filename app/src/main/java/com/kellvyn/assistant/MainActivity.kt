@@ -1545,12 +1545,19 @@ fun KellvynApp() {
                 val supportedLanguage = languageResult != TextToSpeech.LANG_MISSING_DATA &&
                     languageResult != TextToSpeech.LANG_NOT_SUPPORTED
                 if (supportedLanguage) {
-                    val portugueseVoices = activeEngine.voices.orEmpty().filter {
-                        it.locale.language == "pt" && it.locale.country.equals("BR", ignoreCase = true)
-                    }
+                    val portugueseVoices = runCatching {
+                        activeEngine.voices.orEmpty().filter {
+                            it.locale.language == "pt" && it.locale.country.equals("BR", ignoreCase = true)
+                        }
+                    }.getOrDefault(emptyList())
                     val deeperVoice = portugueseVoices.sortedWith(
                         compareBy<android.speech.tts.Voice> {
-                            if (listOf("male", "masc", "grave", "low").any { key -> it.name.contains(key, ignoreCase = true) }) 0 else 1
+                            val name = it.name.lowercase(Locale.ROOT)
+                            when {
+                                listOf("female", "feminine", "woman", "girl").any { key -> key in name } -> 2
+                                listOf("male", "masc", "masculine", "baritone", "bass").any { key -> key in name } -> 0
+                                else -> 1
+                            }
                         }.thenBy { if (it.isNetworkConnectionRequired) 1 else 0 }
                             .thenByDescending { it.quality }
                     ).firstOrNull()
