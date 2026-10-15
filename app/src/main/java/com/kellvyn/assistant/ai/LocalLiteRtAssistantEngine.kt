@@ -21,7 +21,7 @@ import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.Locale
 
-private const val MAX_CHAT_OUTPUT_TOKENS = 512
+private const val MAX_CHAT_OUTPUT_TOKENS = 1024
 private const val MAX_SVG_OUTPUT_TOKENS = 2048
 private const val MAX_PROJECT_OUTPUT_TOKENS = 8192
 private const val MODEL_CONTEXT_TOKEN_LIMIT = 8192
