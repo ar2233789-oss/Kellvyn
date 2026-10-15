@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/android-model-acceptance.yml"
+      - ".github/workflows/android-emulator-acceptance.yml"
+      - "scripts/run-android-acceptance.sh"
+      - "app/src/main/java/com/kellvyn/assistant/attachments/LocalSvgImageGenerator.kt"
+      - "app/src/androidTest/java/com/kellvyn/assistant/attachments/LocalSvgImageGeneratorTest.kt"
       - "app/src/main/java/com/kellvyn/assistant/ai/LocalLiteRtAssistantEngine.kt"
       - "app/src/main/java/com/kellvyn/assistant/ai/AssistantAgent.kt"
       - "app/src/main/java/com/kellvyn/assistant/workspace/AppBuilderAgent.kt"
