@@ -68,7 +68,10 @@ object ChatRequestRouter {
 
         // Facts that routinely change or depend on public, local, commercial, or legal sources.
         val externalInformationSignals = listOf(
-            "atual", "atualmente", "hoje", "agora", "esta semana", "este mês", "este mes",
+            "atualmente", "versão atual", "versao atual", "preço atual", "preco atual",
+            "situação atual", "situacao atual", "regras atuais", "dados atuais", "dados atualizados",
+            "lei atual", "lei atualizada", "norma atualizada", "regulamento atualizado",
+            "hoje", "agora", "esta semana", "este mês", "este mes",
             "mais recente", "último", "última", "ultimas", "recentemente", "novidade",
             "preço", "preco", "quanto custa", "valor de mercado", "cotação", "cotacao",
             "onde comprar", "onde vende", "disponível", "disponivel", "lançamento", "lancamento",
