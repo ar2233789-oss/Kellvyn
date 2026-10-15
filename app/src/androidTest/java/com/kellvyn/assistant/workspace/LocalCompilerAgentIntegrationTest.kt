@@ -312,7 +312,7 @@ class LocalCompilerAgentIntegrationTest {
 
         try {
             section("Ambiente", "Modelo LiteRT integrado ou baixado uma vez e verificado; inferência no emulador Android; sem provedor de IA remoto. Este relatório registra as respostas e saídas reais recebidas.")
-            engine.recoverInterruptedModelSwap()
+            engine.prepareLocalModel()
             val loaded = engine.loadSavedModel()
             section("Carregamento do modelo", loaded.reasonOrText())
             assertTrue("O modelo local real não carregou: " + loaded, loaded is AssistantResult.Success)
