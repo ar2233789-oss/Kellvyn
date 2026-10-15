@@ -30,17 +30,15 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
     }
 
     /**
-     * Interactive hybrid console: workspace-safe commands use the built-in project/Git tools;
-     * other explicitly typed commands are run with Android's /system/bin/sh in the current
-     * private workspace folder. This is not root and does not provide Node/Python package runtimes.
+     * Interactive hybrid console: custom workspace/Git helpers keep their own bounded handling;
+     * ordinary shell commands use Android's /system/bin/sh in the current workspace directory.
+     * This runs as the app UID, without root; Android app permissions still apply to commands and paths.
      */
-    fun executeInteractive(raw: String): String {
+        fun executeInteractive(raw: String): String {
         val command = tokenize(raw).firstOrNull()?.lowercase(Locale.ROOT) ?: return ""
-        val workspaceCommands = setOf(
-            "help", "pwd", "cd", "ls", "dir", "tree", "find", "cat", "head", "tail",
-            "grep", "wc", "mkdir", "touch", "write", "append", "rm", "cp", "mv", "stat",
-            "status", "projects", "git"
-        )
+        // Keep only custom workspace/Git helpers and persistent cd handling in the built-in
+        // router. Standard shell commands should support flags, pipes, chaining and redirection.
+        val workspaceCommands = setOf("help", "pwd", "cd", "tree", "write", "append", "status", "projects", "git")
         return if (command in workspaceCommands) {
             execute(raw)
         } else {
@@ -102,10 +100,13 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
         git init|add|commit          alterações Git com confirmações quando exigidas
         clear                       limpa a tela do terminal
 
-        Outros comandos são passados ao /system/bin/sh do Android como o UID do app, sem root.
-        Só funcionam comandos que realmente estejam instalados no Android; esta aplicação não inclui
-        o gerenciador de pacotes nem a coleção de binários do Termux. Cada comando tem limite de 120 s
-        e saída de 128 KB. O shell manual é independente do agente de IA e não é usado pelo chat.
+        Comandos padrão (ls -la, cat, grep, find, mkdir, rm, cp, mv, pipelines, &&, variáveis
+        e redirecionamentos) são enviados ao /system/bin/sh do Android, executados como UID do app,
+        sem root. O diretório inicial é o workspace, mas o shell tem as permissões normais deste app;
+        confira comandos destrutivos antes de executá-los. Só funcionam binários realmente instalados.
+        Esta aplicação não inclui o gerenciador de pacotes nem a coleção de binários do Termux. Cada
+        comando tem limite de 120 s e saída de 128 KB. O shell manual é independente do agente de IA
+        e não é usado pelo chat.
 
         O compilador do chat é separado: ECJ → D8 → manifesto binário → APK assinado/verificado.
         O perfil inicial de APK aceita Java nativo com APIs Android, sem Kotlin/Compose, bibliotecas
