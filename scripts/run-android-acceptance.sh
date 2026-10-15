@@ -10,6 +10,9 @@ case "${ACCEPTANCE_SUITE:-model-acceptance}" in
   model-acceptance)
     TEST_METHOD="com.kellvyn.assistant.workspace.LocalCompilerAgentIntegrationTest#realLocalModelAcceptanceSuiteChatsBuildsRainGameAndMusicPlayer"
     ;;
+  svg-model-smoke)
+    TEST_METHOD="com.kellvyn.assistant.attachments.LocalSvgImageGeneratorTest#realLocalModelGeneratesValidatedImage"
+    ;;
   *)
     echo "Unknown acceptance suite: ${ACCEPTANCE_SUITE}"
     exit 2

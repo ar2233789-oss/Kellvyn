@@ -4,6 +4,9 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kellvyn.assistant.ai.AssistantResult
+import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -45,6 +48,45 @@ class LocalSvgImageGeneratorTest {
                 result.pngFile.delete()
                 result.svgFile.delete()
             }
+        }
+    }
+
+    @Test
+    fun realLocalModelGeneratesValidatedImage() = runBlocking {
+        val engine = LocalLiteRtAssistantEngine(context)
+        var generated: LocalSvgGenerationResult.Success? = null
+        try {
+            engine.prepareLocalModel()
+            val loaded = engine.loadSavedModel()
+            assertTrue("O modelo local não iniciou: " + loaded.reasonOrText(), loaded is AssistantResult.Success)
+
+            when (val result = LocalSvgImageGenerator.generate(
+                context,
+                engine,
+                "Uma lua crescente azul sobre o céu escuro com três estrelas verdes. Use uma composição simples."
+            )) {
+                is LocalSvgGenerationResult.Success -> {
+                    generated = result
+                    assertTrue("O SVG salvo está vazio.", result.svgFile.isFile && result.svgFile.length() > 0L)
+                    assertTrue("O SVG não termina com sua tag de fechamento.", result.svgFile.readText().trim().endsWith("</svg>"))
+                    val bitmap = BitmapFactory.decodeFile(result.pngFile.absolutePath)
+                    assertTrue("O modelo não produziu um PNG decodificável.", bitmap != null)
+                    bitmap!!.let { image ->
+                        try {
+                            assertEquals(1024, image.width)
+                            assertEquals(1024, image.height)
+                            assertFalse("A imagem produzida ficou totalmente transparente.", image.getPixel(512, 512) ushr 24 == 0)
+                        } finally {
+                            image.recycle()
+                        }
+                    }
+                }
+                is LocalSvgGenerationResult.Failure -> throw AssertionError("O modelo local não gerou uma imagem válida: " + result.reason)
+            }
+        } finally {
+            generated?.pngFile?.delete()
+            generated?.svgFile?.delete()
+            engine.close()
         }
     }
 

@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/android-emulator-acceptance.yml"
+      - "scripts/run-android-acceptance.sh"
+      - "app/src/main/java/com/kellvyn/assistant/attachments/LocalSvgImageGenerator.kt"
+      - "app/src/main/java/com/kellvyn/assistant/ai/LocalLiteRtAssistantEngine.kt"
+      - "app/src/androidTest/java/com/kellvyn/assistant/attachments/LocalSvgImageGeneratorTest.kt"
+      - "app/src/androidTest/java/com/kellvyn/assistant/workspace/LocalCompilerAgentIntegrationTest.kt"
   workflow_dispatch:
     inputs:
       suite:
@@ -12,6 +17,7 @@ on:
         type: choice
         options:
           - model-acceptance
+          - svg-model-smoke
           - compiler-smoke
         default: model-acceptance
         required: true
@@ -42,7 +48,7 @@ jobs:
       - name: Run instrumented acceptance suite
         uses: reactivecircus/android-emulator-runner@v2
         env:
-          ACCEPTANCE_SUITE: ${{ inputs.suite || 'model-acceptance' }}
+          ACCEPTANCE_SUITE: ${{ inputs.suite || 'svg-model-smoke' }}
         with:
           api-level: 35
           target: google_apis
