@@ -1,0 +1,61 @@
+name: Android full local-model acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/android-model-acceptance.yml"
+      - "app/src/main/java/com/kellvyn/assistant/ai/LocalLiteRtAssistantEngine.kt"
+      - "app/src/main/java/com/kellvyn/assistant/ai/AssistantAgent.kt"
+      - "app/src/main/java/com/kellvyn/assistant/workspace/AppBuilderAgent.kt"
+      - "app/src/main/java/com/kellvyn/assistant/workspace/LocalAndroidCompiler.kt"
+      - "app/src/androidTest/java/com/kellvyn/assistant/workspace/LocalCompilerAgentIntegrationTest.kt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  model-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run full local-model acceptance suite
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7_pro
+          cores: 4
+          ram-size: 4096M
+          heap-size: 1024M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: bash scripts/run-android-acceptance.sh model-acceptance
+
+      - name: Upload model acceptance report and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-model-acceptance-${{ github.run_number }}
+          path: |
+            android-test-reports/**
+            app/build/reports/androidTests/**
+            app/build/outputs/androidTest-results/**
+          if-no-files-found: warn
