@@ -49,6 +49,12 @@ class LocalSvgImageGeneratorTest {
     }
 
     @Test
+    fun allowsInternalGradientsWithoutAllowingExternalUrls() {
+        val gradient = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><linearGradient id="g"><stop offset="0" stop-color="#38e6bc"/><stop offset="1" stop-color="#061f17"/></linearGradient></defs><rect x="0" y="0" width="10" height="10" fill="url(#g)"/></svg>"""
+        assertTrue(LocalSvgImageGenerator.extractAndValidate(gradient).contains("url(#g)"))
+    }
+
+    @Test
     fun rejectsScriptsAndExternalImageReferences() {
         val scripted = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><script>alert(1)</script></svg>"""
         val linked = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><image href="https://example.org/secret.png"/></svg>"""
