@@ -36,6 +36,14 @@ class KellvynIdentityTest {
     }
 
     @Test
+    fun recognizesNaturalQuestionsAboutTheCreatorAndDeusDaRitalinaRole() {
+        assertTrue(KellvynIdentity.isIdentityQuestion("Kellvyn é seu criador?"))
+        assertTrue(KellvynIdentity.isIdentityQuestion("Kellvyn é quem te criou?"))
+        assertTrue(KellvynIdentity.isIdentityQuestion("Qual é o papel de Deus da Ritalina no seu desenvolvimento?"))
+        assertTrue(KellvynIdentity.isIdentityQuestion("Qual é a sua relação com Deus da Ritalina?"))
+    }
+
+    @Test
     fun answerSeparatesTheLocalModelFromTheCreators() {
         val answer = KellvynIdentity.answer().lowercase()
         assertTrue(answer.contains("modelo de linguagem"))
