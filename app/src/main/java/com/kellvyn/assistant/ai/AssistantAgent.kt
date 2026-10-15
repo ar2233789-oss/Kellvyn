@@ -170,6 +170,7 @@ class AgentToolRouter(
         "patch_file" -> "Aplicar alteração pontual em ${args.optString("path")} no projeto ${args.optString("project_id")}: de '${args.optString("old_text").take(100)}' para '${args.optString("new_text").take(100)}'"
         "delete_file" -> "Apagar o arquivo ${args.optString("path")} do projeto ${args.optString("project_id")}"
         "delete_project" -> "Apagar o projeto ${args.optString("project_id")} e seus arquivos locais"
+        "build_project_apk" -> "Compilar e assinar o APK do projeto ${args.optString("project_id")} no armazenamento local do aparelho"
         else -> "Autorizar ferramenta $name"
     }
 
