@@ -7,8 +7,9 @@ import java.io.File
 import java.util.Locale
 
 /**
- * A local, workspace-confined command console. It is deliberately not an OS shell:
- * input is parsed as arguments and never passed to sh, eval, or a generated script.
+ * Independent terminal for workspace helpers and explicitly typed Android shell commands.
+ * Workspace commands use safe file/Git APIs; other commands go to /system/bin/sh as the app UID.
+ * This terminal is not exposed to, invoked by, or used by the chat agent.
  */
 class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
     private val root = workspace.workspaceDirectory().canonicalFile
