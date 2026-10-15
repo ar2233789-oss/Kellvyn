@@ -163,7 +163,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
                 val files = createAndroidProjectFiles(name, idea, candidateSource, readme)
                     ?: return@withContext AppBuildResult.Failure(
-                        "A IA local não retornou uma MainActivity.java completa e funcional. A correção automática tentará novamente."
+                        "A IA local não retornou um projeto estruturado válido: a MainActivity.java está incompleta ou não é uma Activity funcional. A correção automática tentará novamente."
                     )
                 val totalChars = files.sumOf { it.content.length }
                 if (totalChars > MAX_PROJECT_CHARS) {
