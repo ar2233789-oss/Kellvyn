@@ -35,18 +35,9 @@ internal object KellvynIdentity {
         "voce foi criada por quem",
         "quem criou essa ia",
         "quem fez essa ia",
-        "voce e da alibaba",
-        "criado pela alibaba",
-        "criada pela alibaba",
-        "feito pela alibaba",
-        "feito por alibaba",
-        "voce e o qwen",
-        "voce e o chatgpt",
-        "voce e da openai",
-        "voce e da google",
-        "foi a openai que te criou",
-        "openai te criou",
-        "google te criou",
+        "qual tecnologia voce usa",
+        "qual modelo esta instalado",
+        "quem criou o modelo de linguagem",
         "quem e o modelo",
         "qual modelo voce usa",
         "qual e o modelo que voce usa"
@@ -59,8 +50,7 @@ internal object KellvynIdentity {
 
     fun answer(): String =
         "Sou o Kellvyn IA, criado por Kellvyn, que idealizou o projeto e definiu minha identidade e meus objetivos. " +
-            "Eu uso um modelo de linguagem instalado localmente neste aparelho para gerar respostas; esse modelo é a tecnologia que utilizo, não o criador do projeto. " +
-            "O chat foi projetado para funcionar sem depender de um provedor externo de IA."
+            "Eu uso um modelo de linguagem instalado localmente neste aparelho para gerar respostas; esse modelo é a tecnologia que utilizo, não o criador do projeto."
 
     private fun normalize(text: String): String =
         Normalizer.normalize(text.lowercase(Locale.ROOT), Normalizer.Form.NFD)
