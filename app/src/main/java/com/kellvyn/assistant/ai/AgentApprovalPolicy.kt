@@ -14,5 +14,13 @@ internal object AgentApprovalPolicy {
         "github_import"
     )
 
-    fun requiresApproval(name: String): Boolean = name in protectedActions
+    // Optional setting for people who want explicit consent before normal changes as well.
+    private val reinforcedActions = setOf(
+        "write_file",
+        "patch_file",
+        "build_project_apk"
+    )
+
+    fun requiresApproval(name: String, reinforcedProtection: Boolean = false): Boolean =
+        name in protectedActions || (reinforcedProtection && name in reinforcedActions)
 }
