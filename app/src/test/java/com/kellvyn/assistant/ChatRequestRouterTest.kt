@@ -105,6 +105,7 @@ class ChatRequestRouterTest {
         assertFalse(ChatRequestRouter.shouldUseOnlineTools("Adicione login ao meu app existente"))
         assertFalse(ChatRequestRouter.shouldUseOnlineTools("Compile o projeto que você criou"))
         assertFalse(ChatRequestRouter.shouldUseOnlineTools("Bom dia"))
+        assertFalse(ChatRequestRouter.shouldUseOnlineTools("https://developer.android.com"))
         assertFalse(ChatRequestRouter.shouldUseOnlineTools("Explique o que é Kotlin"))
     }
 
