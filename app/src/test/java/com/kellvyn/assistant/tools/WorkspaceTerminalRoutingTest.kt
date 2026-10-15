@@ -25,6 +25,13 @@ class WorkspaceTerminalRoutingTest {
     }
 
     @Test
+    fun shellFlagsAreNotConsumedByBasicWorkspaceHandlers() {
+        assertTrue(shouldUseWorkspaceTerminalHandler("tree src"))
+        assertFalse(shouldUseWorkspaceTerminalHandler("tree -L 2"))
+        assertFalse(shouldUseWorkspaceTerminalHandler("pwd -P"))
+    }
+
+    @Test
     fun cdWithShellOperatorsUsesTheActualAndroidShell() {
         assertFalse(shouldUseWorkspaceTerminalHandler("cd app && ls -la"))
         assertFalse(shouldUseWorkspaceTerminalHandler("cd app; pwd"))
