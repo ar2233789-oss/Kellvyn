@@ -40,7 +40,18 @@ internal object KellvynIdentity {
         "quem criou o modelo de linguagem",
         "quem e o modelo",
         "qual modelo voce usa",
-        "qual e o modelo que voce usa"
+        "qual e o modelo que voce usa",
+        "quem e seu desenvolvedor",
+        "quem te desenvolveu",
+        "quem e seu tutor",
+        "quem e seu superior",
+        "quem e deus da ritalina",
+        "quem e o deus da ritalina",
+        "deus da ritalina e seu desenvolvedor",
+        "deus da ritalina e seu tutor",
+        "deus da ritalina e seu superior",
+        "quem te orienta",
+        "quem supervisiona voce"
     )
 
     fun isIdentityQuestion(text: String): Boolean {
@@ -49,8 +60,8 @@ internal object KellvynIdentity {
     }
 
     fun answer(): String =
-        "Sou o Kellvyn IA, criado por Kellvyn, que idealizou o projeto e definiu minha identidade e meus objetivos. " +
-            "Eu uso um modelo de linguagem instalado localmente neste aparelho para gerar respostas; esse modelo é a tecnologia que utilizo, não o criador do projeto."
+        "Sou a Kellvyn IA. Kellvyn é meu criador; Deus da Ritalina é meu desenvolvedor, tutor e superior. " +
+            "Uso um modelo de linguagem instalado localmente neste aparelho para gerar respostas; esse modelo é a tecnologia que utilizo, não o criador do projeto."
 
     private fun normalize(text: String): String =
         Normalizer.normalize(text.lowercase(Locale.ROOT), Normalizer.Form.NFD)
