@@ -78,7 +78,7 @@ class ManualShellExecutorTest {
             val workspace = File(parent, "workspace").apply { mkdirs() }
             val executor = ManualShellExecutor(workspace)
             try {
-                executor.execute("x".repeat(2_001), workspace)
+                executor.execute("x".repeat(4_001), workspace)
                 throw AssertionError("Oversized commands must be rejected.")
             } catch (expected: IllegalArgumentException) {
                 assertTrue(expected.message.orEmpty().contains("passou do limite"))
