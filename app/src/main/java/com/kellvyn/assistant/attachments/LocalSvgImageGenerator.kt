@@ -54,14 +54,14 @@ object LocalSvgImageGenerator {
         }
         var svg: String? = null
         var lastError = "A IA não retornou uma ilustração SVG válida."
-        repeat(2) { attempt ->
+        for (attempt in 0..1) {
             when (candidate) {
                 is AssistantResult.Unavailable -> return LocalSvgGenerationResult.Failure(candidate.reason)
                 is AssistantResult.Failure -> return LocalSvgGenerationResult.Failure(candidate.reason)
                 is AssistantResult.Success -> {
                     try {
                         svg = extractAndValidate(candidate.text)
-                        return@repeat
+                        break
                     } catch (e: Exception) {
                         lastError = e.message ?: lastError
                         if (attempt == 0) {
@@ -76,6 +76,7 @@ object LocalSvgImageGenerator {
                     }
                 }
             }
+            if (svg != null) break
         }
         val validSvg = svg ?: return LocalSvgGenerationResult.Failure("Não consegui validar a ilustração vetorial após a correção: $lastError")
         return try {
@@ -172,13 +173,19 @@ object LocalSvgImageGenerator {
                     require(value.matches(Regex("[A-Za-z][A-Za-z0-9_-]{0,40}"))) { "O SVG contém um identificador inválido." }
                 }
                 val normalized = value.lowercase()
-                require(!normalized.contains("javascript:") &&
-                    !normalized.contains("data:") &&
-                    !normalized.contains("https:") &&
-                    !normalized.contains("http:") &&
-                    !normalized.contains("file:") &&
-                    !normalized.contains("expression(")) {
-                    "O SVG tentou referenciar conteúdo externo ou executável."
+                if (attrName == "xmlns") {
+                    require(value == "http://www.w3.org/2000/svg") {
+                        "O SVG contém um namespace não permitido."
+                    }
+                } else {
+                    require(!normalized.contains("javascript:") &&
+                        !normalized.contains("data:") &&
+                        !normalized.contains("https:") &&
+                        !normalized.contains("http:") &&
+                        !normalized.contains("file:") &&
+                        !normalized.contains("expression(")) {
+                        "O SVG tentou referenciar conteúdo externo ou executável."
+                    }
                 }
                 if (normalized.contains("url(")) {
                     require(Regex("""url\(#[A-Za-z][A-Za-z0-9_-]{0,40}\)""").matches(value)) {
