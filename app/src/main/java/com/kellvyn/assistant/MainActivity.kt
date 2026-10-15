@@ -760,7 +760,8 @@ fun KellvynApp() {
         if (KellvynIdentity.isIdentityQuestion(text)) {
             messages.add(ChatMessage(text, true))
             messages.add(ChatMessage(KellvynIdentity.answer(), false))
-            draft = ""
+            if (draft.trim() == text) draft = ""
+            pendingSubmission = null
             saveHistory()
             status = "Kellvyn IA — identidade do assistente"
             return
@@ -1244,9 +1245,12 @@ fun KellvynApp() {
                 status = "Inicializando Kellvyn IA…"
                 val result = localEngine.loadSavedModel()
                 updateModelResult(result)
-                if (result is AssistantResult.Success && draft.isNotBlank()) {
-                    // A draft submitted during first-run preparation is processed by this same chat.
-                    submitDraft()
+                if (result is AssistantResult.Success) {
+                    val queued = pendingSubmission
+                    if (queued != null) {
+                        pendingSubmission = null
+                        submitDraft(queued)
+                    }
                 }
             }
         } catch (e: Exception) {
