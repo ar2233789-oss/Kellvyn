@@ -19,6 +19,7 @@ import org.w3c.dom.NodeList
 object LocalDocumentTextExtractor {
     private const val MAX_DOCUMENT_BYTES = 20 * 1024 * 1024
     private const val MAX_XML_BYTES = 5 * 1024 * 1024
+    private const val MAX_ZIP_EXPANDED_BYTES = 50L * 1024L * 1024L
     private const val MAX_EXTRACTED_CHARS = 60_000
     private const val MAX_PDF_PAGES = 50
 
@@ -108,6 +109,7 @@ object LocalDocumentTextExtractor {
 
     private fun extractXmlFromZip(file: File, entryName: String): String {
         var xmlBytes: ByteArray? = null
+        var totalExpandedBytes = 0L
         ZipInputStream(file.inputStream().buffered()).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
@@ -120,15 +122,29 @@ object LocalDocumentTextExtractor {
                         if (count < 0) break
                         if (count == 0) continue
                         total += count
-                        require(total <= MAX_XML_BYTES) {
-                            "O conteúdo XML descompactado ultrapassou o limite seguro de 5 MB."
+                        totalExpandedBytes += count
+                        require(total <= MAX_XML_BYTES && totalExpandedBytes <= MAX_ZIP_EXPANDED_BYTES) {
+                            "O conteúdo descompactado ultrapassou os limites seguros."
                         }
                         output.write(buffer, 0, count)
                     }
                     xmlBytes = output.toByteArray()
                     break
+                } else {
+                    // ZipInputStream.closeEntry() drains the entry. Drain it manually so a
+                    // malicious unrelated entry cannot expand without a total-size bound.
+                    val buffer = ByteArray(16 * 1024)
+                    while (true) {
+                        val count = zip.read(buffer)
+                        if (count < 0) break
+                        if (count == 0) continue
+                        totalExpandedBytes += count
+                        require(totalExpandedBytes <= MAX_ZIP_EXPANDED_BYTES) {
+                            "O documento compactado excede o limite seguro de conteúdo descompactado."
+                        }
+                    }
+                    zip.closeEntry()
                 }
-                zip.closeEntry()
             }
         }
         val bytes = xmlBytes ?: throw IllegalArgumentException("O documento não contém o arquivo de texto esperado: $entryName")
