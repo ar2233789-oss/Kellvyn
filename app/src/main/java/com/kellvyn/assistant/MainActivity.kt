@@ -1422,16 +1422,16 @@ fun KellvynApp() {
                             KellvynMark(26.dp, accentColor)
                             Spacer(Modifier.width(7.dp))
                             Column(Modifier.weight(1f)) {
+                                val imageMarker = Regex("""IMAGEM_LOCAL_GERADA:([A-Za-z0-9._-]+)""")
+                                    .find(message.text)?.groupValues?.getOrNull(1)
+                                val visibleAssistantText = if (imageMarker == null) message.text
+                                    else message.text.replace("IMAGEM_LOCAL_GERADA:" + imageMarker, "").trim()
                                 Surface(
                                     color = Night,
                                     shape = RoundedCornerShape(topStart = 5.dp, topEnd = 17.dp, bottomEnd = 17.dp, bottomStart = 17.dp),
                                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0B3329)),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    val imageMarker = Regex("""IMAGEM_LOCAL_GERADA:([A-Za-z0-9._-]+)""")
-                                        .find(message.text)?.groupValues?.getOrNull(1)
-                                    val visibleAssistantText = if (imageMarker == null) message.text
-                                        else message.text.replace("IMAGEM_LOCAL_GERADA:" + imageMarker, "").trim()
                                     Text(
                                         visibleAssistantText,
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
