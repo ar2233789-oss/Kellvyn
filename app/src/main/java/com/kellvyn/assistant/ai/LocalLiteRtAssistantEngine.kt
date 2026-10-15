@@ -2,6 +2,7 @@ package com.kellvyn.assistant.ai
 
 import android.content.Context
 import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
@@ -43,10 +44,10 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
         const val MODEL_CONNECT_TIMEOUT_MS = 20_000
         const val MODEL_READ_TIMEOUT_MS = 60_000
         const val MODEL_PROGRESS_INTERVAL_BYTES = 8L * 1024L * 1024L
-        const val MODEL_DOWNLOAD_URL = "https://huggingface.co/litert-community/SmolLM2-360M-Instruct/resolve/507c99cfe6541ba2bcd84818786f7b025935e5e1/SmolLM2_360M_instruct.litertlm?download=true"
-        const val BUNDLE_VERIFIED_KEY = "bundled_model_verified"
-        const val BUNDLED_MODEL_BYTES = 373_719_040L
-        const val BUNDLED_MODEL_SHA256 = "8e2834da211b439751af968ed650febdde5a8cb8d88bc6c1a3059f049caa5c2e"
+        const val MODEL_DOWNLOAD_URL = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/6e5c4f1/gemma-4-E2B-it.litertlm?download=true"
+        const val BUNDLE_VERIFIED_KEY = "bundled_gemma4_vision_verified"
+        const val BUNDLED_MODEL_BYTES = 2_588_147_712L
+        const val BUNDLED_MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
     }
 
     private val appContext = context.applicationContext
@@ -86,7 +87,13 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
 
         val temporary = File(modelDirectory, "kellvyn-model.download.part")
         val bundledInput = try {
-            appContext.assets.open("models/kellvyn-model.litertlm")
+            val descriptor = appContext.assets.openFd("models/kellvyn-model.litertlm")
+            if (descriptor.length == BUNDLED_MODEL_BYTES) {
+                descriptor.createInputStream()
+            } else {
+                descriptor.close()
+                null
+            }
         } catch (_: Exception) {
             null
         }
@@ -98,7 +105,7 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
             } else {
                 reportModelProgress(
                     onProgress,
-                    "Preparando a IA local pela primeira vez (aprox. 374 MB)…"
+                    "Preparando a IA local pela primeira vez (aprox. 2,6 GB)…"
                 )
                 downloadPinnedModel(temporary, onProgress)
             }
@@ -239,6 +246,7 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                 EngineConfig(
                     modelPath = modelFile.absolutePath,
                     backend = Backend.CPU(),
+                    visionBackend = Backend.CPU(),
                     cacheDir = appContext.cacheDir.absolutePath
                 )
             )
@@ -294,6 +302,11 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
             val answer = StringBuilder()
             var lastPublishedLength = 0
             val requestedText = conversation[lastUserIndex].content
+            val imagePath = conversation[lastUserIndex].imagePath
+            val requestedImageFile = imagePath?.let(::File)
+            if (imagePath != null && (requestedImageFile == null || !requestedImageFile.isFile || requestedImageFile.length() <= 0L)) {
+                return@withContext AssistantResult.Failure("O anexo de imagem não está mais disponível. Anexe a imagem novamente.")
+            }
             val svgGeneration = requestedText.contains(
                 "TAREFA: criar código-fonte funcional de uma ilustração vetorial SVG autossuficiente.",
                 ignoreCase = true
@@ -304,7 +317,7 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                     requestedText.contains("REGRAS TÉCNICAS E ESQUEMA:", ignoreCase = true) ||
                     requestedText.contains("Esquema obrigatório:", ignoreCase = true)
                 )
-            if (!projectGeneration && isExplicitImageGenerationRequest(requestedText)) {
+            if (requestedImageFile == null && !projectGeneration && isExplicitImageGenerationRequest(requestedText)) {
                 val capabilityNotice = "Esta versão do Kellvyn IA usa um modelo local somente de texto. Não consigo criar ou anexar uma imagem PNG/JPEG nem verificar uma referência visual nesta conversa. Posso ajudar a gerar código de arte vetorial/Canvas dentro de um app, mas isso não é um arquivo de imagem gerado."
                 onPartial(capabilityNotice)
                 return@withContext AssistantResult.Success(capabilityNotice)
@@ -354,7 +367,15 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                 )
             )
             activeEngine.createConversation(config).use { chat ->
-                chat.sendMessageAsync(conversation[lastUserIndex].content).collect { part ->
+                val request = if (requestedImageFile != null) {
+                    Contents.of(
+                        Content.ImageFile(requestedImageFile.absolutePath),
+                        Content.Text(requestedText)
+                    )
+                } else null
+                val stream = if (request != null) chat.sendMessageAsync(request)
+                    else chat.sendMessageAsync(requestedText)
+                stream.collect { part ->
                     answer.append(part.contents.toString())
                     if (answer.isNotEmpty() && (lastPublishedLength == 0 || answer.length - lastPublishedLength >= MIN_STREAM_UPDATE_CHARS)) {
                         onPartial(answer.toString())
