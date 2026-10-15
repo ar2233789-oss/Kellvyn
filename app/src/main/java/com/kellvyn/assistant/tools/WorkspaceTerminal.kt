@@ -490,13 +490,15 @@ internal fun shouldUseWorkspaceTerminalHandler(rawCommand: String): Boolean {
     val input = rawCommand.trim()
     val parts = input.split(Regex("\\s+"), limit = 2)
     val command = parts.firstOrNull().orEmpty().lowercase(Locale.ROOT)
+    val arguments = parts.getOrNull(1).orEmpty()
     if (command == "cd") {
-        val arguments = parts.getOrNull(1).orEmpty()
         // A standalone cd updates the terminal's persistent workspace directory. With shell
         // operators, leave the whole expression to /system/bin/sh (e.g. "cd app && ls -la").
         return !Regex("""(?:&&|\|\||[;|<>\x60])""").containsMatchIn(arguments) &&
             !arguments.contains("$(")
     }
-    return command in setOf("help", "pwd", "tree", "write", "append", "status", "projects", "git")
+    if (command == "pwd") return arguments.isBlank()
+    if (command == "tree") return arguments.isBlank() || !arguments.startsWith("-")
+    return command in setOf("help", "write", "append", "status", "projects", "git")
 }
 
