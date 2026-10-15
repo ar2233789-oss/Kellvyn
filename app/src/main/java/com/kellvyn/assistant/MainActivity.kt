@@ -975,7 +975,9 @@ fun KellvynApp() {
                             engine = selectedEngine,
                             conversation = turns,
                             internetAllowed = ChatRequestRouter.shouldUseOnlineTools(text),
-                            onToolStatus = { toolStatus -> status = toolStatus },
+                            onToolStatus = { toolStatus ->
+                                scope.launch(Dispatchers.Main.immediate) { status = toolStatus }
+                            },
                             requestApproval = { summary -> requestAgentApproval(summary) },
                             reinforcedProtection = reinforcedProtection
                         )
