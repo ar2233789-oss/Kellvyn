@@ -1883,6 +1883,59 @@ fun KellvynApp() {
                 }
             }
 
+            // Persistent six-destination navigation requested for the main app.
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF04110D),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF143D33)),
+                shape = RoundedCornerShape(13.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    @Composable
+                    fun MainNavItem(label: String, glyph: String, onClick: () -> Unit) {
+                        Column(
+                            modifier = Modifier.weight(1f).clickable(onClick = onClick).padding(vertical = 2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(glyph, color = accentColor, fontSize = 17.sp, lineHeight = 19.sp)
+                            Text(label, color = Color.White, fontSize = 9.sp, maxLines = 1)
+                        }
+                    }
+                    MainNavItem("IA", "◉") {
+                        showEditorDialog = false
+                        showTerminalDialog = false
+                        showAppsDialog = false
+                        status = ""
+                    }
+                    MainNavItem("Navegador", "◎") {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com")))
+                        }.onFailure { status = "Não foi possível abrir o navegador: " + (it.message ?: it.javaClass.simpleName) }
+                    }
+                    MainNavItem("Editor", "⌘") {
+                        existingProjects.clear()
+                        existingProjects.addAll(workspaceStore.listProjects())
+                        showEditorDialog = true
+                    }
+                    MainNavItem("Terminal", ">_") { showTerminalDialog = true }
+                    MainNavItem("Git", "⑂") {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ar2233789-oss/Kellvyn")))
+                        }.onFailure { status = "Não foi possível abrir o Git: " + (it.message ?: it.javaClass.simpleName) }
+                    }
+                    MainNavItem("Apps", "▦") {
+                        existingProjects.clear()
+                        existingProjects.addAll(workspaceStore.listProjects())
+                        showAppsDialog = true
+                    }
+                }
+            }
+
         }
 
         if (showEditorDialog) {
