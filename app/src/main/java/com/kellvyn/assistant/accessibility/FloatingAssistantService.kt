@@ -75,6 +75,7 @@ class FloatingAssistantService : Service() {
         }
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+        getSharedPreferences("kellvyn_ui", Context.MODE_PRIVATE).edit().putBoolean("floating_assistant_enabled", true).apply()
         showBubble()
     }
 
@@ -99,14 +100,14 @@ class FloatingAssistantService : Service() {
             contentDescription = "Abrir assistente flutuante Kellvyn"
             isFocusable = true
         }
-        root.addView(orb, LinearLayout.LayoutParams(dp(58), dp(58)).apply { gravity = Gravity.END })
+        root.addView(orb, LinearLayout.LayoutParams(dp(42), dp(42)).apply { gravity = Gravity.END })
         panel = buildPanel().also { view ->
             view.visibility = android.view.View.GONE
             root.addView(view, LinearLayout.LayoutParams(dp(300), dp(430)))
         }
         val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
         val params = WindowManager.LayoutParams(
-            dp(72), WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(54), WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             flags,
@@ -387,6 +388,7 @@ class FloatingAssistantService : Service() {
     }
 
     override fun onDestroy() {
+        getSharedPreferences("kellvyn_ui", Context.MODE_PRIVATE).edit().putBoolean("floating_assistant_enabled", false).apply()
         overlayView?.let { runCatching { windowManager.removeView(it) } }
         overlayView = null
         tts?.stop()
