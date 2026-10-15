@@ -304,7 +304,7 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
             var lastPublishedLength = 0
             val requestedText = conversation[lastUserIndex].content
             val imagePath = conversation[lastUserIndex].imagePath
-            val requestedImageFile = imagePath?.let(::File)
+            val requestedImageFile = imagePath?.let { File(it) }
             if (imagePath != null && (requestedImageFile == null || !requestedImageFile.isFile || requestedImageFile.length() <= 0L)) {
                 return@withContext AssistantResult.Failure("O anexo de imagem não está mais disponível. Anexe a imagem novamente.")
             }
