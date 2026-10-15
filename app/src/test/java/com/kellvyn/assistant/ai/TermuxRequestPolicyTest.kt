@@ -25,6 +25,9 @@ class TermuxRequestPolicyTest {
         assertTrue(TermuxRequestPolicy.mayUseTermux("Me ajuda a executar npm install e iniciar o servidor"))
         assertTrue(TermuxRequestPolicy.mayUseTermux("Inspecione a pasta com ls e leia os logs"))
         assertTrue(TermuxRequestPolicy.mayUseTermux("Rode os testes com pytest e corrija a falha"))
+        assertTrue(TermuxRequestPolicy.mayUseTermux("Rode os testes do meu projeto"))
+        assertTrue(TermuxRequestPolicy.mayUseTermux("Corrija esse bug no meu código e mostre o resultado real"))
+        assertTrue(TermuxRequestPolicy.mayUseTermux("Meu programa não inicia; investigue a falha de execução"))
     }
 
     @Test

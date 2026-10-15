@@ -4,8 +4,9 @@ import java.util.Locale
 
 /**
  * The main chat is the only place where the user asks the agent for work.
- * Permit Termux for explicit terminal requests OR concrete tasks that need a
- * real shell/runtime. The user does not need to type the word "Termux".
+ * Permit the agent to use Termux for explicit terminal requests and concrete
+ * software/runtime work that may need a real shell. The user need not type
+ * the word "Termux"; the agent still decides whether the shell is actually useful.
  *
  * Explanations, commands merely quoted for copying, explicit refusals to run,
  * and normal Android APK builds (handled by the integrated compiler) must not
@@ -13,10 +14,10 @@ import java.util.Locale
  */
 internal object TermuxRequestPolicy {
     private val actionPattern = Regex(
-        """\b(ajude|ajuda|use|usar|usa|faça|faca|execute|executar|executa|rode|rodar|roda|instale|instalar|instala|teste|testar|testa|diagnostique|diagnosticar|diagnostica|investigue|investigar|investiga|verifique|verificar|verifica|inspecione|inspecionar|inspeciona|depure|depurar|depura|inicie|iniciar|inicia|corrija|corrigir|conserte|consertar)\b"""
+        """\b(ajude|ajuda|use|usar|usa|faça|faca|execute|executar|executa|rode|rodar|roda|instale|instalar|instala|teste|testar|testa|diagnostique|diagnosticar|diagnostica|investigue|investigar|investiga|verifique|verificar|verifica|inspecione|inspecionar|inspeciona|depure|depurar|depura|inicie|iniciar|inicia|analise|analisar|analisa|corrija|corrigir|conserte|consertar|repare|reparar|depure|depurar)\b"""
     )
     private val commandOrRuntimePattern = Regex(
-        """\b(npm|npx|node|python3?|pip3?|bash|sh|pkg\s+install|apt(?:-get)?\s+install|chmod|chown|grep|awk|sed|make|cmake|cargo|rustc|gcc|g\+\+|clang|javac|pytest|gradle|ls|pwd|cat|tail|head|ps|top|env|find|wc|touch|mkdir|cp|mv|curl|wget|ssh|scp|rsync)\b|\.(sh|bash|py|js|mjs|cjs)\b|\b(script|scripts|dependências|dependencias|pacotes do ambiente|logs do processo|logs|servidor local|processo em execução|processo em execucao)\b"""
+        """\b(npm|npx|node|python3?|pip3?|bash|sh|pkg\s+install|apt(?:-get)?\s+install|chmod|chown|grep|awk|sed|make|cmake|cargo|rustc|gcc|g\+\+|clang|javac|pytest|gradle|ls|pwd|cat|tail|head|ps|top|env|find|wc|touch|mkdir|cp|mv|curl|wget|ssh|scp|rsync)\b|\.(sh|bash|py|js|mjs|cjs)\b|\b(script|scripts|dependências|dependencias|pacotes do ambiente|logs do processo|logs|servidor local|processo em execução|processo em execucao|testes|tests?|runtime|stack trace|traceback|bug|crash|código|codigo|programa|servidor|execução|execucao|erro de execução|erro de execucao|falha ao executar|fecha sozinho|não inicia|nao inicia|não compila|nao compila|não funciona|nao funciona)\b"""
     )
     private val explicitTerminalPattern = Regex(
         """\b(termux|terminal|shell|linha de comando|ambiente linux)\b"""
@@ -66,12 +67,14 @@ internal object TermuxRequestPolicy {
             ).any { it in text }
         }
 
-        // Android APK work stays with the integrated compiler unless terminal is named.
-        if (Regex("""\b(apk|aplicativo android|app android|projeto android)\b""").containsMatchIn(text)) {
-            return false
-        }
+        // Android APK creation/compilation stays with the integrated compiler.
+        val androidBuildRequest = Regex("""\b(apk|aplicativo android|app android|projeto android)\b""")
+            .containsMatchIn(text) &&
+            listOf("gere", "gerar", "gera", "compile", "compilar", "compila", "crie", "criar", "build")
+                .any { it in text }
+        if (androidBuildRequest) return false
 
-        // Let the main agent choose the shell only for concrete executable/runtime tasks.
+        // Enable shell access for real software/runtime tasks; the agent makes the final choice.
         return hasAction && commandOrRuntimePattern.containsMatchIn(text)
     }
 }
