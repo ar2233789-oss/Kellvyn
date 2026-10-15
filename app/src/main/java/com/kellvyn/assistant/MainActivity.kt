@@ -35,6 +35,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -329,6 +333,21 @@ fun KellvynApp() {
     var showSettingsDialog by remember { mutableStateOf(false) }
     val uiPreferences = remember(context) { context.getSharedPreferences("kellvyn_ui", Context.MODE_PRIVATE) }
     val securityPreferences = remember(context) { context.getSharedPreferences("kellvyn_security", Context.MODE_PRIVATE) }
+    var rainEffectEnabled by remember(uiPreferences) {
+        mutableStateOf(uiPreferences.getBoolean("rain_effect_enabled", false))
+    }
+    val rainOffset = remember { Animatable(0f) }
+    LaunchedEffect(rainEffectEnabled) {
+        if (rainEffectEnabled) {
+            rainOffset.snapTo(0f)
+            while (true) {
+                rainOffset.animateTo(1f, animationSpec = tween(durationMillis = 5_200, easing = LinearEasing))
+                rainOffset.snapTo(0f)
+            }
+        } else {
+            rainOffset.snapTo(0f)
+        }
+    }
     var reinforcedProtection by remember(securityPreferences) {
         mutableStateOf(securityPreferences.getBoolean("reinforced_protection", false))
     }
@@ -1413,7 +1432,31 @@ fun KellvynApp() {
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().background(Night).windowInsetsPadding(WindowInsets.safeDrawing).imePadding().padding(horizontal = 10.dp, vertical = 4.dp)
+            modifier = Modifier.fillMaxSize().background(Night).drawBehind {
+                if (rainEffectEnabled) {
+                    val spacing = 36.dp.toPx()
+                    val streakHeight = 7.dp.toPx()
+                    val xGap = 3.dp.toPx()
+                    val columns = (size.width / spacing).toInt()
+                    for (column in 0..columns) {
+                        val x = column * spacing + (column % 3) * xGap
+                        val phase = (rainOffset.value + ((column * 37) % 100) / 100f) % 1f
+                        val head = phase * (size.height + 7 * streakHeight) - 7 * streakHeight
+                        for (segment in 0..6) {
+                            val y = head - segment * streakHeight * 1.65f
+                            if (y >= -streakHeight && y <= size.height) {
+                                val opacity = (0.10f * (1f - segment / 7f)).coerceAtLeast(0.012f)
+                                drawLine(
+                                    color = Neon.copy(alpha = opacity),
+                                    start = Offset(x, y),
+                                    end = Offset(x + (if (column % 2 == 0) 0.6f else -0.6f) * streakHeight, y + streakHeight),
+                                    strokeWidth = 1.dp.toPx()
+                                )
+                            }
+                        }
+                    }
+                }
+            }.windowInsetsPadding(WindowInsets.safeDrawing).imePadding().padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().height(44.dp),
@@ -2079,6 +2122,25 @@ fun KellvynApp() {
                             }
                         }
                         Divider(color = Color(0xFF143D33))
+                        Text("EFEITO VISUAL", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("Chuva digital", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Efeito discreto verde no fundo do chat.", color = Muted, fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = rainEffectEnabled,
+                                onCheckedChange = { enabled ->
+                                    rainEffectEnabled = enabled
+                                    uiPreferences.edit().putBoolean("rain_effect_enabled", enabled).apply()
+                                }
+                            )
+                        }
+                        Divider(color = Color(0xFF143D33))
                         Text("SEGURANÇA", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Text(
                             "Ações destrutivas e operações Git que alteram dados sempre exigem confirmação. Ative a proteção reforçada para também confirmar gravações, correções de arquivos e compilação de APK.",
@@ -2110,6 +2172,61 @@ fun KellvynApp() {
                                     }
                                 }
                             )
+                        }
+                        Divider(color = Color(0xFF143D33))
+                        Text("ATALHOS", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    showSettingsDialog = false
+                                    savedMemories.clear()
+                                    savedMemories.addAll(memoryStore.list())
+                                    memoryDraft = ""
+                                    memoryStatus = ""
+                                    showMemoryDialog = true
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 3.dp)
+                            ) { Text("Memória local", color = accentColor, fontSize = 10.sp) }
+                            TextButton(
+                                onClick = {
+                                    showSettingsDialog = false
+                                    requestFloatingAssistantStart()
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 3.dp)
+                            ) { Text("Assistente flutuante", color = accentColor, fontSize = 10.sp) }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    showSettingsDialog = false
+                                    showTerminalDialog = true
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 3.dp)
+                            ) { Text("Terminal Termux", color = accentColor, fontSize = 10.sp) }
+                            TextButton(
+                                onClick = {
+                                    showSettingsDialog = false
+                                    status = "Ative o serviço de leitura de tela do Kellvyn nas Configurações de Acessibilidade. Ele só captura texto quando você aciona a leitura."
+                                    try {
+                                        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                    } catch (e: Exception) {
+                                        status = "Não consegui abrir Acessibilidade: " + (e.message ?: e.javaClass.simpleName)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 3.dp)
+                            ) { Text("Leitura de tela", color = accentColor, fontSize = 10.sp) }
                         }
                     }
                 },
