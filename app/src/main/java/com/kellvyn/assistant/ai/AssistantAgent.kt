@@ -1566,7 +1566,7 @@ class AssistantAgent(
  * A coroutine-safe counterpart to runCatching for suspend tool calls.
  * Kotlin's runCatching catches CancellationException and can keep a cancelled agent loop alive.
  */
-private suspend fun <T> runCatchingSuspend(block: suspend () -> T): Result<T> =
+internal suspend fun <T> runCatchingSuspend(block: suspend () -> T): Result<T> =
     try {
         Result.success(block())
     } catch (e: CancellationException) {
