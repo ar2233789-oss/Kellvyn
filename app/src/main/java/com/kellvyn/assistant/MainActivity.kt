@@ -85,6 +85,7 @@ import com.kellvyn.assistant.workspace.AppBuilderAgent
 import com.kellvyn.assistant.workspace.EditorSyncPolicy
 import com.kellvyn.assistant.workspace.AppBuildResult
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
+import com.kellvyn.assistant.workspace.WorkspaceGitService
 import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.WorkspaceProject
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
@@ -365,6 +366,12 @@ fun KellvynApp() {
     val savedMemories = remember(memoryStore) { mutableStateListOf<MemoryFact>().apply { addAll(memoryStore.list()) } }
     var projectToDelete by remember { mutableStateOf<WorkspaceProject?>(null) }
     var showEditorDialog by remember { mutableStateOf(false) }
+    var showBrowserDialog by remember { mutableStateOf(false) }
+    var browserAddressDraft by remember { mutableStateOf("https://www.google.com") }
+    var showGitDialog by remember { mutableStateOf(false) }
+    var gitProjectId by remember { mutableStateOf<String?>(null) }
+    var gitOutput by remember { mutableStateOf("") }
+    var gitCommitDraft by remember { mutableStateOf("") }
     var activeEditProject by remember { mutableStateOf<WorkspaceProject?>(null) }
     var editablePaths by remember { mutableStateOf(emptyList<String>()) }
     var activeFilePath by remember { mutableStateOf("") }
@@ -1913,9 +1920,8 @@ fun KellvynApp() {
                         status = ""
                     }
                     MainNavItem("Navegador", "◎") {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com")))
-                        }.onFailure { status = "Não foi possível abrir o navegador: " + (it.message ?: it.javaClass.simpleName) }
+                        browserAddressDraft = "https://www.google.com"
+                        showBrowserDialog = true
                     }
                     MainNavItem("Editor", "⌘") {
                         existingProjects.clear()
@@ -1924,9 +1930,11 @@ fun KellvynApp() {
                     }
                     MainNavItem("Terminal", ">_") { showTerminalDialog = true }
                     MainNavItem("Git", "⑂") {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ar2233789-oss/Kellvyn")))
-                        }.onFailure { status = "Não foi possível abrir o Git: " + (it.message ?: it.javaClass.simpleName) }
+                        existingProjects.clear()
+                        existingProjects.addAll(workspaceStore.listProjects())
+                        gitProjectId = existingProjects.firstOrNull()?.id
+                        gitOutput = ""
+                        showGitDialog = true
                     }
                     MainNavItem("Apps", "▦") {
                         existingProjects.clear()
@@ -1936,6 +1944,112 @@ fun KellvynApp() {
                 }
             }
 
+        }
+
+        if (showBrowserDialog) {
+            AlertDialog(
+                onDismissRequest = { showBrowserDialog = false },
+                title = { Text("Navegador", color = accentColor) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Pesquise ou abra um endereço no navegador do aparelho.", color = Muted, fontSize = 12.sp)
+                        OutlinedTextField(
+                            value = browserAddressDraft,
+                            onValueChange = { browserAddressDraft = it.take(2048) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("Pesquisa ou endereço") }
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val raw = browserAddressDraft.trim()
+                        if (raw.isNotBlank()) {
+                            val target = if (raw.startsWith("https://") || raw.startsWith("http://")) raw
+                                else if (raw.contains(".") && !raw.contains(" ")) "https://$raw"
+                                else "https://www.google.com/search?q=" + Uri.encode(raw)
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target))) }
+                                .onSuccess { showBrowserDialog = false }
+                                .onFailure { status = "Não foi possível abrir a página: " + (it.message ?: it.javaClass.simpleName) }
+                        }
+                    }) { Text("Pesquisar / abrir", color = accentColor) }
+                },
+                dismissButton = { TextButton(onClick = { showBrowserDialog = false }) { Text("Cancelar") } },
+                containerColor = Panel
+            )
+        }
+
+        if (showGitDialog) {
+            val gitService = remember(workspaceStore) { WorkspaceGitService(workspaceStore) }
+            AlertDialog(
+                onDismissRequest = { showGitDialog = false },
+                title = { Text("Git do workspace", color = accentColor) },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (existingProjects.isEmpty()) {
+                            Text("Nenhum projeto local disponível. Peça à IA pelo chat para criar ou abrir um projeto.", color = Muted, fontSize = 12.sp)
+                        } else {
+                            Text("PROJETO", color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            existingProjects.forEach { project ->
+                                TextButton(
+                                    onClick = { gitProjectId = project.id; gitOutput = "" },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text((if (gitProjectId == project.id) "● " else "○ ") + project.name, color = if (gitProjectId == project.id) accentColor else Color.White, maxLines = 1)
+                                }
+                            }
+                            val selectedProject = existingProjects.firstOrNull { it.id == gitProjectId }
+                            if (selectedProject != null) {
+                                Text("REPOSITÓRIO LOCAL", color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextButton(onClick = {
+                                        gitOutput = runCatching { gitService.status(selectedProject.id) }.getOrElse { it.message ?: "Falha ao consultar status Git." }
+                                    }) { Text("Status", color = accentColor) }
+                                    TextButton(onClick = {
+                                        gitOutput = runCatching { gitService.branches(selectedProject.id) }.getOrElse { it.message ?: "Falha ao listar branches." }
+                                    }) { Text("Branches", color = accentColor) }
+                                    TextButton(onClick = {
+                                        gitOutput = runCatching { gitService.log(selectedProject.id) }.getOrElse { it.message ?: "Falha ao ler commits." }
+                                    }) { Text("Commits", color = accentColor) }
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextButton(onClick = {
+                                        gitOutput = runCatching { gitService.init(selectedProject.id) }.getOrElse { it.message ?: "Falha ao inicializar Git." }
+                                    }) { Text("Inicializar", color = accentColor) }
+                                    TextButton(onClick = {
+                                        gitOutput = runCatching { gitService.stageAll(selectedProject.id) }.getOrElse { it.message ?: "Falha ao preparar alterações." }
+                                    }) { Text("Preparar arquivos", color = accentColor) }
+                                }
+                                OutlinedTextField(
+                                    value = gitCommitDraft,
+                                    onValueChange = { gitCommitDraft = it.take(300) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    label = { Text("Mensagem do commit") }
+                                )
+                                TextButton(onClick = {
+                                    gitOutput = runCatching { gitService.commit(selectedProject.id, gitCommitDraft) }
+                                        .getOrElse { it.message ?: "Falha ao criar commit local." }
+                                    if (gitOutput.startsWith("Commit local criado:")) gitCommitDraft = ""
+                                }) { Text("Criar commit local", color = accentColor) }
+                            }
+                        }
+                        if (gitOutput.isNotBlank()) {
+                            Surface(color = Night, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                Text(gitOutput, color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(9.dp))
+                            }
+                        }
+                        Text("Operações locais no workspace; não envia commits a um servidor remoto.", color = Muted, fontSize = 10.sp)
+                    }
+                },
+                confirmButton = { TextButton(onClick = { showGitDialog = false }) { Text("Fechar", color = accentColor) } },
+                containerColor = Panel
+            )
         }
 
         if (showEditorDialog) {
