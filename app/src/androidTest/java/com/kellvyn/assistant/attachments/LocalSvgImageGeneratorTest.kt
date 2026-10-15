@@ -8,6 +8,7 @@ import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.LocalLiteRtAssistantEngine
 import com.kellvyn.assistant.ai.reasonOrText
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -61,11 +62,13 @@ class LocalSvgImageGeneratorTest {
             val loaded = engine.loadSavedModel()
             assertTrue("O modelo local não iniciou: " + loaded.reasonOrText(), loaded is AssistantResult.Success)
 
-            when (val result = LocalSvgImageGenerator.generate(
-                context,
-                engine,
-                "Uma lua crescente azul sobre o céu escuro com três estrelas verdes. Use uma composição simples."
-            )) {
+            when (val result = withTimeoutOrNull(240_000L) {
+                LocalSvgImageGenerator.generate(
+                    context,
+                    engine,
+                    "Uma lua crescente azul sobre o céu escuro com três estrelas verdes. Use uma composição simples."
+                )
+            }) {
                 is LocalSvgGenerationResult.Success -> {
                     generated = result
                     assertTrue("O SVG salvo está vazio.", result.svgFile.isFile && result.svgFile.length() > 0L)
@@ -83,6 +86,7 @@ class LocalSvgImageGeneratorTest {
                     }
                 }
                 is LocalSvgGenerationResult.Failure -> throw AssertionError("O modelo local não gerou uma imagem válida: " + result.reason)
+                null -> throw AssertionError("A geração de imagem ultrapassou 240 segundos e ficou sem resposta.")
             }
         } finally {
             generated?.pngFile?.delete()
