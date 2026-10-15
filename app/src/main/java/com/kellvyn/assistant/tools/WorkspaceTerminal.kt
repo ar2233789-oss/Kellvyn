@@ -319,7 +319,7 @@ class WorkspaceTerminal(private val workspace: ProjectWorkspaceStore) {
         appendLine("diretório: ${pathLabel()}")
         appendLine("arquivos nesta pasta: ${currentDirectory.listFiles()?.count { it.isFile } ?: 0}")
         appendLine("projetos registrados: ${workspace.listProjects().size}")
-        appendLine("compilador Android local: pendente de integração")
+        appendLine("compilador Android local: integrado ao chat/agente; perfil atual aceita Java Android sem bibliotecas externas")
     }.trimEnd()
 
     private fun listProjects(): String {
