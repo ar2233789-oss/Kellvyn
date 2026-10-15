@@ -106,6 +106,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import java.util.UUID
 
@@ -1032,10 +1033,14 @@ fun KellvynApp() {
                             reinforcedProtection = reinforcedProtection
                         )
                     } else {
-                        // Everyday conversation skips the agent JSON/tool loop and calls the local model directly.
-                        localEngine.replyStreaming(turns) { partial ->
-                            withContext(Dispatchers.Main.immediate) { streamingReply = partial }
-                        }
+                        // Everyday conversation uses the local model directly, but a stalled native inference must not lock the composer forever.
+                        withTimeoutOrNull(180_000L) {
+                            localEngine.replyStreaming(turns) { partial ->
+                                withContext(Dispatchers.Main.immediate) { streamingReply = partial }
+                            }
+                        } ?: AssistantResult.Failure(
+                            "A IA demorou mais de 3 minutos para responder. O envio foi encerrado para liberar o chat; tente novamente."
+                        )
                     }
                     val refreshedProjects = withContext(Dispatchers.IO) { workspaceStore.listProjects() }
                     latestBuiltApk = localAndroidCompiler.mostRecentApk() ?: latestBuiltApk
