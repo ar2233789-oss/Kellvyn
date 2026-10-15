@@ -232,6 +232,7 @@ private class TelegramBotPollingClient(
     @Volatile private var stopped = false
     @Volatile private var currentCall: okhttp3.Call? = null
     private var nextOffset: Long? = null
+    @Volatile private var botUsername: String? = null
 
     fun start() {
         executor.execute { runPollingLoop() }
@@ -251,6 +252,7 @@ private class TelegramBotPollingClient(
                 if (!configured) {
                     val me = api("getMe", JSONObject())
                     val username = me.optJSONObject("result")?.optString("username").orEmpty()
+                    botUsername = username.takeIf { it.isNotBlank() }
                     api("setMyCommands", JSONObject().put("commands", JSONArray().apply {
                         definition.commands.forEach { command ->
                             put(JSONObject().put("command", command.name).put("description", command.description.take(256)))
@@ -269,7 +271,7 @@ private class TelegramBotPollingClient(
                     if (stopped) break
                     val update = updates.optJSONObject(index) ?: continue
                     val updateId = update.optLong("update_id", -1L)
-                    handleMessage(update.optJSONObject("message"))
+                    handleMessage(update.optJSONObject("message"), botUsername)
                     if (updateId >= 0L) nextOffset = updateId + 1L
                 }
             } catch (error: Exception) {
@@ -287,14 +289,14 @@ private class TelegramBotPollingClient(
         }
     }
 
-    private fun handleMessage(message: JSONObject?) {
+    private fun handleMessage(message: JSONObject?, username: String?) {
         if (message == null) return
         val chat = message.optJSONObject("chat") ?: return
         val chatId = chat.optString("id").ifBlank { return }
         val text = message.optString("text").trim()
         if (!text.startsWith("/")) return
 
-        val commandName = TelegramBotCommandInterpreter.commandName(text) ?: return
+        val commandName = TelegramBotCommandInterpreter.commandName(text, username) ?: return
         val command = definition.commands.firstOrNull { it.name == commandName } ?: return
         val from = message.optJSONObject("from")
         val userName = from?.optString("first_name").orEmpty().ifBlank {
