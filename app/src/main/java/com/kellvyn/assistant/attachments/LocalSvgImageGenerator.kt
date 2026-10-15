@@ -251,7 +251,10 @@ object LocalSvgImageGenerator {
             val attributes = node.attributes
             for (index in 0 until attributes.length) {
                 val attr = attributes.item(index)
-                val attrName = attr.nodeName.substringAfter(':')
+                val rawAttrName = attr.nodeName
+                // A prefixed SVG root may legally declare xmlns:svg. Normalize only this
+                // known namespace declaration; arbitrary namespace declarations stay rejected.
+                val attrName = if (rawAttrName == "xmlns:svg") "xmlns" else rawAttrName.substringAfter(':')
                 val value = attr.nodeValue.orEmpty()
                 require(attrName in allowedAttributes) { "O SVG contém o atributo não permitido $attrName." }
                 if (attrName == "id") {
