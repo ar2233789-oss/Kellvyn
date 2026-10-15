@@ -33,8 +33,11 @@ object LocalImageTextExtractor {
             "A imagem ultrapassa o limite local de 20 MB."
         }
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-            ?: throw IllegalStateException("O Android não conseguiu abrir a imagem escolhida.")
+        val boundsRead = resolver.openInputStream(uri)?.use { input ->
+            BitmapFactory.decodeStream(input, null, bounds)
+            true
+        } ?: false
+        check(boundsRead) { "O Android não conseguiu abrir a imagem escolhida." }
         require(bounds.outWidth > 0 && bounds.outHeight > 0) { "O arquivo escolhido não é uma imagem válida." }
         require(bounds.outWidth.toLong() * bounds.outHeight.toLong() <= MAX_IMAGE_PIXELS) {
             "A imagem tem resolução excessiva para análise segura neste aparelho."
