@@ -16,7 +16,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Ditado em português no compositor e ação “Ouvir” nas respostas, usando recursos disponíveis no próprio Android e informando quando indisponíveis.
 - [x] Ícones do cabeçalho, compositor e catálogo Apps substituídos por desenhos vetoriais escaláveis em Canvas; validar a aparência final no Poco F6 ainda está pendente.
 - [x] Código da sobreposição flutuante e do leitor de tela declarado no Manifesto; o usuário precisa conceder permissão de sobreposição e habilitar Acessibilidade para ler texto somente por toque.
-- [x] Entrada local de PDF pesquisável ou escaneado (renderização das páginas sem camada de texto + OCR latino local), DOCX, ODT e imagens com rotulagem visual aproximada e OCR local; não produz descrição visual completa de fotos.
+- [x] Importação de PDF pesquisável ou escaneado (renderização de páginas + OCR), DOCX e ODT. Anexos de imagem agora seguem caminho multimodal local; validar com build e teste no aparelho ainda pendente.
 - [x] Geração local de ilustrações vetoriais: modelo textual retorna SVG validado, a biblioteca local renderiza PNG, a resposta mostra prévia e permite salvar. Não é difusão fotorrealista.
 - [x] Resposta em streaming publica o primeiro trecho assim que chega; a tela mostra um estado de processamento desde o envio para não aparentar congelamento antes do primeiro token.
 - [x] O compilador verifica SHA-1/tamanho do arquivo da plataforma, valida o android.jar extraído e conserva um arquivo anterior conhecido enquanto instala a nova plataforma. O build local ainda precisa ser executado em Android.
@@ -35,7 +35,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 
 - [ ] Compilar o próprio Kellvyn a partir de um checkout limpo em ambiente Android local.
 - [x] Adicionar inicialização do modelo local com fallback para download público fixado por revisão, progresso real, tamanho esperado e verificação SHA-256, sem inferência remota.
-- [ ] Testar o primeiro download de aproximadamente 374 MB, cancelamento/falha de rede e reinicialização no Poco F6.
+- [ ] Testar o download inicial do Gemma 4 E2B de aproximadamente 2,6 GB, a análise multimodal, falha/cancelamento de rede e reinicialização no Poco F6.
 - [x] CI executou `testDebugUnitTest` e `assembleDebug` para o APK anfitrião; build #47 terminou com sucesso: https://github.com/ar2233789-oss/Kellvyn/actions/runs/38765936032. Isso comprova a compilação na CI, não uma build independente em Android local.
 - [ ] Confirmar permissões e funcionamento da bolha flutuante em Android 15/HyperOS e ajustar dimensões/legibilidade em uma captura real do Poco F6.
 - [ ] Instalar e testar o APK anfitrião no Poco F6 real, incluindo a transferência inicial do modelo se ele não vier embutido.
