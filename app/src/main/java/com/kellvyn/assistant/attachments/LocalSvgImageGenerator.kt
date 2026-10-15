@@ -146,10 +146,12 @@ object LocalSvgImageGenerator {
             isNamespaceAware = true
             isXIncludeAware = false
             isExpandEntityReferences = false
-            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-            setFeature("http://xml.org/sax/features/external-general-entities", false)
-            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-            setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            // Reject DTD/entities in the source itself because not all Android parsers expose
+            // the same optional SAX feature URIs.
+            runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+            runCatching { setFeature("http://xml.org/sax/features/external-general-entities", false) }
+            runCatching { setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
+            runCatching { setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false) }
             runCatching { setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "") }
             runCatching { setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "") }
         }
