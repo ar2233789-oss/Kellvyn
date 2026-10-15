@@ -322,7 +322,7 @@ class AgentToolRouter(
             .put("projects", projects.size)
             .put("project_names", JSONArray().apply { projects.take(50).forEach { put(it.name) } })
             .put("build_engine", "build local Java: ECJ -> D8 -> APK assinado/verificado; Java/framework Android sem dependências externas; precisa do android.jar após consentimento SDK")
-            .put("workspace_access", "API direta de arquivos e projetos; terminal é independente do chat")
+            .put("workspace_access", "API direta de arquivos e projetos; Termux só para pedidos explícitos com aprovação por comando")
             .put("git_support", "JGit local; sem shell e sem conexão remota")
             .toString()
     }
