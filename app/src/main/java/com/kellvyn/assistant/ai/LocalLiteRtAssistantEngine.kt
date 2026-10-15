@@ -30,6 +30,7 @@ private const val CHARS_PER_TOKEN_NUMERATOR = 2
 private const val CHARS_PER_TOKEN_DENOMINATOR = 1
 private const val MIN_OUTPUT_TOKEN_BUDGET = 256
 private const val LONG_GENERATION_SYSTEM_RESERVE_TOKENS = 2048
+private const val MIN_STREAM_UPDATE_CHARS = 12
 
 /**
  * On-device inference engine. It prefers a checksum-verified .litertlm asset in the APK
@@ -344,7 +345,7 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
             activeEngine.createConversation(config).use { chat ->
                 chat.sendMessageAsync(conversation[lastUserIndex].content).collect { part ->
                     answer.append(part.contents.toString())
-                    if (answer.isNotEmpty() && (lastPublishedLength == 0 || answer.length - lastPublishedLength >= 4)) {
+                    if (answer.isNotEmpty() && (lastPublishedLength == 0 || answer.length - lastPublishedLength >= MIN_STREAM_UPDATE_CHARS)) {
                         onPartial(answer.toString())
                         lastPublishedLength = answer.length
                     }
