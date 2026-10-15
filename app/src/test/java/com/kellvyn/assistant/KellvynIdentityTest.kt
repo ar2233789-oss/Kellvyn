@@ -19,8 +19,8 @@ class KellvynIdentityTest {
     fun recognizesIdentityAndModelAttributionQuestions() {
         assertTrue(KellvynIdentity.isIdentityQuestion("Quem é você?"))
         assertTrue(KellvynIdentity.isIdentityQuestion("Qual é seu nome?"))
-        assertTrue(KellvynIdentity.isIdentityQuestion("Você é da OpenAI?"))
-        assertTrue(KellvynIdentity.isIdentityQuestion("Você é o Qwen?"))
+        assertTrue(KellvynIdentity.isIdentityQuestion("Qual modelo está instalado?"))
+        assertTrue(KellvynIdentity.isIdentityQuestion("Qual tecnologia você usa?"))
     }
 
     @Test
