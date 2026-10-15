@@ -12,7 +12,7 @@ internal object TermuxRequestPolicy {
         val text = userMessage.trim().lowercase(Locale.ROOT)
         if (text.isBlank() || !Regex("\\btermux\\b").containsMatchIn(text)) return false
 
-        if (Regex("""\\b(não|nao)\\s+(execute|executar|rode|rodar|use|usar|acesse|acessar|teste|testar)\\b""")
+        if (Regex("""\b(não|nao)\s+(execute|executar|rode|rodar|use|usar|acesse|acessar|teste|testar)\b""")
                 .containsMatchIn(text)
         ) return false
 
