@@ -311,6 +311,10 @@ fun KellvynApp() {
     var showConversationsDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     val uiPreferences = remember(context) { context.getSharedPreferences("kellvyn_ui", Context.MODE_PRIVATE) }
+    val securityPreferences = remember(context) { context.getSharedPreferences("kellvyn_security", Context.MODE_PRIVATE) }
+    var reinforcedProtection by remember(securityPreferences) {
+        mutableStateOf(securityPreferences.getBoolean("reinforced_protection", false))
+    }
     var accentHex by remember(uiPreferences) { mutableStateOf(uiPreferences.getString("accent_hex", "#38E6BC") ?: "#38E6BC") }
     val accentColor = remember(accentHex) { Color(android.graphics.Color.parseColor(accentHex)) }
     var ttsReady by remember { mutableStateOf(false) }
@@ -937,7 +941,8 @@ fun KellvynApp() {
                             conversation = turns,
                             internetAllowed = ChatRequestRouter.shouldUseOnlineTools(text),
                             onToolStatus = { toolStatus -> status = toolStatus },
-                            requestApproval = { summary -> requestAgentApproval(summary) }
+                            requestApproval = { summary -> requestAgentApproval(summary) },
+                            reinforcedProtection = reinforcedProtection
                         )
                     } else {
                         // Everyday conversation skips the agent JSON/tool loop and calls the local model directly.
@@ -2004,10 +2009,36 @@ fun KellvynApp() {
                         Divider(color = Color(0xFF143D33))
                         Text("SEGURANÇA", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Text(
-                            "Ações destrutivas e operações Git que alteram dados continuam exigindo confirmação. A conversa usa o modelo integrado no aparelho; pesquisas na internet só acontecem quando você pedir explicitamente.",
+                            "Ações destrutivas e operações Git que alteram dados sempre exigem confirmação. Ative a proteção reforçada para também confirmar gravações, correções de arquivos e compilação de APK.",
                             color = Muted,
                             fontSize = 12.sp
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("Proteção reforçada da IA", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    if (reinforcedProtection) "Ativada: pede autorização antes de alterar arquivos ou compilar." else "Desativada: edições pedidas no chat continuam automáticas.",
+                                    color = Muted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Switch(
+                                checked = reinforcedProtection,
+                                onCheckedChange = { enabled ->
+                                    reinforcedProtection = enabled
+                                    securityPreferences.edit().putBoolean("reinforced_protection", enabled).apply()
+                                    status = if (enabled) {
+                                        "Proteção reforçada ativada. O chat pedirá confirmação antes de gravar, corrigir arquivos ou compilar APK."
+                                    } else {
+                                        "Proteção reforçada desativada. As confirmações para ações destrutivas continuam ativas."
+                                    }
+                                }
+                            )
+                        }
                     }
                 },
                 confirmButton = {
