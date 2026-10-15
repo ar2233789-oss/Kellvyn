@@ -24,7 +24,7 @@ import java.util.Locale
 
 /**
  * Tool router for the chat agent. The model proposes a JSON tool call; this class validates
- * its arguments and invokes workspace/network capabilities. The manual terminal is independent from the chat agent and is never exposed to it. The chat uses
+ * Workspace/build tasks use direct APIs. The Termux bridge is available to the chat only for explicit user requests and requires approval per command.
  * direct workspace and build tools for all project work.
  */
 class AgentToolRouter(
@@ -1598,6 +1598,7 @@ class AssistantAgent(
         "github_tree" -> "Listando arquivos do repositório público…"
         "github_import" -> "Importando arquivos públicos após autorização…"
         "build_project_apk" -> "Compilando e verificando o APK diretamente no aparelho…"
+        "termux_run_command" -> "Executando comando no Termux após autorização…"
         else -> "Executando ferramenta…"
     }
 
