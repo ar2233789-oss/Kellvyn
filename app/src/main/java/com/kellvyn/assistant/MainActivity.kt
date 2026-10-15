@@ -776,6 +776,9 @@ fun KellvynApp() {
             } else {
                 "A IA ainda não está pronta. Seu pedido continua salvo e será enviado assim que a IA puder responder."
             }
+            if (!isLoadingModel) {
+                scope.launch { prepareAssistantAndDrainQueue() }
+            }
             return
         }
 
@@ -1057,6 +1060,36 @@ fun KellvynApp() {
         }
     }
 
+    suspend fun prepareAssistantAndDrainQueue() {
+        if (isLoadingModel) return
+        isLoadingModel = true
+        try {
+            localEngine.prepareLocalModel { progress -> status = progress }
+            if (!localEngine.hasSavedModel()) {
+                modelReady = false
+                status = "A IA ainda não está disponível; o preparo automático não produziu um modelo válido."
+                return
+            }
+            status = "Inicializando Kellvyn IA…"
+            val result = localEngine.loadSavedModel()
+            updateModelResult(result)
+            if (result is AssistantResult.Success) {
+                val queued = pendingSubmission
+                if (queued != null) {
+                    pendingSubmission = null
+                    submitDraft(queued)
+                }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            modelReady = false
+            status = "Não foi possível preparar a IA: " + (e.message ?: e.javaClass.simpleName)
+        } finally {
+            isLoadingModel = false
+        }
+    }
+
     val fileExportPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/plain")
     ) { destination ->
@@ -1238,27 +1271,7 @@ fun KellvynApp() {
     }
 
     LaunchedEffect(localEngine) {
-        isLoadingModel = true
-        try {
-            localEngine.prepareLocalModel { progress -> status = progress }
-            if (localEngine.hasSavedModel()) {
-                status = "Inicializando Kellvyn IA…"
-                val result = localEngine.loadSavedModel()
-                updateModelResult(result)
-                if (result is AssistantResult.Success) {
-                    val queued = pendingSubmission
-                    if (queued != null) {
-                        pendingSubmission = null
-                        submitDraft(queued)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            status = "Não foi possível preparar a IA: " +
-                (e.message ?: e.javaClass.simpleName)
-        } finally {
-            isLoadingModel = false
-        }
+        prepareAssistantAndDrainQueue()
     }
 
     LaunchedEffect(messages.size) {
