@@ -12,7 +12,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Ditado em português no compositor e ação “Ouvir” nas respostas, usando recursos disponíveis no próprio Android e informando quando indisponíveis.
 - [x] Ícones do cabeçalho, compositor e catálogo Apps substituídos por desenhos vetoriais escaláveis em Canvas; validar a aparência final no Poco F6 ainda está pendente.
 - [x] Código da sobreposição flutuante e do leitor de tela declarado no Manifesto; o usuário precisa conceder permissão de sobreposição e habilitar Acessibilidade para ler texto somente por toque.
-- [x] Entrada local de PDF pesquisável, DOCX, ODT e imagens com rotulagem visual aproximada e OCR latino empacotados; não produz descrição visual completa, e PDFs escaneados sem camada de texto ainda não recebem OCR.
+- [x] Entrada local de PDF pesquisável ou escaneado (renderização das páginas sem camada de texto + OCR latino local), DOCX, ODT e imagens com rotulagem visual aproximada e OCR local; não produz descrição visual completa de fotos.
 - [x] Geração local de ilustrações vetoriais: modelo textual retorna SVG validado, a biblioteca local renderiza PNG, a resposta mostra prévia e permite salvar. Não é difusão fotorrealista.
 - [x] Resposta em streaming publica o primeiro trecho assim que chega; a tela mostra um estado de processamento desde o envio para não aparentar congelamento antes do primeiro token.
 - [x] O compilador verifica SHA-1/tamanho do arquivo da plataforma, valida o android.jar extraído e conserva um arquivo anterior conhecido enquanto instala a nova plataforma. O build local ainda precisa ser executado em Android.
