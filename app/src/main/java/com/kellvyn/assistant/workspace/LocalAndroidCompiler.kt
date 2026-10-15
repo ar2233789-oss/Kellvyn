@@ -59,6 +59,9 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
     suspend fun build(projectId: String, onProgress: (String) -> Unit = {}): LocalApkBuildResult =
         withContext(Dispatchers.IO) {
             val startedAt = System.nanoTime()
+            var temporaryJobDirectory: File? = null
+            var temporaryUnsignedApk: File? = null
+            var temporarySignedApk: File? = null
             try {
                 if (Build.VERSION.SDK_INT < 26) {
                     return@withContext LocalApkBuildResult.Failure("O compilador local precisa do Android 8.0 (API 26) ou superior.")
@@ -121,6 +124,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                     if (exists()) deleteRecursively()
                     check(mkdirs()) { "Não foi possível preparar a pasta da build." }
                 }
+                temporaryJobDirectory = jobDir
                 val classesDir = File(jobDir, "classes").apply { mkdirs() }
                 val dexDir = File(jobDir, "dex").apply { mkdirs() }
                 report(onProgress, "Compilando " + sources.size + " arquivo(s) Java no aparelho…")
@@ -169,6 +173,7 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 val appLabel = workspace.getProject(projectId)?.name
                     ?.trim()?.take(100)?.ifBlank { APP_LABEL } ?: APP_LABEL
                 val unsigned = File(jobDir, "app-unsigned.apk")
+                temporaryUnsignedApk = unsigned
                 ZipOutputStream(BufferedOutputStream(FileOutputStream(unsigned))).use { zip ->
                     writeEntry(
                         zip,
@@ -185,16 +190,20 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 report(onProgress, "Assinando e verificando o APK…")
                 val output = File(buildRoot, projectId + ".apk")
                 val signedTemp = File(buildRoot, projectId + ".apk.tmp")
+                temporarySignedApk = signedTemp
                 val previous = File(buildRoot, projectId + ".apk.previous")
                 signedTemp.delete()
                 previous.delete()
                 signApk(unsigned, signedTemp)
+                coroutineContext.ensureActive()
                 val verification = ApkVerifier.Builder(signedTemp).build().verify()
+                coroutineContext.ensureActive()
                 if (!verification.isVerified) {
                     signedTemp.delete()
                     val details = verification.errors.take(8).joinToString("; ")
                     return@withContext LocalApkBuildResult.Failure(("A verificação da assinatura falhou: " + details).take(MAX_LOG_CHARS))
                 }
+                coroutineContext.ensureActive()
                 if (output.exists()) {
                     check(output.renameTo(previous)) { "O APK anterior não pôde ser preservado antes de publicar a nova versão." }
                 }
@@ -206,6 +215,9 @@ class LocalAndroidCompiler(context: Context, private val workspace: ProjectWorks
                 previous.delete()
                 LocalApkBuildResult.Success(output, applicationId, (System.nanoTime() - startedAt) / 1_000_000)
             } catch (e: kotlinx.coroutines.CancellationException) {
+                temporaryUnsignedApk?.delete()
+                temporarySignedApk?.delete()
+                temporaryJobDirectory?.deleteRecursively()
                 throw e
             } catch (e: Exception) {
                 val details = StringWriter().also { writer ->
