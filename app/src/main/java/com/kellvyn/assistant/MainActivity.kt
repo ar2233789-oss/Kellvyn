@@ -1121,7 +1121,7 @@ fun KellvynApp() {
                                     mime in setOf("application/json", "application/xml", "application/javascript", "application/x-yaml") ||
                                     extension in textExtensions
                                 require(recognizedText) {
-                                    "Formato não suportado. Use texto/código, PDF, DOCX, ODT ou uma imagem para OCR local."
+                                    "Formato não suportado. Use texto/código, PDF, DOCX, ODT ou uma imagem para análise local."
                                 }
                                 val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
                                     val output = ByteArrayOutputStream()
@@ -1149,7 +1149,7 @@ fun KellvynApp() {
 
                     val currentDraft = draft.trim()
                     val prefix = when (attachmentKind) {
-                        "image" -> "Analise o texto extraído localmente da imagem \"$fileName\". Não suponha que esse texto descreve toda a cena visual.\n\n"
+                        "image" -> "Analise a rotulagem visual aproximada e o texto OCR extraídos localmente da imagem \"$fileName\". Não trate as categorias como descrição completa da cena.\n\n"
                         "document" -> "Leia e analise o documento \"$fileName\":\n\n"
                         else -> "Leia e analise o arquivo \"$fileName\":\n\n"
                     }
