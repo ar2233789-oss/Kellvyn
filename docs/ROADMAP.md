@@ -17,6 +17,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Fluxo do chat consulta o compilador e mostra o resultado/diagnósticos; o APK mais recente pode ser salvo ou instalado.
 - [x] Exportação de projetos em arquivo compactado removida. O resultado de criação de aplicativos é o APK, não um arquivo compactado.
 - [x] Workflows de build e teste em nuvem removidos; não compilar apps criados via GitHub Actions, Replit ou servidores remotos.
+- [x] Código para runtime nativo de bots Telegram: token criptografado, long polling da Bot API, comandos por manifesto e ativação pelo catálogo Apps. Build e teste real continuam pendentes.
 
 ## Validação pendente — não marcar como concluída sem executar
 
@@ -24,6 +25,8 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Adicionar inicialização do modelo local com fallback para download público fixado por revisão, progresso real, tamanho esperado e verificação SHA-256, sem inferência remota.
 - [ ] Testar o primeiro download de aproximadamente 374 MB, cancelamento/falha de rede e reinicialização no Poco F6.
 - [ ] Instalar e testar o APK anfitrião no Poco F6 real, incluindo a transferência inicial do modelo se ele não vier embutido.
+- [ ] Testar com token de teste a ativação/desativação e os comandos /start, /ping e /echo do runtime Telegram, além de reconexão após perda de rede e restauração após reinício.
+- [ ] Testar que o serviço Discord não inicia nem desativa projetos Telegram ao restaurar ou encerrar bots.
 - [ ] Confirmar que o modelo gera respostas reais e medir RAM, tempo, aquecimento e estabilidade.
 - [ ] Confirmar que ditado e leitura em voz alta funcionam em português no aparelho-alvo.
 - [ ] Pedir no chat a criação de um app Java mínimo, deixar o Kellvyn compilá-lo localmente, verificar assinatura/package ID e instalar o APK.
@@ -32,7 +35,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 
 ## Limite do primeiro compilador
 
-O pipeline integrado atualmente atende projetos Java nativos baseados nas APIs do framework Android. Ainda não substitui Gradle/Android Studio para projetos arbitrários: Kotlin/Compose, recursos, assets e bibliotecas externas continuam fora do perfil inicial.
+O pipeline integrado atualmente atende projetos Java nativos baseados nas APIs do framework Android. O runtime Telegram foi adicionado, mas precisa de build e teste reais antes de ser considerado validado. O compilador ainda não substitui Gradle/Android Studio para projetos arbitrários: Kotlin/Compose, recursos, assets e bibliotecas externas continuam fora do perfil inicial.
 
 ## Regras que permanecem obrigatórias
 
