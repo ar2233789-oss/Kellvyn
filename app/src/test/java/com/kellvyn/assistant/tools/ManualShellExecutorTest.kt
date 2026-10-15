@@ -62,9 +62,9 @@ class ManualShellExecutorTest {
         try {
             val workspace = File(parent, "workspace").apply { mkdirs() }
             val executor = ManualShellExecutor(workspace, "/bin/sh")
-            val output = executor.execute("yes x | head -c 70000", workspace)
-            assertTrue(output.length < 70_000)
-            assertTrue(output.contains("saída limitada a 64 KB"))
+            val output = executor.execute("yes x | head -c 150000", workspace)
+            assertTrue(output.length < 150_000)
+            assertTrue(output.contains("saída limitada a 128 KiB"))
             assertTrue(output.contains("exit code: 0"))
         } finally {
             parent.deleteRecursively()
