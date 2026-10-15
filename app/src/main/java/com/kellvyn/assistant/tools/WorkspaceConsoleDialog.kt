@@ -37,9 +37,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runInterruptible
 
 private val ConsoleNight = Color(0xFF020806)
 private val ConsolePanel = Color(0xFF071713)
@@ -88,12 +89,18 @@ fun WorkspaceConsoleDialog(
         terminalBusy = true
         appendOutput("$ ${line}\nExecutando…")
         scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching { terminal.executeInteractive(line) }
-                    .getOrElse { "ERRO: " + (it.message ?: it.javaClass.simpleName) }
+            try {
+                val result = try {
+                    runInterruptible(Dispatchers.IO) { terminal.executeInteractive(line) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    "ERRO: " + (e.message ?: e.javaClass.simpleName)
+                }
+                appendOutput(result)
+            } finally {
+                terminalBusy = false
             }
-            appendOutput(result)
-            terminalBusy = false
         }
     }
 
