@@ -3,6 +3,7 @@ package com.kellvyn.assistant.workspace
 import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -132,6 +133,8 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppBuildResult.Failure("O construtor falhou: " + (e.message ?: e.javaClass.simpleName))
         }
@@ -226,6 +229,8 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             "Falha ao aplicar a correção automática: " + (e.message ?: e.javaClass.simpleName)
         }
@@ -404,6 +409,8 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
                 val project = workspace.createProject(name, description, files)
                 AppBuildResult.Success(project, workspace.listFiles(project.id))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 AppBuildResult.Failure(
                     "Não foi possível validar/salvar o projeto gerado: " + (e.message ?: e.javaClass.simpleName)
