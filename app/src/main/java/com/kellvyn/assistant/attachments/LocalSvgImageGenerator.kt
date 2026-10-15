@@ -145,15 +145,15 @@ object LocalSvgImageGenerator {
      */
     private fun stripUnsupportedClipping(source: String): String {
         val withoutSelfClosingClipPaths = source.replace(
-            Regex("""(?is)<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\\b[^>]*/\\s*>"""),
+            Regex("""(?is)<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\b[^>]*/\s*>"""),
             ""
         )
         val withoutClipPaths = withoutSelfClosingClipPaths.replace(
-            Regex("""(?is)<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\\b[^>]*>.*?</(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\\s*>"""),
+            Regex("""(?is)<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\b[^>]*>.*?</(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\s*>"""),
             ""
         )
         return withoutClipPaths.replace(
-            Regex("""(?is)\\s+clip-path\\s*=\\s*(?:"[^"]*"|'[^']*')"""),
+            Regex("""(?is)\s+clip-path\s*=\s*(?:"[^"]*"|'[^']*')"""),
             ""
         )
     }
