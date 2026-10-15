@@ -19,7 +19,6 @@ import java.net.URL
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
-import java.util.Locale
 
 /**
  * On-device inference engine. It prefers a checksum-verified .litertlm asset in the APK
