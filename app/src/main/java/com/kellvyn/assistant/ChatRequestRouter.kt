@@ -92,6 +92,9 @@ object ChatRequestRouter {
         ).any { it in value }
         if (externalInformationSignals) return true
 
+        // A bare URL is not an instruction to fetch it; require context or an action.
+        if (hasLink) return false
+
         // Clear local-only requests don't need internet merely because tools exist.
         val ordinaryLocalRequest = listOf(
             "bom dia", "boa tarde", "boa noite", "olá", "ola", "oi", "obrigado", "obrigada",
