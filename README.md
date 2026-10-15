@@ -4,7 +4,7 @@ Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvo
 
 ## Código implementado até agora
 
-- Interface nativa preta/esmeralda: tela principal dedicada ao chat, cabeçalho compacto, mensagens organizadas e compositor próximo ao rodapé. O hambúrguer abre o histórico de conversas; o menu de ferramentas reúne anexos, códigos guardados, Apps/APKs, memória e assistente flutuante; os três pontos abrem configurações. Pedidos de conversa, criação, correção, imagens vetoriais e compilação começam no mesmo chat.
+- Interface nativa preta/esmeralda: tela principal dedicada ao chat, cabeçalho compacto, mensagens organizadas e compositor próximo ao rodapé. O hambúrguer abre o histórico de conversas; o atalho Apps/APKs no cabeçalho abre o catálogo diretamente; o menu de ferramentas reúne anexos, códigos guardados, memória e assistente flutuante; os três pontos abrem configurações. Pedidos de conversa, criação, correção, imagens vetoriais e compilação começam no mesmo chat.
 - Botão de copiar (ícone de folhas/páginas) embaixo das respostas do assistente.
 - O compositor é compacto e adaptável: campo de mensagem, estado da IA, ditado e envio. Os ícones principais agora são vetoriais desenhados no próprio app, com tamanho em dp; a validação visual final no Poco F6 continua pendente.
 - Histórico local limitado e apagável.
