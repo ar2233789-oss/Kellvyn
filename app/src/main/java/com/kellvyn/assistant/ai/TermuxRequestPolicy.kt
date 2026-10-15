@@ -12,9 +12,9 @@ import java.util.Locale
  */
 internal object TermuxRequestPolicy {
     private val actionPattern = Regex(
-        """\\b(ajuda|ajudar|ajude|ajudem|use|usar|usa|faça|faca|execute|executar|executa|rode|rodar|roda|instale|instalar|instala|teste|testar|testa|diagnostique|diagnosticar|diagnostica|investigue|investigar|investiga|verifique|verificar|verifica|inspecione|inspecionar|inspeciona|depure|depurar|depura|inicie|iniciar|inicia|analise|analisar|analisa|corrija|corrigir|conserte|consertar|repare|reparar)\\b"""
+        """\b(ajuda|ajudar|ajude|ajudem|use|usar|usa|faça|faca|execute|executar|executa|rode|rodar|roda|instale|instalar|instala|teste|testar|testa|diagnostique|diagnosticar|diagnostica|investigue|investigar|investiga|verifique|verificar|verifica|inspecione|inspecionar|inspeciona|depure|depurar|depura|inicie|iniciar|inicia|analise|analisar|analisa|corrija|corrigir|conserte|consertar|repare|reparar)\b"""
     )
-    private val explicitTermuxPattern = Regex("""\\btermux\\b""")
+    private val explicitTermuxPattern = Regex("""\btermux\b""")
 
     fun mayUseTermux(userMessage: String): Boolean {
         val text = userMessage.trim().lowercase(Locale.ROOT)
@@ -33,7 +33,7 @@ internal object TermuxRequestPolicy {
             "comandos para eu copiar", "para eu executar", "pra eu executar",
             "só me explique", "so me explique", "apenas explique", "sem executar"
         ).any { it in text } || Regex(
-            """\\b(não|nao)\\s+(execute|executar|rode|rodar|use|usar|acesse|acessar|teste|testar|instale|instalar)\\b"""
+            """\b(não|nao)\s+(execute|executar|rode|rodar|use|usar|acesse|acessar|teste|testar|instale|instalar)\b"""
         ).containsMatchIn(text)
         if (explicitNoExecution) return false
 
@@ -59,7 +59,7 @@ internal object TermuxRequestPolicy {
         if (!hasAction) return false
 
         // Android APK creation/compilation stays with the integrated compiler.
-        val androidBuildRequest = Regex("""\\b(apk|aplicativo android|app android|projeto android)\\b""")
+        val androidBuildRequest = Regex("""\b(apk|aplicativo android|app android|projeto android)\b""")
             .containsMatchIn(text) &&
             listOf("gere", "gerar", "gera", "compile", "compilar", "compila", "crie", "criar", "build")
                 .any { it in text }
