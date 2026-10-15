@@ -36,45 +36,44 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
 
 private val ConsoleNight = Color(0xFF020806)
 private val ConsolePanel = Color(0xFF071713)
 private val ConsoleNeon = Color(0xFF38E6BC)
 private val ConsoleMuted = Color(0xFF91B8AD)
 private val ConsoleBorder = Color(0xFF164638)
-private const val MAX_OUTPUT_CHARS = 128_000
+private const val MAX_OUTPUT_CHARS = 90_000
 
 /**
- * Native Android shell terminal. It starts in the private workspace and runs as the app UID,
- * without root. The independent console is not wired into the chat agent; the user runs commands here.
+ * Native UI for issuing commands through the installed Termux app's RUN_COMMAND service.
+ * This is not Android's restricted /system/bin/sh. Opening the full Termux app is also available.
+ * AI commands are handled by the chat agent and require explicit user approval before execution.
  */
 @Composable
 fun WorkspaceConsoleDialog(
-    workspace: ProjectWorkspaceStore,
-    terminal: WorkspaceTerminal,
+    termux: TermuxBridge,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var command by remember { mutableStateOf("") }
+    var workingDirectory by remember { mutableStateOf(TermuxBridge.TERMUX_HOME) }
     var terminalBusy by remember { mutableStateOf(false) }
-    var output by remember(terminal) {
+    var output by remember(termux) {
         mutableStateOf(
-            terminal.storedOutput().ifBlank {
-                "KELLVYN TERMINAL  •  ANDROID SHELL\n" +
-                    "Pasta: ${terminal.pathLabel()}\n" +
-                    "Digite help para ver os comandos locais e do /system/bin/sh.\n"
+            if (termux.isInstalled()) {
+                "KELLVYN TERMINAL  •  TERMUX REAL\nInstalação Termux encontrada.\nPasta inicial: " + TermuxBridge.TERMUX_HOME +
+                    "\nOs comandos são executados dentro do ambiente Termux instalado.\n"
+            } else {
+                "KELLVYN TERMINAL  •  TERMUX REAL\nTermux não está instalado.\nUse “Abrir Termux” para acessar a página oficial de versões e instalar.\n"
             }
         )
     }
 
     fun appendOutput(value: String) {
         output = (output + "\n\n" + value).takeLast(MAX_OUTPUT_CHARS)
-        terminal.saveOutput(output)
     }
 
     fun execute(raw: String) {
@@ -83,21 +82,33 @@ fun WorkspaceConsoleDialog(
         command = ""
         if (line.equals("clear", ignoreCase = true)) {
             output = ""
-            terminal.saveOutput("")
             return
         }
+
         terminalBusy = true
-        appendOutput("$ ${line}\nExecutando…")
+        appendOutput("$ " + line + "\nExecutando no Termux…")
         scope.launch {
             try {
-                val result = try {
-                    runInterruptible(Dispatchers.IO) { terminal.executeInteractive(line) }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    "ERRO: " + (e.message ?: e.javaClass.simpleName)
+                val isDirectoryChange = line == "cd" ||
+                    line.startsWith("cd ", ignoreCase = true) ||
+                    line.startsWith("cd\t", ignoreCase = true)
+                val executable = if (isDirectoryChange) line + " && pwd" else line
+                val result = withContext(Dispatchers.IO) {
+                    termux.runCommand(executable, workingDirectory)
                 }
-                appendOutput(result)
+                appendOutput(result.formattedOutput())
+                if (isDirectoryChange && result.succeeded) {
+                    val reportedPath = result.stdout.lineSequence()
+                        .map { it.trim() }
+                        .lastOrNull { it.isNotBlank() }
+                    if (!reportedPath.isNullOrBlank() &&
+                        (reportedPath.startsWith("/") || reportedPath.startsWith("~/"))
+                    ) {
+                        workingDirectory = reportedPath
+                    }
+                }
+            } catch (e: Exception) {
+                appendOutput("ERRO: " + (e.message ?: e.javaClass.simpleName))
             } finally {
                 terminalBusy = false
             }
@@ -120,11 +131,16 @@ fun WorkspaceConsoleDialog(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("TERMINAL", color = ConsoleNeon, fontSize = 15.sp)
-                        Text(terminal.pathLabel(), color = ConsoleMuted, fontSize = 10.sp, maxLines = 1)
+                        Text("TERMINAL TERMUX", color = ConsoleNeon, fontSize = 14.sp)
+                        Text(workingDirectory, color = ConsoleMuted, fontSize = 10.sp, maxLines = 1)
                     }
-                    TextButton(onClick = { execute("clear") }) { Text("Limpar", color = ConsoleMuted) }
-                    TextButton(onClick = onDismiss) { Text("Fechar", color = Color.White) }
+                    TextButton(
+                        onClick = {
+                            appendOutput(termux.openFullTerminal())
+                        }
+                    ) { Text("Abrir Termux", color = ConsoleNeon, fontSize = 10.sp) }
+                    TextButton(onClick = { output = "" }) { Text("Limpar", color = ConsoleMuted, fontSize = 10.sp) }
+                    TextButton(onClick = onDismiss) { Text("Fechar", color = Color.White, fontSize = 10.sp) }
                 }
                 Surface(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -136,7 +152,7 @@ fun WorkspaceConsoleDialog(
                         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(10.dp)
                     ) {
                         Text(
-                            output,
+                            output.ifBlank { "Saída do Termux aparecerá aqui." },
                             color = Color(0xFFC9F6E8),
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
@@ -150,24 +166,28 @@ fun WorkspaceConsoleDialog(
                 ) {
                     OutlinedTextField(
                         value = command,
-                        onValueChange = { command = it.take(4_000) },
+                        onValueChange = { command = it.take(TermuxBridge.MAX_COMMAND_CHARS) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        label = { Text("Comando") },
-                        placeholder = { Text("ls, pwd, mkdir, git status…") },
+                        label = { Text("Comando Termux") },
+                        placeholder = { Text("pkg, python, git, bash…") },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { execute(command) })
                     )
                     Button(
                         onClick = { execute(command) },
                         enabled = !terminalBusy && command.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D604A), contentColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF0D604A),
+                            contentColor = Color.White
+                        )
                     ) { Text(if (terminalBusy) "…" else "▶") }
                 }
                 Text(
-                    "Shell Android independente (não root). Comandos ausentes do Android não estarão disponíveis; o chat não executa comandos neste terminal.",
+                    "Executa no Termux instalado. Para liberar comandos externos, conceda a permissão RUN_COMMAND ao Kellvyn e configure allow-external-apps=true nas configurações do próprio Termux. A IA só executa comandos quando você pedir ajuda pelo chat principal e confirmar a execução.",
                     color = ConsoleMuted,
-                    fontSize = 9.sp
+                    fontSize = 9.sp,
+                    lineHeight = 12.sp
                 )
                 Spacer(Modifier.height(1.dp))
             }
