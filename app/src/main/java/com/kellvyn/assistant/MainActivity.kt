@@ -767,11 +767,13 @@ fun KellvynApp() {
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsImage = ChatRequestRouter.shouldGenerateImage(text)
         if (!modelReady && !existingBuildOnly) {
-            messages.add(ChatMessage(text, true))
-            messages.add(ChatMessage("A IA local ainda está iniciando. Confira o status na tela e tente novamente quando ela estiver pronta.", false))
-            saveHistory()
-            draft = ""
-            status = "IA local não inicializada."
+            // Do not discard an early request while the single integrated AI is preparing.
+            // LaunchedEffect submits this draft automatically once the engine is ready.
+            status = if (isLoadingModel) {
+                "A IA está preparando a primeira execução. Seu pedido ficou guardado no campo e será enviado automaticamente quando ela estiver pronta."
+            } else {
+                "A IA ainda não está pronta. Seu pedido continua no campo; aguarde a preparação terminar."
+            }
             return
         }
 
@@ -1237,11 +1239,16 @@ fun KellvynApp() {
         try {
             localEngine.prepareLocalModel { progress -> status = progress }
             if (localEngine.hasSavedModel()) {
-                status = "IA local encontrada; inicializando…"
-                updateModelResult(localEngine.loadSavedModel())
+                status = "Inicializando Kellvyn IA…"
+                val result = localEngine.loadSavedModel()
+                updateModelResult(result)
+                if (result is AssistantResult.Success && draft.isNotBlank()) {
+                    // A draft submitted during first-run preparation is processed by this same chat.
+                    submitDraft()
+                }
             }
         } catch (e: Exception) {
-            status = "Não foi possível preparar a IA local: " +
+            status = "Não foi possível preparar a IA: " +
                 (e.message ?: e.javaClass.simpleName)
         } finally {
             isLoadingModel = false
@@ -1315,7 +1322,7 @@ fun KellvynApp() {
                 Column(Modifier.weight(1f)) {
                     Text("Kellvyn Assistente", color = accentColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Text(
-                        if (modelReady) "KELLVYN IA • LOCAL" else "KELLVYN IA • INICIALIZANDO",
+                        if (modelReady) "KELLVYN IA • PRONTA" else "KELLVYN IA • PREPARANDO",
                         color = Muted,
                         fontSize = 9.sp,
                         letterSpacing = 1.sp,
@@ -1712,7 +1719,7 @@ fun KellvynApp() {
                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Text(
-                            if (modelReady) "● IA local" else if (isLoadingModel) "◌ Preparando IA" else "IA local indisponível",
+                            if (modelReady) "● Pronta" else if (isLoadingModel) "◌ Preparando IA" else "IA indisponível",
                             color = if (modelReady) accentColor else Muted,
                             fontSize = 10.sp,
                             maxLines = 1
