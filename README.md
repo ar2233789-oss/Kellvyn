@@ -39,5 +39,9 @@ A conversa usa o modelo local integrado. Pesquisa web/GitHub só ocorre quando a
 - [Roadmap técnico](docs/ROADMAP.md)
 - [Arquitetura de compilação local estilo mini Android Studio](docs/LOCAL_BUILD_ARCHITECTURE.md)
 
-## Validação pendente\nAs rotas de PDF/DOCX/ODT, OCR, renderização SVG→PNG, sobreposição e recuperação do SDK receberam código e testes de instrumentação. Ainda é necessário executar o build/testes Android reais; o repositório não contém APK novo validado.\n\n## Build do próprio Kellvyn durante o desenvolvimento
+## Validação pendente
+
+As rotas de PDF/DOCX/ODT, OCR e rotulagem visual, renderização SVG→PNG, sobreposição e recuperação do SDK receberam código e testes de instrumentação. Ainda é necessário executar o build/testes Android reais; o repositório não contém APK novo validado.
+
+## Build do próprio Kellvyn durante o desenvolvimento
 Os workflows de build e teste em nuvem foram removidos. O repositório não contém um APK novo validado para esta revisão. Não anunciar a distribuição como pronta até fornecer o modelo ausente, executar a compilação local do aplicativo anfitrião e verificar pacote/assinatura.
