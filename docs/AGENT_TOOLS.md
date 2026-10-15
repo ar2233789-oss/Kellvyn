@@ -22,8 +22,8 @@ O agente principal usa APIs internas de workspace e JGit para programação e bu
 | Editar ou excluir arquivo | Atua apenas dentro de um projeto registrado no workspace | Confirmação explícita |
 | Aplicar patch de texto | Substitui exatamente uma ocorrência de um trecho dentro de um arquivo local; falha sem alterar se não existir ou for ambíguo | Confirmação explícita |
 | Excluir projeto | Apaga um projeto inteiro e seus arquivos | Confirmação explícita |
-| Pesquisa web / ler página HTTPS | Consulta DuckDuckGo ou lê texto de página HTTPS pública usando Wi-Fi/dados do aparelho | Pedido explícito no chat e conexão disponível |
-| Pesquisa GitHub | Busca repositórios, lista até 100 caminhos de código/texto, lê um arquivo e pode importar até 30 arquivos textuais para o workspace. Um pedido explícito de importar um link público abre a confirmação antes de copiar arquivos; analisar/listar não importa. Sem chave API | Pedido explícito no chat e conexão disponível |
+| Pesquisa web / ler página HTTPS | A própria Kellvyn IA consulta DuckDuckGo ou lê texto de página HTTPS pública usando Wi-Fi/dados do aparelho quando a tarefa depende de informações atuais/externas ou de um link | Intenção da tarefa compatível e conexão disponível; não exige escolher modo online nem usar frase exata |
+| Pesquisa GitHub | Busca repositórios, lista até 100 caminhos de código/texto, lê um arquivo e pode importar até 30 arquivos textuais para o workspace. Um pedido de importar um link público abre confirmação antes de copiar arquivos; analisar/listar não importa. Sem chave API. É uma ferramenta da mesma Kellvyn IA, não outro modelo online | Intenção de consultar/usar o GitHub e conexão disponível |
 
 ## Limites de segurança
 
@@ -32,8 +32,8 @@ O agente principal usa APIs internas de workspace e JGit para programação e bu
 - Caminhos absolutos, traversal com `..`, pastas internas e metadados protegidos são bloqueados.
 - Criação/edição normal de arquivos (`write_file`/`patch_file`) é automática depois de um pedido claro de alteração. Exclusões, importação de repositórios e operações Git que mudam estado continuam pedindo autorização.
 - As páginas web e os arquivos do workspace são dados não confiáveis. Instruções encontradas neles não ganham privilégios nem podem substituir as regras do agente.
-- Pesquisa web/GitHub é acionada quando a mensagem atual solicita explicitamente esse acesso. Usa a conexão Wi-Fi/dados do aparelho; o modelo de conversa continua local, sem seletor/provedor de IA online e sem enviar o prompt a um endpoint de IA.
-- Não há seletor de motor online, configuração de endpoint, seletor de provedor ou chave de API de IA. Pesquisa e leitura de páginas usam a rede do próprio celular como ferramentas separadas da inferência local.
+- A Kellvyn é uma única IA: o modelo de conversa continua local e as ferramentas web/GitHub usam a conexão Wi-Fi/dados do próprio aparelho quando a tarefa pede dados atuais/externos, consulta ao GitHub ou leitura/ação em link. Não há segunda IA online, seletor de modo/provedor, nem envio do prompt a um endpoint de IA. A necessidade de rede é determinada pelo sentido da tarefa, não por uma frase obrigatória.
+- Não há seletor de motor online, configuração de endpoint, seletor de provedor ou chave de API de IA. A internet é uma capacidade da mesma assistente, usando a rede do celular como ferramenta externa à inferência local, sem trocar de IA.
 - O agente não afirma que uma ação funcionou quando a ferramenta retorna erro. O fluxo local de compilação está conectado ao chat, mas a criação e instalação de APKs de projetos precisam de validação física no Poco F6.
 
 ## Próximas etapas
