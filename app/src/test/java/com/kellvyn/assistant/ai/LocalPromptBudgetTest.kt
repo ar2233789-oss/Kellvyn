@@ -53,7 +53,7 @@ class LocalPromptBudgetTest {
         )
 
         val estimatedInputTokens =
-            ((budget.systemInstruction.length + latestUser.length + 640) * 2 + 4) / 5
+            (budget.systemInstruction.length + latestUser.length + 512 + 1) / 2
         assertTrue(estimatedInputTokens + budget.maxOutputTokens + 384 <= 8192)
         assertTrue(budget.maxOutputTokens >= 256)
     }
