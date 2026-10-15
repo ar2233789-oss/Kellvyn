@@ -31,10 +31,14 @@ class LocalSvgImageGeneratorTest {
             assertTrue(success.svgFile.isFile && success.svgFile.length() > 0L)
             val bitmap = BitmapFactory.decodeFile(success.pngFile.absolutePath)
             assertTrue("PNG could not be decoded.", bitmap != null)
-            bitmap!!.useForTest {
-                assertEquals(1024, it.width)
-                assertEquals(1024, it.height)
-                assertFalse("Rendered art is fully transparent.", it.getPixel(512, 512) ushr 24 == 0)
+            bitmap!!.let { rendered ->
+                try {
+                    assertEquals(1024, rendered.width)
+                    assertEquals(1024, rendered.height)
+                    assertFalse("Rendered art is fully transparent.", rendered.getPixel(512, 512) ushr 24 == 0)
+                } finally {
+                    rendered.recycle()
+                }
             }
         } finally {
             if (result is LocalSvgGenerationResult.Success) {
@@ -52,9 +56,4 @@ class LocalSvgImageGeneratorTest {
         assertTrue(runCatching { LocalSvgImageGenerator.extractAndValidate(linked) }.isFailure)
     }
 
-    private inline fun <T> T.useForTest(block: (T) -> Unit) {
-        try { block(this) } finally {
-            (this as? android.graphics.Bitmap)?.recycle()
-        }
-    }
 }
