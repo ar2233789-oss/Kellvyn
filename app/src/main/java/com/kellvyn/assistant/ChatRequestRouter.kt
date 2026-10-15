@@ -35,20 +35,13 @@ object ChatRequestRouter {
     }
 
     /**
-     * Enables network tools for the single Kellvyn assistant when they may be useful.
-     * The model decides whether the task actually needs external data; this is not a
-     * second AI, provider selector, or a requirement for the user to say "search online".
+     * Deterministic cases where external evidence should be fetched before the model answers.
+     * This remains the same Kellvyn assistant: it uses the phone's active connection, not
+     * a second online model. Explicit requests to stay offline always take priority.
      */
-    fun shouldUseOnlineTools(text: String): Boolean {
+    fun shouldAutomaticallyResearch(text: String): Boolean {
         val value = text.trim().lowercase(Locale.ROOT)
-        if (value.isBlank()) return false
-
-        val explicitlyNoNetwork = listOf(
-            "não use a internet", "nao use a internet", "não pesquise", "nao pesquise",
-            "sem pesquisa externa", "responda sem pesquisar", "não acesse a web", "nao acesse a web",
-            "não consulte fontes externas", "nao consulte fontes externas"
-        ).any { it in value }
-        if (explicitlyNoNetwork) return false
+        if (value.isBlank() || explicitlyDisallowsOnlineUse(value)) return false
 
         val explicitRequest = listOf(
             "pesquise na internet", "pesquisar na internet", "pesquisa na internet",
@@ -62,19 +55,18 @@ object ChatRequestRouter {
             "importe o repositório", "importe o repositorio", "importar o repositório", "importar o repositorio",
             "inspecione o repositório", "inspecione o repositorio", "liste os arquivos do repositório", "liste os arquivos do repositorio",
             "abra o link", "leia o link", "resuma o link", "analise o link", "analise esse link",
-            "verifique o link", "acesse o site", "abra o site", "consulte o site",
-            "previsão do tempo", "previsao do tempo", "notícias atuais", "noticias atuais",
-            "últimas notícias", "ultimas noticias", "clima de hoje", "cotação atual", "cotacao atual"
+            "verifique o link", "acesse o site", "abra o site", "consulte o site"
         ).any { it in value }
+
         val hasLink = Regex("""https?://\S+""").containsMatchIn(value)
         val actionOnLink = hasLink && listOf(
-            "leia", "resuma", "analise", "verifique", "compare", "acesse", "abra", "olhe", "olhar",
-            "confira", "investigue", "inspecione", "importe", "importar", "clone", "copie", "liste", "listar"
+            "leia", "ler ", "resuma", "analise", "analisa", "verifique", "compare", "acesse",
+            "abra", "olhe", "olha", "veja", "ver ", "confira", "investigue", "inspecione",
+            "importe", "importar", "clone", "copie", "liste", "listar", "explique o conteúdo",
+            "explique o conteudo", "o que tem neste link", "o que tem nesse link"
         ).any { it in value }
-        if (explicitRequest || actionOnLink) return true
 
-        // Time-sensitive, commercial, legal, location-based, and public-entity facts
-        // commonly need external verification even when the user doesn't say "search".
+        // Facts that routinely change or depend on public, local, commercial, or legal sources.
         val externalInformationSignals = listOf(
             "atual", "atualmente", "hoje", "agora", "esta semana", "este mês", "este mes",
             "mais recente", "último", "última", "ultimas", "recentemente", "novidade",
@@ -86,16 +78,28 @@ object ChatRequestRouter {
             "lei vigente", "legislação atual", "legislacao atual", "regra atual", "regra vigente",
             "regulamento atual", "norma atual", "ceo", "presidente atual", "quem é o presidente",
             "quem e o presidente", "quem comanda", "quem é o dono", "quem e o dono",
-            "ranking", "avaliações", "avaliacoes", "reviews", "comparar produtos", "compare os",
-            "melhor aplicativo", "melhor celular", "melhor modelo", "recomende um", "recomendações",
-            "recomendacoes", "cotação do", "cotacao do", "ações da", "acoes da", "bolsa de valores"
+            "ranking", "avaliações", "avaliacoes", "reviews", "melhor aplicativo",
+            "melhor celular", "melhor modelo", "recomende um", "recomendações", "recomendacoes",
+            "cotação do", "cotacao do", "ações da", "acoes da", "bolsa de valores"
         ).any { it in value }
-        if (externalInformationSignals) return true
 
+        return explicitRequest || actionOnLink || externalInformationSignals
+    }
+
+    /**
+     * Offers network tools to the main agent for meaningful requests, unless the user
+     * explicitly declines network use or the message is clearly a local-only task.
+     * The local model remains the one assistant and decides whether tools are actually needed.
+     */
+    fun shouldUseOnlineTools(text: String): Boolean {
+        val value = text.trim().lowercase(Locale.ROOT)
+        if (value.isBlank() || explicitlyDisallowsOnlineUse(value)) return false
+        if (shouldAutomaticallyResearch(value)) return true
+
+        val hasLink = Regex("""https?://\S+""").containsMatchIn(value)
         // A bare URL is not an instruction to fetch it; require context or an action.
         if (hasLink) return false
 
-        // Clear local-only requests don't need internet merely because tools exist.
         val ordinaryLocalRequest = listOf(
             "bom dia", "boa tarde", "boa noite", "olá", "ola", "oi", "obrigado", "obrigada",
             "explique o que é", "explique o que e", "o que é", "o que e", "o que significa",
@@ -115,9 +119,16 @@ object ChatRequestRouter {
         if (localCodeAction) return false
 
         // For other substantial requests, make the web/GitHub tools available to the agent.
-        // The system prompt still tells it to browse only when the task needs outside evidence.
+        // The system prompt tells it to browse only when the task needs outside evidence.
         return value.length >= 14
     }
+
+    private fun explicitlyDisallowsOnlineUse(value: String): Boolean =
+        listOf(
+            "não use a internet", "nao use a internet", "não pesquise", "nao pesquise",
+            "sem pesquisa externa", "responda sem pesquisar", "não acesse a web", "nao acesse a web",
+            "não consulte fontes externas", "nao consulte fontes externas"
+        ).any { it in value }
 
     fun shouldCompileExistingProject(text: String): Boolean {
         val t = text.trim().lowercase(Locale.ROOT)
