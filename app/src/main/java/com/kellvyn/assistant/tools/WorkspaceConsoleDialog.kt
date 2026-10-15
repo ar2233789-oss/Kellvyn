@@ -190,7 +190,7 @@ fun WorkspaceConsoleDialog(
                     ) { Text(if (terminalBusy) "…" else "▶") }
                 }
                 Text(
-                    "Este painel executa comandos no Termux instalado. Para programas interativos, toque em Abrir Termux. Para liberar a ponte, conceda RUN_COMMAND ao Kellvyn em Permissões do Android e defina allow-external-apps=true em ~/.termux/termux.properties; depois execute termux-reload-settings. O agente principal pode usar Termux quando a tarefa solicitada no chat precisar de shell real; cada comando exige sua confirmação.",
+                    "Este painel executa comandos no Termux instalado. Para programas interativos, toque em Abrir Termux. Para liberar a ponte, conceda RUN_COMMAND ao Kellvyn em Permissões do Android e defina allow-external-apps=true em ~/.termux/termux.properties; depois execute termux-reload-settings. A IA do chat principal só se conecta ao aplicativo Termux independente quando você pedir ajuda com Termux pelo próprio chat; cada comando executado exige sua confirmação.",
                     color = ConsoleMuted,
                     fontSize = 9.sp,
                     lineHeight = 12.sp
