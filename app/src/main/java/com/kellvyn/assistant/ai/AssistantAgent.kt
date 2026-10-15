@@ -1,5 +1,6 @@
 package com.kellvyn.assistant.ai
 
+import com.kellvyn.assistant.ChatRequestRouter
 import android.net.Uri
 import android.text.Html
 import com.kellvyn.assistant.workspace.ProjectFileInput
@@ -1539,18 +1540,8 @@ class AssistantAgent(
         return query.ifBlank { normalized }.take(MAX_QUERY_CHARS)
     }
 
-    private fun looksLikeWebResearch(text: String): Boolean {
-        val t = text.lowercase(Locale.ROOT)
-        return listOf(
-            "pesquise na internet", "pesquisa na internet", "procure na internet", "busque na internet",
-            "pesquise na web", "procure na web", "busque na web", "pesquise sobre", "pesquisa sobre",
-            "notícias atuais", "noticias atuais", "informação atualizada", "informacao atualizada",
-            "repositório no github", "repositorio no github", "procure um repositório", "procure um repositorio",
-            "procure repositório", "procure repositorio", "busque repositório", "busque repositorio",
-            "pesquise repositório", "pesquise repositorio", "pesquise no github", "busque no github",
-            "procure no github", "pesquise repositórios", "pesquise repositorios"
-        ).any { it in t }
-    }
+    private fun looksLikeWebResearch(text: String): Boolean =
+        ChatRequestRouter.shouldAutomaticallyResearch(text)
 
     private fun looksLikeLocalApkBuildRequest(text: String): Boolean {
         val t = text.lowercase(Locale.ROOT)
