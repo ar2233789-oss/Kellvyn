@@ -38,6 +38,13 @@ class AgentApprovalPolicyTest {
     }
 
     @Test
+    fun everyTermuxCommandRequiresExplicitApprovalEvenWithoutReinforcedProtection() {
+        assertTrue(AgentApprovalPolicy.requiresApproval("termux_run_command"))
+        assertTrue(AgentApprovalPolicy.requiresApproval("termux_run_command", reinforcedProtection = false))
+        assertTrue(AgentApprovalPolicy.requiresApproval("termux_run_command", reinforcedProtection = true))
+    }
+
+    @Test
     fun readOnlyAndUnknownActionsDoNotRequestMutationApproval() {
         assertFalse(AgentApprovalPolicy.requiresApproval("read_file"))
         assertFalse(AgentApprovalPolicy.requiresApproval("list_projects"))
