@@ -7,7 +7,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Aplicativo Android nativo em Kotlin/Jetpack Compose, com uma tela principal de conversa.
 - [x] Criar, corrigir e compilar projetos é solicitado pelo chat principal; não existe seletor manual de “conversar/criar”.
 - [x] Sem modo leve/pesado, sem seletor de modelo e sem provedor externo de IA.
-- [x] Navegação superior: hambúrguer abre somente o histórico; menu de ferramentas reúne anexos, códigos guardados, Apps/APKs, memória e assistente flutuante; três pontos abrem configurações.
+- [x] Navegação superior: hambúrguer abre somente o histórico; atalho Apps/APKs no cabeçalho abre o catálogo; menu de ferramentas reúne anexos, códigos guardados, memória e assistente flutuante; três pontos abrem configurações.
 - [x] Histórico limitado e apagável; memórias explícitas podem ser guardadas, vistas e apagadas.
 - [x] Ditado em português no compositor e ação “Ouvir” nas respostas, usando recursos disponíveis no próprio Android e informando quando indisponíveis.
 - [x] Ícones do cabeçalho, compositor e catálogo Apps substituídos por desenhos vetoriais escaláveis em Canvas; validar a aparência final no Poco F6 ainda está pendente.
