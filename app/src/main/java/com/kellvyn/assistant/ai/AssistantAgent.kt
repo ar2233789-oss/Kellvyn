@@ -975,7 +975,7 @@ class AssistantAgent(
             appendLine("- github_tree {repository,ref?}: lista caminhos de arquivos de código/texto em um repositório público quando solicitado; usa a internet do celular")
             appendLine("- github_import {repository,ref?}: importa até 30 arquivos textuais de repositório público após pedido explícito e confirmação; usa a internet do celular")
             appendLine("- github_file {repository,path,ref?}: lê até 12 mil caracteres de um arquivo público do GitHub quando solicitado; usa a branch padrão se ref for omitida e a internet do celular")
-            appendLine("- open_web_page {url}: lê página HTTPS pública quando o pedido solicita explicitamente; usa a rede disponível no celular")
+            appendLine("- open_web_page {url}: lê página HTTPS pública quando o conteúdo externo é necessário para atender à intenção do pedido; usa a rede disponível no celular como ferramenta da mesma Kellvyn IA")
             appendLine()
             appendLine("Responda SOMENTE com um JSON de uma destas formas, sem markdown:")
             appendLine("""{"kind":"answer","text":"sua resposta final em português"}""")
