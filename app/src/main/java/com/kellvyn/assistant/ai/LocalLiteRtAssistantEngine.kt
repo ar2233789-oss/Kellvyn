@@ -26,8 +26,8 @@ private const val MAX_PROJECT_OUTPUT_TOKENS = 8192
 private const val MODEL_CONTEXT_TOKEN_LIMIT = 8192
 private const val CONTEXT_SAFETY_TOKEN_RESERVE = 384
 private const val TEMPLATE_OVERHEAD_TOKENS = 256
-private const val CHARS_PER_TOKEN_NUMERATOR = 5
-private const val CHARS_PER_TOKEN_DENOMINATOR = 2
+private const val CHARS_PER_TOKEN_NUMERATOR = 2
+private const val CHARS_PER_TOKEN_DENOMINATOR = 1
 private const val MIN_OUTPUT_TOKEN_BUDGET = 256
 private const val LONG_GENERATION_SYSTEM_RESERVE_TOKENS = 2048
 
