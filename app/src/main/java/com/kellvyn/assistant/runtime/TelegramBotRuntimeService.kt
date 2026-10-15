@@ -52,7 +52,6 @@ class TelegramBotRuntimeService : Service() {
             ACTION_START_TELEGRAM -> {
                 val id = intent.getStringExtra(EXTRA_PROJECT_ID).orEmpty()
                 if (id.isNotBlank()) {
-                    runtimeStore.setActive(id, true)
                     startTelegramProject(id)
                 }
             }
@@ -80,11 +79,25 @@ class TelegramBotRuntimeService : Service() {
 
     private fun isTelegramProject(id: String): Boolean {
         val project = workspaceStore.getProject(id) ?: return false
-        return runCatching { TelegramBotDefinition.load(workspaceStore, id, project.name) }.isSuccess
+        return runCatching {
+            "kellvyn.telegram.json" in workspaceStore.listFiles(id) &&
+                BotRuntimePlatformGuard.manifestMatchesPlatform(
+                    workspaceStore.readFile(id, "kellvyn.telegram.json"),
+                    "telegram"
+                )
+        }.getOrDefault(false)
     }
 
     private fun startTelegramProject(id: String) {
         if (clients.containsKey(id)) return
+        // Verify platform ownership before changing the shared active-project registry.
+        if (!isTelegramProject(id)) {
+            statuses[id] = "Este projeto não pertence ao runtime Telegram; nenhum estado foi alterado."
+            updateNotification()
+            stopSelfIfIdle()
+            return
+        }
+        runtimeStore.setActive(id, true)
         val project = workspaceStore.getProject(id)
         val credentials = credentialsStore.get(id)
         if (project == null || credentials == null) {
@@ -112,6 +125,13 @@ class TelegramBotRuntimeService : Service() {
     }
 
     private fun stopProject(id: String) {
+        // A STOP_PROJECT intent may be malformed or sent to the wrong service.
+        // Do not clear a Discord project's shared active flag from Telegram.
+        if (!clients.containsKey(id) && !isTelegramProject(id)) {
+            statuses.remove(id)
+            updateNotification()
+            return
+        }
         runtimeStore.setActive(id, false)
         clients.remove(id)?.stop()
         statuses.remove(id)
