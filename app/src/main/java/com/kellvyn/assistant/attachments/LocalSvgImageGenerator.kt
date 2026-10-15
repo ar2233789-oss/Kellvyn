@@ -71,7 +71,7 @@ object LocalSvgImageGenerator {
                                 "Crie uma versão mais simples da mesma ilustração. Descrição original: " +
                                     prompt.take(1_200) + ". Erro de validação: " + lastError + ". " +
                                     "Devolva somente um SVG válido e completo, começando por <svg e terminando por </svg>. " +
-                                    "Use no máximo 14 formas simples, sem explicações, markdown, comentários, links, CSS, scripts ou imagens externas."
+                                    "Use no máximo 14 formas simples; não use <clipPath>, clip-path, máscaras, filtros, CSS, scripts, comentários, links ou imagens externas. Prefira círculos, retângulos, linhas e caminhos simples."
                             )
                         }
                     }
@@ -135,7 +135,28 @@ object LocalSvgImageGenerator {
      * still requires an explicit viewBox attribute.
      */
     internal fun extractGeneratedAndValidate(source: String): String =
-        extractAndValidate(ensureModelSvgViewport(source))
+        extractAndValidate(stripUnsupportedClipping(ensureModelSvgViewport(source)))
+
+    /**
+     * The local text model can emit clipping markup that this renderer deliberately does not
+     * support. For model-generated output only, discard clipPath definitions and clip-path
+     * references so the drawing remains renderable. The resulting SVG still passes the full
+     * strict XML parser and element/attribute allow-lists below; imported SVG is never changed.
+     */
+    private fun stripUnsupportedClipping(source: String): String {
+        val withoutSelfClosingClipPaths = source.replace(
+            Regex("""(?is)<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\\b[^>]*/\\s*>"""),
+            ""
+        )
+        val withoutClipPaths = withoutSelfClosingClipPaths.replace(
+            Regex("""(?is)<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\\b[^>]*>.*?</(?:[A-Za-z_][A-Za-z0-9_.-]*:)?clipPath\\s*>"""),
+            ""
+        )
+        return withoutClipPaths.replace(
+            Regex("""(?is)\\s+clip-path\\s*=\\s*(?:"[^"]*"|'[^']*')"""),
+            ""
+        )
+    }
 
     private fun ensureModelSvgViewport(source: String): String {
         val start = source.indexOf("<svg", ignoreCase = true)
