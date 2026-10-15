@@ -40,7 +40,7 @@ Este documento reúne os requisitos do produto para manter a direção do projet
 - Preservar a composição compacta da referência verde: barra superior com nome e ações discretas, chat como área principal e compositor fixo próximo ao rodapé. A navegação implementada permanece nos menus superiores, sem abas inferiores.
 - Incorporar progressivamente as funções vistas na montagem conceitual posterior: projetos/arquivos, editor, console, cartão real de APK e configurações; área de jogos somente quando a integração de observação/controle for real. Sem WebView; toda navegação deve ser nativa.
 - Nomes, tamanhos, porcentagens, logs e resultados ilustrados são exemplos visuais, não dados reais ou promessa de funções prontas.
-- Chat principal com status do núcleo que mostra estados honestos: planejando, gerando, compilando, testando, concluído ou erro.
+- Chat principal com status da IA que mostra estados honestos: planejando, gerando, compilando, testando, concluído ou erro.
 - Órbita/mascote flutuante discreto é uma meta visual, não algo já concluído.
 - Abaixo de cada resposta da IA: ícone pequeno de folha/páginas com “Copiar”, copiando a resposta inteira.
 - O ditado em português é acionado pelo microfone junto ao compositor, e a leitura em voz alta pela ação “Ouvir” abaixo de cada resposta. Ambos devem informar honestamente quando o serviço do Android não estiver disponível.
@@ -88,7 +88,7 @@ Pipeline local implementado no código: ECJ compila Java, D8 gera DEX, o empacot
 - O app não deve enviar código-fonte para um serviço remoto para compilação.
 
 ## Estado técnico conhecido (15 de outubro de 2026)
-Implementado no código: Kotlin/Compose, chat com histórico local limitado, botão Copiar, adaptador LiteRT-LM, memória explícita, ferramentas web/GitHub por pedido explícito, construtor interno acionado pelo chat, workspace local, editor, ditado/TTS e compilador Android local para projetos Java. O arquivo de modelo esperado não está presente no checkout atual e a revisão ainda não tem APK novo validado. Voz e build local precisam de teste real no Poco F6. Não há troca de núcleo/modelo, seletor de provedor, modo Build manual, exportação compactada ou tela Terminal.
+Implementado no código: Kotlin/Compose, chat com histórico local limitado, botão Copiar, adaptador LiteRT-LM, memória explícita, ferramentas web/GitHub por pedido explícito, construtor interno acionado pelo chat, workspace local, editor, ditado/TTS e compilador Android local para projetos Java. O arquivo de modelo esperado não está presente no checkout atual e a revisão ainda não tem APK novo validado. Voz e build local precisam de teste real no Poco F6. Há apenas uma IA integrada no chat, sem seletor de IA/provedor, alternância de criação, exportação compactada ou tela Terminal.
 
 Ainda não concluído/validado: compilação da revisão atual do próprio Kellvyn; presença/validade do modelo de IA na distribuição; resposta real, voz, instalação e desempenho no Poco F6; compilação/instalação de projetos gerados no aparelho. O runtime nativo Telegram está no código, mas ainda não foi compilado/testado. WhatsApp Business continua apenas como código-fonte: receber mensagens exige webhook HTTPS público, que não deve ser fingido como funcional nem substituído por hospedagem remota não solicitada. Aprendizagem de jogos e overlay/mascote também permanecem pendentes. Uma build anterior não comprova estas capacidades.
 
