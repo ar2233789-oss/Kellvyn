@@ -287,6 +287,7 @@ fun KellvynApp() {
     val scope = rememberCoroutineScope()
     val chatListState = rememberLazyListState()
     var draft by remember { mutableStateOf("") }
+    var pendingSubmission by remember { mutableStateOf<String?>(null) }
     var streamingReply by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("Kellvyn pronto. Converse pelo chat principal.") }
     var modelReady by remember { mutableStateOf(false) }
@@ -753,8 +754,8 @@ fun KellvynApp() {
 
     fun installLatestApk() = installApkFile(latestBuiltApk)
 
-    fun submitDraft() {
-        val text = draft.trim()
+    fun submitDraft(queuedText: String? = null) {
+        val text = (queuedText ?: draft).trim()
         if (text.isEmpty() || isGenerating) return
         if (KellvynIdentity.isIdentityQuestion(text)) {
             messages.add(ChatMessage(text, true))
