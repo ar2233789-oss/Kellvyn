@@ -11,7 +11,8 @@ internal object AgentApprovalPolicy {
         "git_commit",
         "delete_file",
         "delete_project",
-        "github_import"
+        "github_import",
+        "termux_run_command"
     )
 
     // Optional setting for people who want explicit consent before normal changes as well.
