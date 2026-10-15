@@ -46,7 +46,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
     @Volatile private var engine: Engine? = null
 
     // One integrated Kellvyn assistant; no light/heavy model modes are exposed.
-    override val displayName: String = "Kellvyn IA — núcleo local"
+    override val displayName: String = "Kellvyn IA"
 
     fun hasSavedModel(): Boolean = modelFile.isFile && modelFile.length() > 0L
 
@@ -58,7 +58,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
     suspend fun prepareLocalModel(onProgress: (String) -> Unit = {}) {
         withContext(Dispatchers.IO) {
             if (!modelDirectory.exists() && !modelDirectory.mkdirs()) {
-                throw IllegalStateException("Não foi possível preparar a pasta privada do núcleo local.")
+                throw IllegalStateException("Não foi possível preparar o armazenamento privado da IA local.")
             }
             installConversationModelIfAvailable(onProgress)
         }
@@ -88,13 +88,13 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             } else {
                 reportModelProgress(
                     onProgress,
-                    "Preparando a IA local pela primeira vez (aprox. 374 MB). O processo é automático; não há troca ou seleção de núcleo…"
+                    "Preparando a IA local pela primeira vez (aprox. 374 MB)…"
                 )
                 downloadPinnedModel(temporary, onProgress)
             }
 
             if (modelFile.exists() && !modelFile.delete()) {
-                throw IllegalStateException("Não foi possível substituir o modelo antigo pelo núcleo local verificado.")
+                throw IllegalStateException("Não foi possível finalizar a preparação do modelo local verificado.")
             }
             if (!temporary.renameTo(modelFile)) {
                 throw IllegalStateException("Não foi possível instalar o modelo no armazenamento privado.")
@@ -136,7 +136,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 "O tamanho informado pelo servidor não corresponde à versão verificada do modelo."
             }
             connection.inputStream.use { input ->
-                copyAndVerifyModel(input, destination, onProgress, "Baixando núcleo local")
+                copyAndVerifyModel(input, destination, onProgress, "Preparando a IA local")
             }
         } finally {
             connection.disconnect()
@@ -217,7 +217,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
 
     suspend fun loadSavedModel(): AssistantResult {
         if (!hasSavedModel()) {
-            return AssistantResult.Unavailable("O núcleo local integrado não está disponível nesta versão.")
+            return AssistantResult.Unavailable("O modelo local integrado não está disponível nesta versão.")
         }
         return loadModel()
     }
@@ -260,7 +260,7 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         onPartial: suspend (String) -> Unit = {}
     ): AssistantResult = withContext(Dispatchers.IO) {
         val activeEngine = engine
-            ?: return@withContext AssistantResult.Unavailable("O núcleo local ainda não terminou de inicializar. Tente enviar novamente.")
+            ?: return@withContext AssistantResult.Unavailable("A IA local ainda está inicializando. Tente enviar novamente quando o status indicar que está pronta.")
 
         val lastUserIndex = conversation.indexOfLast { it.role == AssistantTurn.Role.USER }
         if (lastUserIndex < 0) {
