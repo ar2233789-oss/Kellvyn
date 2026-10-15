@@ -93,12 +93,21 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 downloadPinnedModel(temporary, onProgress)
             }
 
-            if (modelFile.exists() && !modelFile.delete()) {
-                throw IllegalStateException("Não foi possível finalizar a preparação do modelo local verificado.")
+            val previous = File(modelDirectory, "kellvyn-model.previous")
+            previous.delete()
+            if (modelFile.exists() && !modelFile.renameTo(previous)) {
+                throw IllegalStateException("Não foi possível preservar o arquivo válido anterior durante a recuperação automática.")
             }
             if (!temporary.renameTo(modelFile)) {
-                throw IllegalStateException("Não foi possível instalar o modelo no armazenamento privado.")
+                if (previous.exists()) previous.renameTo(modelFile)
+                throw IllegalStateException("Não foi possível instalar o arquivo verificado da IA local.")
             }
+            if (!hasBundledChecksum(modelFile)) {
+                modelFile.delete()
+                if (previous.exists()) previous.renameTo(modelFile)
+                throw IllegalStateException("A IA local falhou na verificação final do arquivo instalado.")
+            }
+            previous.delete()
             bundlePrefs.edit().putBoolean(BUNDLE_VERIFIED_KEY, true).apply()
             reportModelProgress(onProgress, "Modelo local verificado e guardado no aparelho.")
         } catch (e: CancellationException) {
@@ -283,11 +292,6 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
                 requestedText.contains("TAREFA: criar código-fonte funcional", ignoreCase = true) ||
                 requestedText.contains("REGRAS TÉCNICAS E ESQUEMA:", ignoreCase = true) ||
                 requestedText.contains("Esquema obrigatório:", ignoreCase = true)
-            if (!projectGeneration && isExplicitImageGenerationRequest(requestedText)) {
-                val capabilityNotice = "Esta versão do Kellvyn IA usa um modelo local somente de texto. Não consigo criar ou anexar uma imagem PNG/JPEG nem verificar uma referência visual nesta conversa. Posso ajudar a gerar código de arte vetorial/Canvas dentro de um app, mas isso não é um arquivo de imagem gerado."
-                onPartial(capabilityNotice)
-                return@withContext AssistantResult.Success(capabilityNotice)
-            }
             val config = ConversationConfig(
                 systemInstruction = Contents.of(
                     buildString {
@@ -382,18 +386,4 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
         engine = null
     }
 
-}
-
-
-/** True only for direct requests to create an image, not for discussion or image analysis. */
-internal fun isExplicitImageGenerationRequest(prompt: String): Boolean {
-    val value = prompt.lowercase(Locale.ROOT)
-    return listOf(
-        "gere uma imagem", "gerar uma imagem", "crie uma imagem", "criar uma imagem",
-        "desenhe uma imagem", "desenhar uma imagem", "faça uma imagem", "faca uma imagem",
-        "gere imagem", "gerar imagem", "crie imagem", "criar imagem",
-        "gere uma foto", "gerar uma foto", "crie uma foto", "gere uma ilustração",
-        "gere uma ilustracao", "crie uma ilustração", "crie uma ilustracao",
-        "generate an image", "create an image", "draw an image"
-    ).any { it in value }
 }
