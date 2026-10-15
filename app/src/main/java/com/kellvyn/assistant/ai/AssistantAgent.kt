@@ -173,7 +173,7 @@ class AgentToolRouter(
         "delete_file" -> "Apagar o arquivo ${args.optString("path")} do projeto ${args.optString("project_id")}"
         "delete_project" -> "Apagar o projeto ${args.optString("project_id")} e seus arquivos locais"
         "build_project_apk" -> "Compilar e assinar o APK do projeto ${args.optString("project_id")} no armazenamento local do aparelho"
-        "termux_run_command" -> "Executar no Termux o comando: ${args.optString("command").take(500)}"
+        "termux_run_command" -> "Executar no Termux o comando: ${args.optString("command")}"
         else -> "Autorizar ferramenta $name"
     }
 
