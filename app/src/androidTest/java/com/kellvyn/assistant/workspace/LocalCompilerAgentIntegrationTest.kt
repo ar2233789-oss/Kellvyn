@@ -477,7 +477,7 @@ class LocalCompilerAgentIntegrationTest {
 
             section("Resumo de falhas observadas", if (failures.isEmpty()) "Nenhuma falha automática registrada." else failures.mapIndexed { i, item -> (i + 1).toString() + ". " + item }.joinToString("\n"))
             report.append("\n## Limitações verificadas\n\n")
-            report.append("- O núcleo usado aqui gera texto. Não gera PNG/JPEG nem pode ver uma imagem de referência.\n")
+            report.append("- O modelo textual pode gerar uma ilustração vetorial SVG que é validada e renderizada em PNG localmente; isso não é difusão fotorrealista nem compreensão visual de uma imagem de referência.\n")
             report.append("- O build local inicial compila Java com APIs Android, não Kotlin/Compose ou dependências arbitrárias.\n")
             report.append("- Não foram usadas credenciais reais de serviços externos.\n")
             persist()
