@@ -4,7 +4,15 @@ import android.content.Context
 import android.net.Uri
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.rendering.ImageType
+import com.tom_roush.pdfbox.rendering.PDFRenderer
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import android.graphics.Bitmap
+import com.google.android.gms.tasks.Tasks
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.util.concurrent.TimeUnit
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
@@ -13,8 +21,9 @@ import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 
 /**
- * Extracts searchable text from PDF, DOCX, and ODT locally. Scanned pages are not OCRed here;
- * image files use LocalImageTextExtractor instead. Size/page/output limits avoid unbounded work.
+ * Extracts searchable text from PDF, DOCX, and ODT locally. PDF pages without usable text are
+ * rendered to bounded-size bitmaps and passed through bundled on-device Latin OCR. Size, page,
+ * render and output limits keep large or malicious documents from consuming unbounded resources.
  */
 object LocalDocumentTextExtractor {
     private const val MAX_DOCUMENT_BYTES = 20 * 1024 * 1024
@@ -22,6 +31,10 @@ object LocalDocumentTextExtractor {
     private const val MAX_ZIP_EXPANDED_BYTES = 50L * 1024L * 1024L
     private const val MAX_EXTRACTED_CHARS = 60_000
     private const val MAX_PDF_PAGES = 50
+    private const val MIN_NATIVE_PAGE_TEXT_CHARS = 10
+    private const val MAX_PDF_OCR_BITMAP_EDGE = 1_700f
+    private const val MAX_PDF_OCR_SCALE = 2.0f
+    private const val PDF_OCR_TIMEOUT_SECONDS = 30L
 
     fun supports(fileName: String, mimeType: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
@@ -53,7 +66,7 @@ object LocalDocumentTextExtractor {
             }.trim()
             require(extracted.isNotBlank()) {
                 when (kind) {
-                    "pdf" -> "O PDF não contém texto pesquisável. Pode ser um escaneamento; a leitura visual/OCR de PDF ainda não está disponível."
+                    "pdf" -> "Não consegui detectar texto neste PDF, mesmo após tentar OCR local nas páginas escaneadas. Verifique se o documento está legível ou protegido."
                     else -> "Não encontrei texto legível dentro deste documento."
                 }
             }
@@ -94,16 +107,68 @@ object LocalDocumentTextExtractor {
         PDFBoxResourceLoader.init(context.applicationContext)
         PDDocument.load(file).use { document ->
             require(document.numberOfPages > 0) { "O PDF não contém páginas." }
-            val stripper = PDFTextStripper().apply {
-                startPage = 1
-                endPage = minOf(document.numberOfPages, MAX_PDF_PAGES)
-                sortByPosition = true
+            val pagesToRead = minOf(document.numberOfPages, MAX_PDF_PAGES)
+            val stripper = PDFTextStripper().apply { sortByPosition = true }
+            val renderer = PDFRenderer(document)
+            var recognizer: com.google.mlkit.vision.text.TextRecognizer? = null
+            val output = StringBuilder()
+            var ocrFailures = 0
+            try {
+                for (pageIndex in 0 until pagesToRead) {
+                    stripper.startPage = pageIndex + 1
+                    stripper.endPage = pageIndex + 1
+                    val nativeText = stripper.getText(document).trim()
+                    val nativeCharacterCount = nativeText.count { it.isLetterOrDigit() }
+                    var pageText = nativeText
+
+                    // Searchable pages stay on the quick text path. Render only scanned pages
+                    // (or pages whose text layer is effectively empty) to avoid needless OCR.
+                    if (nativeCharacterCount < MIN_NATIVE_PAGE_TEXT_CHARS) {
+                        var bitmap: Bitmap? = null
+                        try {
+                            val box = document.getPage(pageIndex).cropBox
+                            val longestEdge = maxOf(box.width, box.height).coerceAtLeast(1f)
+                            val scale = (MAX_PDF_OCR_BITMAP_EDGE / longestEdge)
+                                .coerceAtMost(MAX_PDF_OCR_SCALE)
+                                .coerceAtLeast(0.25f)
+                            bitmap = renderer.renderImage(pageIndex, scale, ImageType.RGB)
+                            val activeRecognizer = recognizer
+                                ?: TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).also {
+                                    recognizer = it
+                                }
+                            val recognizedText = Tasks.await(
+                                activeRecognizer.process(InputImage.fromBitmap(bitmap, 0)),
+                                PDF_OCR_TIMEOUT_SECONDS,
+                                TimeUnit.SECONDS
+                            ).text.trim()
+                            if (recognizedText.isNotBlank()) {
+                                pageText = "[Página ${pageIndex + 1} — OCR local]\n$recognizedText"
+                            }
+                        } catch (_: Exception) {
+                            ocrFailures++
+                            // Preserve any small native text rather than losing the page on OCR failure.
+                        } finally {
+                            bitmap?.recycle()
+                        }
+                    }
+
+                    if (pageText.isNotBlank()) {
+                        if (output.isNotEmpty()) output.append("\n\n")
+                        output.append(pageText)
+                    }
+                    if (output.length >= MAX_EXTRACTED_CHARS) break
+                }
+            } finally {
+                try { recognizer?.close() } catch (_: Exception) { }
             }
-            val value = stripper.getText(document)
-            val clipped = value.take(MAX_EXTRACTED_CHARS)
-            return if (document.numberOfPages > MAX_PDF_PAGES) {
-                clipped + "\n\n[Leitura limitada às primeiras $MAX_PDF_PAGES páginas de ${document.numberOfPages}.]"
-            } else clipped
+
+            if (document.numberOfPages > MAX_PDF_PAGES) {
+                output.append("\n\n[Leitura limitada às primeiras $MAX_PDF_PAGES páginas de ${document.numberOfPages}.]")
+            }
+            if (ocrFailures > 0 && output.isNotBlank()) {
+                output.append("\n\n[Algumas páginas escaneadas não puderam ser reconhecidas por OCR local.]")
+            }
+            return output.toString().take(MAX_EXTRACTED_CHARS)
         }
     }
 
