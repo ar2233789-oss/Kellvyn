@@ -768,19 +768,20 @@ fun KellvynApp() {
         val existingBuildOnly = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsImage = ChatRequestRouter.shouldGenerateImage(text)
         if (!modelReady && !existingBuildOnly) {
-            // Do not discard an early request while the single integrated AI is preparing.
-            // LaunchedEffect submits this draft automatically once the engine is ready.
+            // Queue this explicit Send tap while the single integrated AI prepares.
+            pendingSubmission = text
             status = if (isLoadingModel) {
-                "A IA está preparando a primeira execução. Seu pedido ficou guardado no campo e será enviado automaticamente quando ela estiver pronta."
+                "A IA está preparando a primeira execução. Seu pedido foi colocado na fila e será enviado automaticamente quando ela estiver pronta."
             } else {
-                "A IA ainda não está pronta. Seu pedido continua no campo; aguarde a preparação terminar."
+                "A IA ainda não está pronta. Seu pedido continua salvo e será enviado assim que a IA puder responder."
             }
             return
         }
 
         messages.add(ChatMessage(text, true))
         saveHistory()
-        draft = ""
+        if (draft.trim() == text) draft = ""
+        if (pendingSubmission == text) pendingSubmission = null
         val wantsExistingBuild = ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsBuild = !wantsImage && !wantsExistingBuild &&
             ChatRequestRouter.shouldBuild(text)
