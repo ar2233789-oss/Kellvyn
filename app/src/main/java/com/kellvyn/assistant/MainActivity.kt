@@ -656,7 +656,7 @@ fun KellvynApp() {
                             val project = result.project
                             existingProjects.clear()
                             existingProjects.addAll(workspaceStore.listProjects())
-                            if (appBuilderAgent.isDiscordBotRequest(text)) {
+                            if (appBuilderAgent.isBotProjectRequest(text) && appBuilderAgent.isDiscordBotRequest(text)) {
                                 messages.add(
                                     ChatMessage(
                                         "O bot \"" + project.name + "\" foi salvo no catálogo Apps. Abra Apps e toque em Manter ativo para configurar o token e o Application ID do Discord. O runtime nativo executa os comandos declarados em kellvyn.bot.json e mostra o estado real numa notificação persistente; o código Node.js continua guardado como fonte.",
@@ -664,7 +664,7 @@ fun KellvynApp() {
                                     )
                                 )
                                 status = "Bot Discord salvo em Apps; ainda precisa configurar as credenciais para conectar."
-                            } else if (appBuilderAgent.isTelegramBotRequest(text)) {
+                            } else if (appBuilderAgent.isBotProjectRequest(text) && appBuilderAgent.isTelegramBotRequest(text)) {
                                 messages.add(
                                     ChatMessage(
                                         "O bot Telegram \"" + project.name + "\" foi salvo em Apps. Para ativá-lo, abra Apps, toque em Manter ativo e informe o token do BotFather na configuração protegida. O runtime nativo fica neste aparelho e processa os comandos declarados em kellvyn.telegram.json.",
