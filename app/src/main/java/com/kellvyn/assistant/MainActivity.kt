@@ -1114,9 +1114,14 @@ fun KellvynApp() {
                     }
                     when (val result = agentResult) {
                         is AssistantResult.Success -> {
-                            messages.add(ChatMessage(result.text, false))
-                            status = when {
-                                else -> "Resposta gerada no aparelho"
+                            val finalText = result.text.ifBlank {
+                                "A IA terminou a geração sem produzir uma resposta. Tente novamente; se acontecer de novo, o modelo local precisa ser verificado."
+                            }
+                            messages.add(ChatMessage(finalText, false))
+                            status = if (result.text.isBlank()) {
+                                "A geração terminou sem texto; verifiquei o resultado e registrei a falha."
+                            } else {
+                                "Resposta gerada no aparelho"
                             }
                         }
                         is AssistantResult.Unavailable -> {
