@@ -354,6 +354,7 @@ fun KellvynApp() {
         mutableStateOf(securityPreferences.getBoolean("reinforced_protection", false))
     }
     var accentHex by remember(uiPreferences) { mutableStateOf(uiPreferences.getString("accent_hex", "#38E6BC") ?: "#38E6BC") }
+    var customAccentDraft by remember(uiPreferences) { mutableStateOf(uiPreferences.getString("accent_hex", "#38E6BC") ?: "#38E6BC") }
     var floatingAssistantEnabled by remember(uiPreferences) { mutableStateOf(uiPreferences.getBoolean("floating_assistant_enabled", false)) }
     val accentColor = remember(accentHex) { Color(android.graphics.Color.parseColor(accentHex)) }
     var ttsReady by remember { mutableStateOf(false) }
@@ -2292,25 +2293,55 @@ fun KellvynApp() {
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text("COR DA INTERFACE", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                            listOf(
-                                "#38E6BC" to "Esmeralda",
-                                "#5CB8FF" to "Azul",
-                                "#C59BFF" to "Violeta",
-                                "#FF8A8A" to "Vermelho"
-                            ).forEach { (hex, label) ->
-                                TextButton(
-                                    onClick = {
-                                        accentHex = hex
-                                        uiPreferences.edit().putString("accent_hex", hex).apply()
-                                        status = "Cor da interface alterada para " + label + "."
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 4.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(label, color = Color(android.graphics.Color.parseColor(hex)), fontSize = 10.sp, maxLines = 1)
+                        val accentChoices = listOf(
+                            "#38E6BC" to "Esmeralda", "#5CB8FF" to "Azul", "#C59BFF" to "Violeta",
+                            "#FF8A8A" to "Vermelho", "#FFD166" to "Dourado", "#FF79C6" to "Rosa",
+                            "#B5E853" to "Lima", "#E6E6E6" to "Prata", "#FF7A45" to "Laranja",
+                            "#7C83FF" to "Índigo", "#38D6E8" to "Ciano", "#FFFFFF" to "Branco"
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            accentChoices.chunked(4).forEach { group ->
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    group.forEach { (hex, label) ->
+                                        val swatch = Color(android.graphics.Color.parseColor(hex))
+                                        Surface(
+                                            modifier = Modifier.weight(1f).height(42.dp).clickable {
+                                                accentHex = hex
+                                                customAccentDraft = hex
+                                                uiPreferences.edit().putString("accent_hex", hex).apply()
+                                                status = "Cor aplicada: " + label + "."
+                                            },
+                                            color = swatch.copy(alpha = 0.15f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = androidx.compose.foundation.BorderStroke(if (accentHex.equals(hex, true)) 2.dp else 1.dp, swatch)
+                                        ) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                                Box(Modifier.size(14.dp).background(swatch, CircleShape))
+                                                Text(label, color = Color.White, fontSize = 9.sp, maxLines = 1)
+                                            }
+                                        }
+                                    }
                                 }
                             }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedTextField(
+                                value = customAccentDraft,
+                                onValueChange = { customAccentDraft = it.take(9).uppercase(Locale.ROOT) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                label = { Text("Cor personalizada HEX") },
+                                placeholder = { Text("#38E6BC") }
+                            )
+                            TextButton(onClick = {
+                                val candidate = customAccentDraft.trim().let { if (it.startsWith("#")) it else "#$it" }
+                                if (Regex("^#[0-9A-Fa-f]{6}$").matches(candidate)) {
+                                    accentHex = candidate.uppercase(Locale.ROOT)
+                                    customAccentDraft = accentHex
+                                    uiPreferences.edit().putString("accent_hex", accentHex).apply()
+                                    status = "Cor personalizada aplicada."
+                                } else status = "Use seis dígitos HEX, por exemplo #38E6BC."
+                            }) { Text("Aplicar", color = accentColor) }
                         }
                         Divider(color = Color(0xFF143D33))
                         Text("EFEITO VISUAL", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
