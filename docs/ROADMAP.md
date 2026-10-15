@@ -9,6 +9,9 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [x] Sem modo leve/pesado, sem seletor de modelo e sem provedor externo de IA.
 - [x] Navegação superior: hambúrguer abre somente o histórico; atalho Apps/APKs no cabeçalho abre o catálogo; menu de ferramentas reúne anexos, códigos guardados, terminal independente, memória e assistente flutuante; três pontos abrem configurações.
 - [x] Histórico limitado e apagável; memórias explícitas podem ser guardadas, vistas e apagadas.
+- [x] Contexto recente ampliado para 32 mensagens, com orçamento dinâmico de tokens que preserva o pedido atual, reduz contexto antigo e limita a saída ao espaço disponível do modelo.
+- [x] Falhas de inicialização do modelo mostram erro e ação de tentar novamente; cancelamentos de inferência, geração de projetos, OCR e exportação são propagados em vez de virarem erros genéricos.
+- [x] Gradle Wrapper oficial 8.9 incluído com SHA-256 da distribuição fixado para permitir builds de desenvolvimento locais do aplicativo anfitrião sem workflows remotos; ainda não executado neste ambiente.
 - [x] Ditado em português no compositor e ação “Ouvir” nas respostas, usando recursos disponíveis no próprio Android e informando quando indisponíveis.
 - [x] Ícones do cabeçalho, compositor e catálogo Apps substituídos por desenhos vetoriais escaláveis em Canvas; validar a aparência final no Poco F6 ainda está pendente.
 - [x] Código da sobreposição flutuante e do leitor de tela declarado no Manifesto; o usuário precisa conceder permissão de sobreposição e habilitar Acessibilidade para ler texto somente por toque.
@@ -30,7 +33,7 @@ Este documento separa código presente de funções que ainda precisam de build 
 - [ ] Compilar o próprio Kellvyn a partir de um checkout limpo em ambiente Android local.
 - [x] Adicionar inicialização do modelo local com fallback para download público fixado por revisão, progresso real, tamanho esperado e verificação SHA-256, sem inferência remota.
 - [ ] Testar o primeiro download de aproximadamente 374 MB, cancelamento/falha de rede e reinicialização no Poco F6.
-- [ ] Executar as novas instrumentações de extração PDF/DOCX/ODT, OCR, validação SVG/PNG e a suíte real que pede ao modelo local criar projetos e compilar APKs.
+- [ ] Executar `./gradlew testDebugUnitTest` e `./gradlew assembleDebug` no ambiente Android local; depois rodar instrumentações e a suíte real que pede ao modelo local criar projetos e compilar APKs.
 - [ ] Confirmar permissões e funcionamento da bolha flutuante em Android 15/HyperOS e ajustar dimensões/legibilidade em uma captura real do Poco F6.
 - [ ] Instalar e testar o APK anfitrião no Poco F6 real, incluindo a transferência inicial do modelo se ele não vier embutido.
 - [ ] Testar com token de teste a ativação/desativação e os comandos /start, /ping e /echo do runtime Telegram, além de reconexão após perda de rede e restauração após reinício.
