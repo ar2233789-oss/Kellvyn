@@ -67,26 +67,13 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 appendLine("O README precisa documentar requisitos reais, dependências, configuração e limitações. Bots precisam de Node.js e credenciais; WhatsApp Cloud também precisa de conta empresarial, número registrado e webhook HTTPS público.")
                 appendLine("Limite total de 12 arquivos e 18.000 caracteres. Escape corretamente o JSON. Nunca retorne arquivos vazios, binários, caminhos absolutos, .git ou .gradle.")
             } else {
-            appendLine("TAREFA: criar um projeto de aplicativo Android nativo utilizável a partir do pedido abaixo.")
-            appendLine("Produza somente um objeto JSON válido, sem markdown, sem bloco de código e sem texto antes/depois.")
-            appendLine("Esquema obrigatório:")
-            appendLine("""{"name":"Nome curto","description":"Resumo","files":[{"path":"README.md","content":"conteúdo completo"}]}""")
-            appendLine("Requisitos técnicos:")
-            appendLine("- Gere um aplicativo Android NATIVO em Java puro, com namespace e applicationId com.example.app. O compilador inicial do Kellvyn compila Java diretamente neste aparelho; não gere Kotlin nem Compose.")
-            appendLine("- Use Android Gradle Plugin ${AndroidBuildVersions.ANDROID_GRADLE_PLUGIN}, compileSdk ${AndroidBuildVersions.COMPILE_SDK}, targetSdk ${AndroidBuildVersions.TARGET_SDK} e minSdk ${AndroidBuildVersions.MIN_SDK}. A fonte principal é app/src/main/java/com/example/app/MainActivity.java.")
-            appendLine("- MainActivity deve estender android.app.Activity e chamar setContentView com uma interface útil criada por código usando android.widget (LinearLayout, TextView, Button, EditText, ScrollView etc.). Crie listeners usando classes anônimas.")
-            appendLine("- Use Java 8 compatível com Android. D8 fará o desugaring de lambdas e method references. Não use Kotlin, Compose, bibliotecas externas, annotation processors, AndroidX, XML de layout, recursos R, imagens externas nem NDK no primeiro perfil local.")
-            appendLine("- Não declare bibliotecas externas em app/build.gradle.kts. A configuração Gradle fica para exportação futura; a build local inicial compila fontes Java e não executa scripts Gradle.")
-            appendLine("- Inclua settings.gradle.kts, build.gradle.kts, gradle.properties, app/build.gradle.kts, app/src/main/AndroidManifest.xml, app/src/main/java/com/example/app/MainActivity.java e README.md.")
-            appendLine("- O manifesto declara .MainActivity, android:exported=\"true\" e intent-filter MAIN/LAUNCHER. Inclua permissões apenas quando realmente necessárias.")
-            appendLine("- Crie uma aplicação funcional com controles, validação de entradas e ações reais, não apenas pseudocódigo ou placeholders.")
-            appendLine("- Não invente tokens, chaves, APIs privadas, caminhos absolutos nem dependências inexistentes.")
-            appendLine("- Não crie WebView. Não use compilação remota, GitHub Actions ou serviços externos de build.")
-            appendLine("- Não inclua binários, gradlew, .git, .gradle ou qualquer caminho absoluto.")
-            appendLine("- Cada item de files deve conter path e content como strings. Escape corretamente quebras de linha, aspas e barras para formar JSON válido.")
-            appendLine("- Prefira no máximo 8 arquivos e aprox. 12.000 caracteres; nunca ultrapasse 12 arquivos e 18.000 caracteres.")
-            appendLine("- Em um pedido grande, implemente uma primeira versão útil e documente as funções no README.")
-            projectSpecificGuidance(idea).forEach { appendLine(it) }
+                appendLine("TAREFA: criar o código completo de um aplicativo Android nativo em um único arquivo Java.")
+                appendLine("Retorne SOMENTE o código-fonte Java de MainActivity.java. Sem JSON, markdown, cercas de código ou explicações.")
+                appendLine("O arquivo deve usar package com.example.app; declarar public class MainActivity extends Activity; implementar onCreate e chamar setContentView com uma interface nativa funcional.")
+                appendLine("Use Java 8 e APIs públicas de android.app, android.os, android.content, android.view e android.widget. Importe as classes utilizadas.")
+                appendLine("Não use Kotlin, Compose, bibliotecas externas, WebView, resources R, imagens binárias, lambdas, method references, TODOs, placeholders ou funções vazias.")
+                appendLine("Implemente o comportamento real pedido, com estados e listeners reais. Não descreva o que faria.")
+                projectSpecificGuidance(idea).forEach { appendLine(it) }
             }
             appendLine()
             appendLine("PEDIDO DO USUÁRIO:")
@@ -98,20 +85,25 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 is AssistantResult.Unavailable -> AppBuildResult.Failure(response.reason)
                 is AssistantResult.Failure -> AppBuildResult.Failure(response.reason)
                 is AssistantResult.Success -> {
-                    val firstAttempt = parseAndSave(response.text, idea)
+                    val firstAttempt = if (botProject) parseAndSave(response.text, idea) else parseAndSaveAndroidProject(response.text, idea)
                     if (firstAttempt !is AppBuildResult.Failure || !isRecoverableGenerationFailure(firstAttempt.reason)) {
                         firstAttempt
                     } else {
-                        val repairPrompt = buildString {
-                            appendLine("A geração anterior não passou pela validação automática do construtor.")
+                        val repairPrompt = if (botProject) buildString {
+                            appendLine("A geração anterior do bot não passou pela validação automática.")
                             appendLine("Erro detectado: ${firstAttempt.reason}")
-                            appendLine(if (isBotProjectRequest(idea)) "Gere uma versão corrigida completa do projeto de bot para o pedido original abaixo." else "Gere uma versão corrigida completa do projeto Android para o pedido original abaixo.")
-                            appendLine("Retorne SOMENTE JSON válido no esquema definido, sem markdown. Inclua todos os arquivos obrigatórios.")
-                            appendLine("Não descreva o que faria; entregue o conteúdo de cada arquivo.")
-                            appendLine()
-                            appendLine("REGRAS TÉCNICAS E ESQUEMA:")
+                            appendLine("Gere uma versão corrigida completa do projeto do bot. Retorne SOMENTE JSON válido no esquema já informado, sem markdown.")
                             appendLine(prompt.substringBefore("PEDIDO DO USUÁRIO:"))
                             appendLine("PEDIDO ORIGINAL DO USUÁRIO:")
+                            appendLine(idea)
+                        } else buildString {
+                            appendLine("A saída anterior não passou pela validação: ${firstAttempt.reason}")
+                            appendLine("Gere novamente uma Activity Android nativa COMPLETA para o pedido abaixo.")
+                            appendLine("Responda somente com código Java, sem JSON, markdown, cercas ou explicações.")
+                            appendLine("Use package com.example.app; public class MainActivity extends Activity; implemente onCreate e setContentView.")
+                            appendLine("Use Java 8 e controles android.widget reais, imports corretos, listeners funcionais e sem dependências externas.")
+                            projectSpecificGuidance(idea).forEach { appendLine(it) }
+                            appendLine("PEDIDO ORIGINAL:")
                             appendLine(idea)
                         }
                         when (val retry = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, repairPrompt)))) {
@@ -122,7 +114,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                                 "A primeira geração falhou na validação (${firstAttempt.reason}); a tentativa automática de correção também falhou: ${retry.reason}"
                             )
                             is AssistantResult.Success -> {
-                                val corrected = parseAndSave(retry.text, idea)
+                                val corrected = if (botProject) parseAndSave(retry.text, idea) else parseAndSaveAndroidProject(retry.text, idea)
                                 if (corrected is AppBuildResult.Failure) {
                                     AppBuildResult.Failure(
                                         "O construtor tentou corrigir automaticamente, mas o projeto ainda não passou pela validação. Primeiro erro: ${firstAttempt.reason}. Segunda tentativa: ${corrected.reason}"
@@ -139,6 +131,65 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             AppBuildResult.Failure("O construtor falhou: " + (e.message ?: e.javaClass.simpleName))
         }
     }
+
+    /**
+     * Saves a model-generated Android Activity together with deterministic project scaffolding.
+     * This keeps the local model's output focused on the requested app rather than seven verbose files.
+     */
+    private suspend fun parseAndSaveAndroidProject(raw: String, idea: String): AppBuildResult =
+        withContext(Dispatchers.IO) {
+            try {
+                val json = runCatching {
+                    val start = raw.indexOf('{')
+                    val end = raw.lastIndexOf('}')
+                    if (start >= 0 && end > start) JSONObject(raw.substring(start, end + 1)) else null
+                }.getOrNull()
+                val responseFiles = json?.optJSONArray("files")
+                val entries = responseFiles?.let { array ->
+                    (0 until array.length()).mapNotNull { index -> array.optJSONObject(index) }
+                }.orEmpty()
+                val sourceFromFiles = entries.firstOrNull {
+                    it.optString("path").trim().replace('\\\\', '/')
+                        .substringAfterLast('/').equals("MainActivity.java", ignoreCase = true)
+                }?.optString("content").orEmpty()
+                val candidateSource = sourceFromFiles.ifBlank { raw }
+                val name = json?.optString("name").orEmpty().trim().take(60)
+                    .ifBlank { defaultAndroidProjectName(idea) }
+                val description = json?.optString("description").orEmpty().trim().take(500)
+                    .ifBlank { idea.take(500) }
+                val readme = entries.firstOrNull {
+                    it.optString("path").trim().substringAfterLast('/').equals("README.md", ignoreCase = true)
+                }?.optString("content")
+
+                val files = createAndroidProjectFiles(name, idea, candidateSource, readme)
+                    ?: return@withContext AppBuildResult.Failure(
+                        "A IA local não retornou uma MainActivity.java completa e funcional. A correção automática tentará novamente."
+                    )
+                val totalChars = files.sumOf { it.content.length }
+                if (totalChars > MAX_PROJECT_CHARS) {
+                    return@withContext AppBuildResult.Failure(
+                        "O código Android gerado ultrapassou o limite local de tamanho; peça uma primeira versão menor."
+                    )
+                }
+                val structuralProblem = GeneratedAndroidProjectValidator.validate(
+                    files.associate { it.path.replace('\\\\', '/') to it.content }
+                )
+                if (structuralProblem != null) {
+                    return@withContext AppBuildResult.Failure(
+                        "A Activity Java não passou pela validação estrutural: $structuralProblem"
+                    )
+                }
+                val project = workspace.createProject(name, description, files)
+                AppBuildResult.Success(project, workspace.listFiles(project.id))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppBuildResult.Failure(
+                    "Não foi possível validar/salvar o aplicativo Android gerado: " +
+                        (e.message ?: e.javaClass.simpleName)
+                )
+            }
+        }
 
     /**
      * Repairs the Java files of a freshly generated project once after a real local compiler error.
@@ -423,6 +474,170 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
          * Adds implementation-level acceptance criteria for projects that need real mechanics.
          * These remain constraints for the generated source, not claims that the app has been tested.
          */
+        /**
+         * Accepts raw Java or JSON/file-list output, but only returns a complete native Activity.
+         * Braces inside Java strings and comments do not count toward class closure.
+         */
+        internal fun extractCompleteAndroidActivity(raw: String): String? {
+            if (raw.isBlank() || raw.length > MAX_REPAIR_FILE_CHARS) return null
+            val classMatch = Regex("""\bclass\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
+                .find(raw) ?: return null
+            if (!Regex("""\bpublic\s+class\s+MainActivity\b""").containsMatchIn(raw.substring(0, classMatch.range.last + 1))) {
+                return null
+            }
+            val packagePattern = Regex("""(?m)^[ \t]*package[ \t]+[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*[ \t]*;?[ \t]*$""")
+            val packageMatch = packagePattern.find(raw)?.takeIf { it.range.first < classMatch.range.first }
+            val importPattern = Regex("""(?m)^[ \t]*import[ \t]+(?:static[ \t]+)?[A-Za-z_$][A-Za-z0-9_$.]*(?:\.\*)?[ \t]*;[ \t]*$""")
+            val firstImport = importPattern.findAll(raw).firstOrNull { it.range.first < classMatch.range.first }
+            val sourceStart = packageMatch?.range?.first ?: firstImport?.range?.first ?: classMatch.range.first
+            val openingBrace = raw.indexOf('{', classMatch.range.last + 1)
+            if (openingBrace < 0) return null
+            val closingBrace = findMatchingJavaBrace(raw, openingBrace) ?: return null
+            var source = raw.substring(sourceStart, closingBrace + 1).trim()
+            if (packageMatch == null) {
+                source = "package com.example.app;\n" + source
+            } else {
+                val localPackagePattern = Regex("""(?m)^[ \t]*package[ \t]+[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*[ \t]*;?[ \t]*$""")
+                source = localPackagePattern.replaceFirst(source, "package com.example.app;")
+            }
+            if (!Regex("""(?m)^\s*package\s+com\.example\.app\s*;""").containsMatchIn(source) ||
+                !Regex("""\bpublic\s+class\s+MainActivity\s+extends\s+Activity\b""").containsMatchIn(source) ||
+                !source.contains("setContentView(") ||
+                source.length > MAX_REPAIR_FILE_CHARS
+            ) return null
+            return source
+        }
+
+        /**
+         * Creates the five fixed build/manifest files around real model-generated Activity source.
+         * These are standard configuration files, not substitute app behavior.
+         */
+        internal fun createAndroidProjectFiles(
+            name: String,
+            idea: String,
+            rawActivity: String,
+            generatedReadme: String? = null
+        ): List<ProjectFileInput>? {
+            val activity = extractCompleteAndroidActivity(rawActivity) ?: return null
+            val cleanName = name.trim().take(60).ifBlank { defaultAndroidProjectName(idea) }
+            val gradleName = cleanName.replace(Regex("""[^A-Za-z0-9_-]"""), "").take(40).ifBlank { "KellvynApp" }
+            val xmlLabel = cleanName.take(48)
+                .replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")
+            val readme = generatedReadme?.trim()?.takeIf { it.length in 60..2_500 } ?: """
+                # $cleanName
+
+                Aplicativo Android nativo gerado a partir do pedido fornecido ao Kellvyn.
+
+                ## Pedido original
+                ${idea.take(2_500)}
+
+                ## Código principal
+                `app/src/main/java/com/example/app/MainActivity.java`
+
+                O projeto usa uma Activity Java e controles nativos. A configuração Gradle e o manifesto
+                padrão são gerados localmente pelo construtor para evitar configuração incompatível.
+                Esta anotação não afirma que o APK foi compilado, instalado ou testado.
+            """.trimIndent()
+            return listOf(
+                ProjectFileInput("settings.gradle.kts", """
+                    pluginManagement {
+                        repositories { google(); mavenCentral(); gradlePluginPortal() }
+                    }
+                    dependencyResolutionManagement {
+                        repositories { google(); mavenCentral() }
+                    }
+                    rootProject.name = "$gradleName"
+                    include(":app")
+                """.trimIndent()),
+                ProjectFileInput("build.gradle.kts", """
+                    plugins {
+                        id("com.android.application") version "${AndroidBuildVersions.ANDROID_GRADLE_PLUGIN}" apply false
+                    }
+                """.trimIndent()),
+                ProjectFileInput("gradle.properties", """
+                    org.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8
+                    org.gradle.parallel=false
+                    org.gradle.workers.max=2
+                """.trimIndent()),
+                ProjectFileInput("app/build.gradle.kts", """
+                    plugins {
+                        id("com.android.application")
+                    }
+                    android {
+                        namespace = "com.example.app"
+                        compileSdk = ${AndroidBuildVersions.COMPILE_SDK}
+                        defaultConfig {
+                            applicationId = "com.example.app"
+                            minSdk = ${AndroidBuildVersions.MIN_SDK}
+                            targetSdk = ${AndroidBuildVersions.TARGET_SDK}
+                            versionCode = 1
+                            versionName = "1.0"
+                        }
+                    }
+                """.trimIndent()),
+                ProjectFileInput("app/src/main/AndroidManifest.xml", """
+                    <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+                        <application android:label="$xmlLabel">
+                            <activity android:name=".MainActivity" android:exported="true">
+                                <intent-filter>
+                                    <action android:name="android.intent.action.MAIN" />
+                                    <category android:name="android.intent.category.LAUNCHER" />
+                                </intent-filter>
+                            </activity>
+                        </application>
+                    </manifest>
+                """.trimIndent()),
+                ProjectFileInput("app/src/main/java/com/example/app/MainActivity.java", activity),
+                ProjectFileInput("README.md", readme)
+            )
+        }
+
+        internal fun defaultAndroidProjectName(idea: String): String {
+            val cleaned = idea.trim()
+                .replace(Regex("""(?i)^\s*(?:crie|criar|faça|faca|desenvolva|desenvolver|construa|construir|gere|gerar|monte|montar)\s+"""), "")
+                .replace(Regex("""(?i)^(?:um|uma|o|a)\s+"""), "")
+                .replace(Regex("""(?i)^(?:app|aplicativo)\s+"""), "")
+                .replace(Regex("""[^\p{L}\p{N}\s_-]"""), " ")
+                .split(Regex("""\s+""")).filter { it.isNotBlank() }.take(6).joinToString(" ")
+                .ifBlank { "Projeto Android" }.take(48).trim()
+            return cleaned.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+        }
+
+        private fun findMatchingJavaBrace(source: String, openingBrace: Int): Int? {
+            var depth = 0
+            var state = 0 // 0=code, 1=line comment, 2=block comment, 3=string, 4=char
+            var escaped = false
+            var index = openingBrace
+            while (index < source.length) {
+                val ch = source[index]
+                val next = source.getOrNull(index + 1)
+                when (state) {
+                    0 -> when {
+                        ch == '/' && next == '/' -> { state = 1; index += 2; continue }
+                        ch == '/' && next == '*' -> { state = 2; index += 2; continue }
+                        ch == '"' -> { state = 3; escaped = false }
+                        ch == '\'' -> { state = 4; escaped = false }
+                        ch == '{' -> depth++
+                        ch == '}' -> {
+                            depth--
+                            if (depth == 0) return index
+                            if (depth < 0) return null
+                        }
+                    }
+                    1 -> if (ch == '\n') state = 0
+                    2 -> if (ch == '*' && next == '/') { state = 0; index += 2; continue }
+                    3, 4 -> {
+                        val closing = if (state == 3) '"' else '\''
+                        if (escaped) escaped = false
+                        else if (ch == '\\') escaped = true
+                        else if (ch == closing) state = 0
+                    }
+                }
+                index++
+            }
+            return null
+        }
+
         internal fun projectSpecificGuidance(idea: String): List<String> {
             val value = idea.lowercase(Locale.ROOT)
             val rules = mutableListOf<String>()
