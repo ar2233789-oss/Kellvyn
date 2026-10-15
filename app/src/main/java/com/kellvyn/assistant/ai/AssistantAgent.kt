@@ -157,7 +157,8 @@ class AgentToolRouter(
             .put("path", chosen.path)
     }
 
-    fun approvalRequired(name: String): Boolean = AgentApprovalPolicy.requiresApproval(name)
+    fun approvalRequired(name: String, reinforcedProtection: Boolean = false): Boolean =
+        AgentApprovalPolicy.requiresApproval(name, reinforcedProtection)
 
     fun approvalSummary(name: String, args: JSONObject): String = when (name) {
         "github_import" -> "Importar repositório público ${args.optString("repository")} (${args.optString("ref").ifBlank { "branch padrão" }}) para um projeto local; somente arquivos textuais e limite de tamanho."
@@ -888,7 +889,8 @@ class AssistantAgent(
         conversation: List<AssistantTurn>,
         internetAllowed: Boolean,
         onToolStatus: (String) -> Unit = {},
-        requestApproval: suspend (String) -> Boolean
+        requestApproval: suspend (String) -> Boolean,
+        reinforcedProtection: Boolean = false
     ): AssistantResult {
         val turns = conversation.toMutableList()
         val systemIndex = turns.indexOfFirst { it.role == AssistantTurn.Role.SYSTEM }
@@ -1176,7 +1178,7 @@ class AssistantAgent(
                         turns.add(AssistantTurn(AssistantTurn.Role.USER, "FERRAMENTA RECUSADA: acesso à internet está desligado. Escolha outra ferramenta local ou responda sem internet."))
                         return@repeat
                     }
-                    if (tools.approvalRequired(name)) {
+                    if (tools.approvalRequired(name, reinforcedProtection)) {
                         val actionKey = name + ":" + args.toString()
                         if (actionKey == deniedActionKey) {
                             turns.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, modelResult.text))
