@@ -331,6 +331,10 @@ class LocalLiteRtAssistantEngine(context: Context) : AssistantEngine, AutoClosea
             } else {
                 AssistantResult.Success(text)
             }
+        } catch (e: CancellationException) {
+            // Preserve structured cancellation so navigating away or cancelling a request does not
+            // leave model generation running and get misreported as an ordinary model failure.
+            throw e
         } catch (e: Exception) {
             AssistantResult.Failure(
                 "Falha durante a geração local: " + (e.message ?: e.javaClass.simpleName)
