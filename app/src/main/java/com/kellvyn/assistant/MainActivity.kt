@@ -444,7 +444,9 @@ fun KellvynApp() {
         val clean = detail.trim().replace(Regex("\\s+"), " ")
         if (clean.isBlank()) return
         brainActivity = clean
-        if (brainSteps.lastOrNull() != clean) brainSteps.add(clean)
+        // Character counters update the live status but must not erase meaningful plan/validation steps.
+        val isStreamingCounter = clean.contains("caracteres recebidos do modelo local", ignoreCase = true)
+        if (!isStreamingCounter && brainSteps.lastOrNull() != clean) brainSteps.add(clean)
         while (brainSteps.size > 5) brainSteps.removeAt(0)
     }
 
