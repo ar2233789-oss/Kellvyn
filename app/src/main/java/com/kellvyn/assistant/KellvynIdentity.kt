@@ -162,7 +162,7 @@ internal object KellvynIdentity {
         if (identityPhrases.any { phrase -> normalized.contains(phrase) }) return true
 
         // Catch natural variants that might otherwise make the local model guess its identity.
-        val mentionsAssistant = Regex("\\b(kellvyn|ia|inteligencia artificial|assistente|modelo|voce|te|me|sua|seu)\\b").containsMatchIn(normalized)
+        val mentionsAssistant = Regex("\\b(kellvyn|ia|inteligencia artificial|assistente|modelo|voce|te|teu|tua|teus|tuas|me|meu|minha|seu|sua|mim)\\b").containsMatchIn(normalized)
         val mentionsAttribution = Regex("\\b(quem|pessoa|criador|criadora|criou|criar|criada|criado|desenvolveu|desenvolvida|desenvolvido|empresa|companhia|mind|fez|feito|feita|fabricou|produziu|construiu|dono|dona|proprietario|proprietaria|pertence|responsavel|manda|lidera|controla|decide|autor|fundador|fundadora)\\b").containsMatchIn(normalized)
         val asksAboutAttribution = Regex("\\b(quem|qual empresa|qual pessoa|por quem|a quem|de quem|quem manda|quem lidera|quem controla|quem decide|quem e responsavel|quem responde pela|desenvolvida por|desenvolvido por|criada por|criado por|feita por|feito por|quem fez|quem construiu|quem fabricou)\\b").containsMatchIn(normalized)
         return mentionsAssistant && mentionsAttribution && asksAboutAttribution
@@ -172,7 +172,7 @@ internal object KellvynIdentity {
         val mentionsCompany = Regex("\\b(empresa|impressa|companhia|organizacao|marca|companhias|empresas)\\b")
             .containsMatchIn(normalized)
         if (!mentionsCompany) return false
-        val mentionsAssistant = Regex("\\b(kellvyn|ia|inteligencia artificial|assistente|modelo|voce|te|me|sua|seu|mim)\\b")
+        val mentionsAssistant = Regex("\\b(kellvyn|ia|inteligencia artificial|assistente|modelo|voce|te|teu|tua|teus|tuas|me|meu|minha|seu|sua|mim)\\b")
             .containsMatchIn(normalized)
         val asksWhoOrOrigin = Regex("\\b(qual|que|quem|de|foi|criou|criada|criado|desenvolveu|desenvolvida|desenvolvido|fez|fabricou|produziu|construiu|pertence|dona|dono|vem|origem)\\b")
             .containsMatchIn(normalized)
