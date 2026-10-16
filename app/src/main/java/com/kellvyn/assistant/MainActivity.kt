@@ -1266,6 +1266,8 @@ fun KellvynApp() {
                             localEngine.replyStreaming(turns) { partial ->
                                 withContext(Dispatchers.Main.immediate) {
                                     streamingReply = partial
+                                    // Mirror only sanitized, user-visible output in the existing Cérebrozinho panel.
+                                    brainOutputPreview = partial.takeLast(1_800)
 
                                     // Show observable generation progress, not hidden model reasoning.
                                     // Stages are driven by real streamed output, never by a fake timer.
