@@ -42,6 +42,12 @@ class ModelOutputSanitizerTest {
     }
 
     @Test
+    fun keepsInternalToolEnvelopeAvailableToTheAgentRouter() {
+        val envelope = """{"kind":"tool","name":"web_search","arguments":{"query":"tempo"}}"""
+        assertEquals(envelope, sanitizeModelOutput(envelope))
+    }
+
+    @Test
     fun removesProtocolTokensWithoutBreakingUserFacingText() {
         val output = sanitizeModelOutput("Hello <|im_end|>")
         assertTrue(output.startsWith("Hello"))
