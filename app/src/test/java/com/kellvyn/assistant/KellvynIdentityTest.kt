@@ -24,14 +24,14 @@ class KellvynIdentityTest {
     }
 
     @Test
-    fun recognizesDeusDaRitalinaAsDeveloperTutorAndSuperior() {
+    fun recognizesIdentityQuestionsWithoutMisattributingTheCreator() {
         assertTrue(KellvynIdentity.isIdentityQuestion("Quem é Deus da Ritalina?"))
         assertTrue(KellvynIdentity.isIdentityQuestion("Quem é seu desenvolvedor?"))
         assertTrue(KellvynIdentity.isIdentityQuestion("Quem é seu tutor?"))
         assertTrue(KellvynIdentity.isIdentityQuestion("Quem é seu superior?"))
 
         val answer = KellvynIdentity.answer().lowercase()
-        assertTrue(answer.contains("kellvyn é meu criador"))
+        assertTrue(answer.contains("kellvyn é meu único criador"))
         assertFalse(answer.contains("deus da ritalina é meu desenvolvedor, tutor e superior"))
     }
 
@@ -47,7 +47,7 @@ class KellvynIdentityTest {
     fun answerSeparatesTheLocalModelFromTheCreators() {
         val answer = KellvynIdentity.answer().lowercase()
         assertTrue(answer.contains("modelo de linguagem"))
-        assertTrue(answer.contains("não o criador do projeto"))
+        assertTrue(answer.contains("não é meu criador"))
     }
 
     @Test
