@@ -15,6 +15,11 @@ sealed interface AppBuildResult {
     data class Failure(val reason: String) : AppBuildResult
 }
 
+/** Unicode-aware whole-word check: Portuguese "botões" must never be interpreted as "bot". */
+internal fun containsStandaloneBotKeyword(text: String): Boolean =
+    Regex("""(?<![\\p{L}\\p{N}_])bots?(?![\\p{L}\\p{N}_])""", RegexOption.IGNORE_CASE)
+        .containsMatchIn(text)
+
 /** Visible, task-specific plan shown inside the main chat while the builder works. */
 internal fun visibleBuilderPlan(brief: String, botProject: Boolean): String {
     val value = brief.lowercase(Locale.ROOT)
@@ -61,7 +66,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
     fun isBotProjectRequest(brief: String): Boolean {
         val value = brief.lowercase(Locale.ROOT)
-        val hasBotWord = value.split(Regex("[^a-z0-9]+")).any { it == "bot" || it == "bots" }
+        val hasBotWord = containsStandaloneBotKeyword(value)
         return hasBotWord || listOf(
             "bot do discord", "bot de discord", "discord bot", "bot para discord",
             "bot do whatsapp", "bot de whatsapp", "bot para whatsapp", "whatsapp bot",
