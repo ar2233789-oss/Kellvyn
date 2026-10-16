@@ -956,15 +956,14 @@ fun KellvynApp() {
         val existingBuildOnly = requestImagePath == null && ChatRequestRouter.shouldCompileExistingProject(text)
         val wantsImage = requestImagePath == null && ChatRequestRouter.shouldGenerateImage(text)
         if (!modelReady && !existingBuildOnly) {
-            messages.add(ChatMessage(text, true, requestImagePath))
-            messages.add(ChatMessage("A IA local ainda está iniciando. Confira o status na tela e tente novamente quando ela estiver pronta.", false))
-            saveHistory()
+            // Preserve both text and attached image instead of consuming the request before the model is ready.
+            pendingChatRequests.add(PendingChatRequest(text, requestImagePath))
             draft = ""
             pendingImagePath = null
-            status = "IA local não inicializada."
-            if (alreadyQueued && pendingChatRequests.isNotEmpty()) {
-                val nextRequest = pendingChatRequests.removeAt(0)
-                scope.launch { submitDraft(alreadyQueued = true, queuedRequest = nextRequest) }
+            status = if (isLoadingModel) {
+                "IA inicializando. Seu pedido foi guardado na fila (" + pendingChatRequests.size + ")."
+            } else {
+                "IA ainda indisponível. Seu pedido ficou na fila; toque em Tentar novamente após conferir a conexão."
             }
             return
         }
@@ -1267,6 +1266,14 @@ fun KellvynApp() {
                     submitDraft(alreadyQueued = true, queuedRequest = nextRequest)
                 }
             }
+        }
+    }
+
+    // Queue requests sent during model startup/failure and run them as soon as the single model is ready.
+    LaunchedEffect(modelReady, isGenerating, pendingChatRequests.size) {
+        if (modelReady && !isGenerating && pendingChatRequests.isNotEmpty()) {
+            val nextRequest = pendingChatRequests.removeAt(0)
+            submitDraft(alreadyQueued = true, queuedRequest = nextRequest)
         }
     }
 
