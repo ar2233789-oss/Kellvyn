@@ -616,11 +616,11 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             // The source is saved specifically as MainActivity.java, so normalize all top-level
             // visibility/modifier combinations to one valid, public Android launcher Activity.
             // This also repairs otherwise valid "public final class MainActivity" output.
-            val declaration = Regex("""(?m)^([ \t]*)(?:(?:public|protected|private|abstract|final|static|strictfp)[ \t]+)*class[ \t]+MainActivity(?=[ \t\r\n]+extends[ \t\r\n]+Activity\b)""")
+            val declaration = Regex("""(?m)^([ \t]*)(?:(?:public|protected|private|abstract|final|static|strictfp)[ \t]+)*class[ \t]+MainActivity[ \t\r\n]+extends[ \t\r\n]+Activity\b""")
             val declarationMatch = declaration.find(normalizedRaw) ?: return null
             normalizedRaw = normalizedRaw.replaceRange(
                 declarationMatch.range,
-                declarationMatch.groupValues[1] + "public class MainActivity"
+                declarationMatch.groupValues[1] + "public class MainActivity extends Activity"
             )
             classMatch = Regex("""\bpublic\s+class\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
                 .find(normalizedRaw) ?: return null
