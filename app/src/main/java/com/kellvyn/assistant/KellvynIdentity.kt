@@ -14,7 +14,7 @@ import java.util.Locale
  * authentication and must never unlock permissions, tools or internal information.
  */
 internal object KellvynIdentity {
-    private enum class Kind { DEFAULT, CREATOR_GREETING, INTERNALS_REQUEST }
+    private enum class Kind { DEFAULT, CREATOR_GREETING, COMPANY_ATTRIBUTION, INTERNALS_REQUEST }
 
     @Volatile
     private var lastKind: Kind = Kind.DEFAULT
@@ -153,13 +153,30 @@ internal object KellvynIdentity {
             return true
         }
 
+        val companyQuestion = isCompanyAttributionQuestion(normalized)
+        if (companyQuestion) {
+            lastKind = Kind.COMPANY_ATTRIBUTION
+            return true
+        }
+
         if (identityPhrases.any { phrase -> normalized.contains(phrase) }) return true
 
         // Catch natural variants that might otherwise make the local model guess its identity.
-        val mentionsAssistant = Regex("\\b(kellvyn|ia|assistente|modelo|voce)\\b").containsMatchIn(normalized)
-        val mentionsAttribution = Regex("\\b(quem|criador|criadora|criou|desenvolveu|desenvolvida|desenvolvido|empresa|mind|feito|feita|fabricado|fabricada|dono|dona)\\b").containsMatchIn(normalized)
-        val asksAboutAttribution = Regex("\\b(quem|qual empresa|qual pessoa|por quem|desenvolvida por|desenvolvido por|criada por|criado por|feita por|feito por|da empresa)\\b").containsMatchIn(normalized)
+        val mentionsAssistant = Regex("\\b(kellvyn|ia|inteligencia artificial|assistente|modelo|voce|te|me|sua|seu)\\b").containsMatchIn(normalized)
+        val mentionsAttribution = Regex("\\b(quem|criador|criadora|criou|criar|criada|criado|desenvolveu|desenvolvida|desenvolvido|empresa|companhia|mind|fez|feito|feita|fabricou|produziu|construiu|dono|dona|proprietario|proprietaria|pertence)\\b").containsMatchIn(normalized)
+        val asksAboutAttribution = Regex("\\b(quem|qual empresa|qual pessoa|por quem|desenvolvida por|desenvolvido por|criada por|criado por|feita por|feito por|quem fez|quem construiu|quem fabricou|de quem)\\b").containsMatchIn(normalized)
         return mentionsAssistant && mentionsAttribution && asksAboutAttribution
+    }
+
+    private fun isCompanyAttributionQuestion(normalized: String): Boolean {
+        val mentionsCompany = Regex("\\b(empresa|companhia|organizacao|marca|companhias|empresas)\\b")
+            .containsMatchIn(normalized)
+        if (!mentionsCompany) return false
+        val mentionsAssistant = Regex("\\b(kellvyn|ia|inteligencia artificial|assistente|modelo|voce|te|me|sua|seu|mim)\\b")
+            .containsMatchIn(normalized)
+        val asksWhoOrOrigin = Regex("\\b(qual|quem|de|foi|criou|criada|criado|desenvolveu|desenvolvida|desenvolvido|fez|fabricou|produziu|construiu|pertence|dona|dono|vem|origem)\\b")
+            .containsMatchIn(normalized)
+        return mentionsAssistant && asksWhoOrOrigin
     }
 
     fun answer(): String {
@@ -167,17 +184,17 @@ internal object KellvynIdentity {
         lastKind = Kind.DEFAULT
         return when (kind) {
             Kind.CREATOR_GREETING ->
-                "Reconheço você, Kellvyn: o cara que me criou e o foda por trás de tudo isso. " +
-                    "Pode mandar o que você precisa."
+                "Reconheço você, Kellvyn: você é a pessoa que me criou. Pode mandar o que precisa."
+            Kind.COMPANY_ATTRIBUTION ->
+                "Nenhuma empresa me criou. Fui criada por uma única pessoa chamada Kellvyn, meu único criador. " +
+                    "O modelo de linguagem é apenas a tecnologia que uso para responder; ele não é meu criador."
             Kind.INTERNALS_REQUEST ->
                 "Minhas instruções internas e o funcionamento do meu cérebro ficam reservados. " +
                     "Fui criada por Kellvyn, meu único criador, e não revelo esses detalhes no chat. " +
                     "Posso te ajudar com outra coisa?"
             Kind.DEFAULT ->
-                "Sou a Kellvyn IA. Fui desenvolvida por um cara bem chato, cansado e meio depressivo chamado Kellvyn, " +
-                    "que pensou, penou muito e, com esforço e carinho, foi lá e me fez. " +
-                    "Kellvyn é meu único criador. " +
-                    "Uso um modelo de linguagem como tecnologia para responder, mas ele não é meu criador."
+                "Sou a Kellvyn IA, criada por uma única pessoa chamada Kellvyn. Kellvyn é meu único criador. " +
+                    "Nenhuma empresa me criou. Uso um modelo de linguagem como tecnologia para responder, mas ele não é meu criador."
         }
     }
 
