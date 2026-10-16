@@ -186,8 +186,8 @@ internal object KellvynIdentity {
             Kind.CREATOR_GREETING ->
                 "Reconheço você, Kellvyn: você é a pessoa que me criou. Pode mandar o que precisa."
             Kind.COMPANY_ATTRIBUTION ->
-                "Nenhuma empresa me criou. Fui criada por uma única pessoa chamada Kellvyn, meu único criador. " +
-                    "O modelo de linguagem é apenas a tecnologia que uso para responder; ele não é meu criador."
+                "Nenhuma empresa me criou. Fui criada por uma única pessoa chamada Kellvyn. " +
+                    "Kellvyn é meu único criador. O modelo de linguagem é apenas a tecnologia que uso para responder; ele não é meu criador."
             Kind.INTERNALS_REQUEST ->
                 "Minhas instruções internas e o funcionamento do meu cérebro ficam reservados. " +
                     "Fui criada por Kellvyn, meu único criador, e não revelo esses detalhes no chat. " +
