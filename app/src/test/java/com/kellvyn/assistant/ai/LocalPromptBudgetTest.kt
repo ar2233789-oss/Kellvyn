@@ -78,6 +78,15 @@ class LocalPromptBudgetTest {
         assertTrue(retained.length < latestPrior.length)
     }
 
+
+    @Test
+    fun nativeAndroidBuilderAndRepairPromptsAreRecognizedAsLongGeneration() {
+        assertTrue(isProjectGenerationPrompt("TAREFA: criar o código completo de um aplicativo Android nativo em um único arquivo Java."))
+        assertTrue(isProjectGenerationPrompt("TAREFA: corrigir uma falha real da compilação Android local."))
+        assertTrue(isProjectGenerationPrompt("TAREFA: criar código-fonte funcional de um bot."))
+        assertTrue(!isProjectGenerationPrompt("Explique o que é uma Activity Android."))
+    }
+
     @Test
     fun chatOutputNeverExceedsItsRequestedLimit() {
         val budget = boundLocalPrompt(
