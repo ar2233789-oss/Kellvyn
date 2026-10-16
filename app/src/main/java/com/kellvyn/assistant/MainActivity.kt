@@ -978,6 +978,8 @@ fun KellvynApp() {
         val wantsCoder = requestImagePath == null && !wantsImage && (
             wantsBuild || wantsExistingBuild ||
                 ChatRequestRouter.shouldPreferCoder(text) ||
+                // When enabled, expose optional network tools to the same assistant; it decides whether to use them.
+                webModuleEnabled ||
                 ChatRequestRouter.shouldAutomaticallyResearch(text) ||
                 TermuxRequestPolicy.mayUseTermux(text)
             )
