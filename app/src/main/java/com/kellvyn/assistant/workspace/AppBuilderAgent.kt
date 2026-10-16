@@ -179,7 +179,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                                 onProgress(if (corrected is AppBuildResult.Success) "Correção validada; projeto salvo no catálogo local." else "A segunda validação também encontrou um problema.")
                                 if (corrected is AppBuildResult.Failure) {
                                     AppBuildResult.Failure(
-                                        "O construtor tentou corrigir automaticamente, mas o projeto ainda não passou pela validação. Primeiro erro: ${firstAttempt.reason}. Segunda tentativa: ${corrected.reason}"
+                                        "A geração automática não passou pela validação e a correção também falhou. Primeiro diagnóstico: ${firstAttempt.reason}. Segundo diagnóstico: ${corrected.reason}"
                                     )
                                 } else corrected
                             }
