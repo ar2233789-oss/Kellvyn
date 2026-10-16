@@ -597,20 +597,29 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
          */
         internal fun extractCompleteAndroidActivity(raw: String): String? {
             if (raw.isBlank() || raw.length > MAX_REPAIR_FILE_CHARS) return null
-            val classMatch = Regex("""\bclass\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
-                .find(raw) ?: return null
-            if (!Regex("""\bpublic\s+class\s+MainActivity\b""").containsMatchIn(raw.substring(0, classMatch.range.last + 1))) {
-                return null
+            var normalizedRaw = raw
+            var classMatch = Regex("""\bclass\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
+                .find(normalizedRaw) ?: return null
+            if (!Regex("""\bpublic\s+class\s+MainActivity\b""").containsMatchIn(normalizedRaw.substring(0, classMatch.range.last + 1))) {
+                // The output is already the designated MainActivity.java file. Promote a package-private
+                // top-level Activity to public instead of rejecting an otherwise usable local-model result.
+                val declaration = Regex("""(?m)^([ \t]*)(?:final[ \t]+)?class[ \t]+MainActivity(?=[ \t]+extends[ \t]+Activity\b)""")
+                if (!declaration.containsMatchIn(normalizedRaw)) return null
+                normalizedRaw = declaration.replaceFirst(normalizedRaw) { match ->
+                    match.groupValues[1] + "public class MainActivity"
+                }
+                classMatch = Regex("""\bpublic\s+class\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
+                    .find(normalizedRaw) ?: return null
             }
             val packagePattern = Regex("""(?m)^[ \t]*package[ \t]+[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*[ \t]*;?[ \t]*$""")
-            val packageMatch = packagePattern.find(raw)?.takeIf { it.range.first < classMatch.range.first }
+            val packageMatch = packagePattern.find(normalizedRaw)?.takeIf { it.range.first < classMatch.range.first }
             val importPattern = Regex("""(?m)^[ \t]*import[ \t]+(?:static[ \t]+)?[A-Za-z_$][A-Za-z0-9_$.]*(?:\.\*)?[ \t]*;[ \t]*$""")
-            val firstImport = importPattern.findAll(raw).firstOrNull { it.range.first < classMatch.range.first }
+            val firstImport = importPattern.findAll(normalizedRaw).firstOrNull { it.range.first < classMatch.range.first }
             val sourceStart = packageMatch?.range?.first ?: firstImport?.range?.first ?: classMatch.range.first
-            val openingBrace = raw.indexOf('{', classMatch.range.last + 1)
+            val openingBrace = normalizedRaw.indexOf('{', classMatch.range.last + 1)
             if (openingBrace < 0) return null
-            val closingBrace = findMatchingJavaBrace(raw, openingBrace) ?: return null
-            var source = raw.substring(sourceStart, closingBrace + 1).trim()
+            val closingBrace = findMatchingJavaBrace(normalizedRaw, openingBrace) ?: return null
+            var source = normalizedRaw.substring(sourceStart, closingBrace + 1).trim()
             if (packageMatch == null) {
                 source = "package com.example.app;\n" + source
             } else {
