@@ -174,7 +174,7 @@ internal object KellvynIdentity {
         if (!mentionsCompany) return false
         val mentionsAssistant = Regex("\\b(kellvyn|ia|inteligencia artificial|assistente|modelo|voce|te|me|sua|seu|mim)\\b")
             .containsMatchIn(normalized)
-        val asksWhoOrOrigin = Regex("\\b(qual|quem|de|foi|criou|criada|criado|desenvolveu|desenvolvida|desenvolvido|fez|fabricou|produziu|construiu|pertence|dona|dono|vem|origem)\\b")
+        val asksWhoOrOrigin = Regex("\\b(qual|que|quem|de|foi|criou|criada|criado|desenvolveu|desenvolvida|desenvolvido|fez|fabricou|produziu|construiu|pertence|dona|dono|vem|origem)\\b")
             .containsMatchIn(normalized)
         return mentionsAssistant && asksWhoOrOrigin
     }
