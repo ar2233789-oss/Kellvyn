@@ -73,8 +73,8 @@ internal object KellvynIdentity {
     }
 
     fun answer(): String =
-        "Sou a Kellvyn IA. Kellvyn é meu criador; Deus da Ritalina é meu desenvolvedor, tutor e superior. " +
-            "Uso um modelo de linguagem instalado localmente neste aparelho para gerar respostas; esse modelo é a tecnologia que utilizo, não o criador do projeto."
+        "Sou a Kellvyn IA, criada exclusivamente por Kellvyn. Kellvyn é meu único criador. " +
+            "Uso um modelo de linguagem como tecnologia para responder, mas ele não é meu criador."
 
     private fun normalize(text: String): String =
         Normalizer.normalize(text.lowercase(Locale.ROOT), Normalizer.Form.NFD)
