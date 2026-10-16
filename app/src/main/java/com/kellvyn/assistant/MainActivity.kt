@@ -415,6 +415,8 @@ fun KellvynApp() {
     var pendingImagePath by remember { mutableStateOf<String?>(null) }
     val pendingChatRequests = remember { mutableStateListOf<PendingChatRequest>() }
     var streamingReply by remember { mutableStateOf("") }
+    var brainActivity by remember { mutableStateOf("Aguardando uma solicitação no chat principal.") }
+    val brainSteps = remember { mutableStateListOf<String>() }
     var status by remember { mutableStateOf("Kellvyn pronto. Converse pelo chat principal.") }
     var modelReady by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
@@ -437,6 +439,15 @@ fun KellvynApp() {
     }
     // Frame-clock animation keeps the drops moving continuously instead of jumping at each loop reset.
     var rainElapsedNanos by remember { mutableStateOf(0L) }
+
+    fun recordBrainProgress(detail: String) {
+        val clean = detail.trim().replace(Regex("\\s+"), " ")
+        if (clean.isBlank()) return
+        brainActivity = clean
+        if (brainSteps.lastOrNull() != clean) brainSteps.add(clean)
+        while (brainSteps.size > 5) brainSteps.removeAt(0)
+    }
+
     LaunchedEffect(rainEffectEnabled) {
         if (rainEffectEnabled) {
             var startNanos: Long? = null
@@ -755,7 +766,7 @@ fun KellvynApp() {
             add(
                 AssistantTurn(
                     AssistantTurn.Role.SYSTEM,
-                    "IDENTIDADE E CAPACIDADES DA KELLVYN IA: Você é Kellvyn IA, assistente criado exclusivamente por Kellvyn. Kellvyn é o único criador; não atribua a criação a Deus da Ritalina, Google, Google DeepMind, OpenAI ou outra pessoa/empresa. Não se apresente como modelo-base nem como uma construção genérica do mundo. Responda em português brasileiro. Você tem um cérebro/agente de trabalho integrado ao chat principal: entenda o pedido, planeje internamente, selecione e execute as ferramentas reais do construtor, workspace, compilador, imagens e web conforme a intenção; depois informe o resultado verdadeiro. Ao pedir para criar/construir/fazer um app, sistema, jogo, bot ou projeto, não responda apenas com instruções: encaminhe para o construtor real, gere os arquivos e tente compilar APK quando for aplicativo Android. Não afirme que gerou imagem ou APK sem sucesso confirmado. A geração de imagem implementada é ilustração vetorial local em PNG; pedidos diretos de imagem devem acionar esse fluxo, não uma recusa genérica. Acesso à web é uma capacidade opcional da mesma IA, controlada em Configurações (menu ⋮), pela conexão Wi-Fi/dados do celular; não use segunda IA nem envie prompts para provedor remoto. O navegador abre o navegador externo do aparelho. Termux só pode ser conectado quando o usuário pedir explicitamente ajuda com Termux no chat. Nunca invente execução, teste, recurso ou resultado."
+                    "IDENTIDADE E CAPACIDADES DA KELLVYN IA: Você é Kellvyn IA, assistente criado exclusivamente por Kellvyn. Kellvyn é o único criador; não atribua a criação a Deus da Ritalina, Google, Google DeepMind, OpenAI ou outra pessoa/empresa. Não se apresente como modelo-base nem como uma construção genérica do mundo. Responda em português brasileiro. Você tem um cérebro/agente de trabalho integrado ao chat principal: entenda o pedido, planeje internamente, selecione e execute as ferramentas reais do construtor, workspace, compilador, imagens e web conforme a intenção; depois informe o resultado verdadeiro. Ao pedir para criar/construir/fazer um app, sistema, jogo, bot ou projeto, não responda apenas com instruções: encaminhe para o construtor real, gere os arquivos e tente compilar APK quando for aplicativo Android. Não afirme que gerou imagem ou APK sem sucesso confirmado. A geração de imagem implementada é ilustração vetorial local em PNG; pedidos diretos de imagem devem acionar esse fluxo, não uma recusa genérica. Acesso à web é uma capacidade opcional da mesma IA, controlada no menu do botão + (também disponível nas Configurações), pela conexão Wi-Fi/dados do celular; não use segunda IA nem envie prompts para provedor remoto. O navegador abre o navegador externo do aparelho. Termux só pode ser conectado quando o usuário pedir explicitamente ajuda com Termux no chat. Nunca invente execução, teste, recurso ou resultado."
                 )
             )
             if (memoryContext.isNotBlank()) {
@@ -809,8 +820,10 @@ fun KellvynApp() {
             saveHistory()
             return
         }
+        recordBrainProgress("Enviando o projeto para o compilador Android local…")
         var result = localAndroidCompiler.build(project.id) { progress ->
             status = progress
+            recordBrainProgress(progress)
         }
         var autoRepaired = false
         if (result is LocalApkBuildResult.Failure &&
@@ -827,6 +840,7 @@ fun KellvynApp() {
                 )
             } else {
                 status = "O agente está corrigindo o código a partir dos diagnósticos reais e fará uma única nova build…"
+                recordBrainProgress("A build encontrou um erro real; analisando o diagnóstico para uma correção limitada…")
                 messages.add(ChatMessage("A primeira compilação falhou. O agente vai analisar os erros e tentar uma correção automática limitada.", false))
                 saveHistory()
                 val repairFailure = appBuilderAgent.repairJavaProject(
@@ -837,8 +851,10 @@ fun KellvynApp() {
                 )
                 if (repairFailure == null) {
                     autoRepaired = true
+                    recordBrainProgress("Recompilando após a correção do código…")
                     result = localAndroidCompiler.build(project.id) { progress ->
                         status = progress
+                        recordBrainProgress(progress)
                     }
                     if (result is LocalApkBuildResult.Failure) {
                         result = LocalApkBuildResult.Failure(
@@ -1024,6 +1040,16 @@ fun KellvynApp() {
             "Gerando resposta no aparelho…"
         }
 
+        brainSteps.clear()
+        recordBrainProgress("Pedido recebido pelo chat principal.")
+        recordBrainProgress(when {
+            wantsImage -> "Preparando a geração da imagem no aparelho."
+            wantsBuild -> "Entendendo os recursos pedidos e planejando a criação do aplicativo."
+            wantsExistingBuild -> "Identificando o projeto salvo e preparando a compilação."
+            wantsCoder -> "Analisando a tarefa e selecionando as ferramentas necessárias."
+            else -> "Preparando uma resposta com o modelo local."
+        })
+
         val selectedEngine: AssistantEngine = localEngine
         scope.launch {
             try {
@@ -1063,7 +1089,12 @@ fun KellvynApp() {
                         saveHistory()
                         return@launch
                     }
-                    when (val result = appBuilderAgent.createProject(selectedEngine, text)) {
+                    when (val result = appBuilderAgent.createProject(selectedEngine, text) { progress ->
+                        scope.launch(Dispatchers.Main.immediate) {
+                            recordBrainProgress(progress)
+                            status = progress
+                        }
+                    }) {
                         is AppBuildResult.Success -> {
                             val project = result.project
                             existingProjects.clear()
@@ -1100,12 +1131,14 @@ fun KellvynApp() {
                                     )
                                 )
                                 status = "Projeto salvo. Iniciando o compilador local…"
+                                recordBrainProgress("Projeto Android salvo. Agora compilando e verificando o APK no aparelho…")
                                 buildProjectAndReport(project, repairBrief = text, repairEngine = selectedEngine)
                             }
                         }
                         is AppBuildResult.Failure -> {
                             messages.add(ChatMessage("Não consegui concluir a geração do projeto: ${result.reason}", false))
                             status = result.reason
+                            recordBrainProgress("A criação não passou pela validação. Consulte o erro informado no chat.")
                         }
                     }
                 } else if (wantsExistingBuild && !modelReady) {
@@ -1169,7 +1202,10 @@ fun KellvynApp() {
                             conversation = turns,
                             internetAllowed = webModuleEnabled,
                             onToolStatus = { toolStatus ->
-                                scope.launch(Dispatchers.Main.immediate) { status = toolStatus }
+                                scope.launch(Dispatchers.Main.immediate) {
+                                    status = toolStatus
+                                    recordBrainProgress(toolStatus)
+                                }
                             },
                             requestApproval = { summary -> requestAgentApproval(summary) },
                             reinforcedProtection = reinforcedProtection
@@ -1265,6 +1301,7 @@ fun KellvynApp() {
                                 "A IA terminou a geração sem produzir uma resposta. Tente novamente; se acontecer de novo, o modelo local precisa ser verificado."
                             }
                             messages.add(ChatMessage(finalText, false))
+                            recordBrainProgress(if (result.text.isBlank()) "A resposta terminou vazia; registrei a falha." else "Resposta concluída. Confira o resultado na conversa.")
                             status = if (result.text.isBlank()) {
                                 "A geração terminou sem texto; verifiquei o resultado e registrei a falha."
                             } else {
@@ -1273,10 +1310,12 @@ fun KellvynApp() {
                         }
                         is AssistantResult.Unavailable -> {
                             messages.add(ChatMessage("IA indisponível: ${result.reason}", false))
+                            recordBrainProgress("O motor local não ficou disponível nesta solicitação.")
                             status = result.reason
                         }
                         is AssistantResult.Failure -> {
                             messages.add(ChatMessage("Falha da IA: ${result.reason}", false))
+                            recordBrainProgress("A tarefa falhou. O motivo real foi registrado no chat.")
                             status = result.reason
                         }
                     }
@@ -1287,6 +1326,7 @@ fun KellvynApp() {
             } catch (e: Exception) {
                 val reason = e.message ?: e.javaClass.simpleName
                 messages.add(ChatMessage("Falha inesperada: $reason", false))
+                recordBrainProgress("Ocorreu uma falha inesperada; consulte o erro registrado.")
                 saveHistory()
                 status = "Falha inesperada: $reason"
             } finally {
@@ -1957,18 +1997,54 @@ fun KellvynApp() {
                 }
                 if (isGenerating) {
                     item(key = "kellvyn_thinking_indicator") {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(start = 36.dp, bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().padding(start = 36.dp, bottom = 6.dp),
+                            color = Panel,
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
                         ) {
-                            Text("🧠", fontSize = 16.sp)
-                            Text("Kellvyn pensando…", color = accentColor, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 1.8.dp,
-                                color = accentColor
-                            )
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                                ) {
+                                    Text("🧠", fontSize = 16.sp)
+                                    Text("Cérebro da Kellvyn", color = accentColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Spacer(Modifier.weight(1f))
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 1.8.dp,
+                                        color = accentColor
+                                    )
+                                }
+                                Text(
+                                    brainActivity,
+                                    color = Color(0xFFC9F6E8),
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                                brainSteps.takeLast(4).forEachIndexed { index, step ->
+                                    Row(
+                                        verticalAlignment = Alignment.Top,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            if (index == brainSteps.takeLast(4).lastIndex) "›" else "✓",
+                                            color = if (index == brainSteps.takeLast(4).lastIndex) accentColor else Muted,
+                                            fontSize = 11.sp
+                                        )
+                                        Text(
+                                            step,
+                                            color = Muted,
+                                            fontSize = 10.sp,
+                                            lineHeight = 13.sp
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -2130,6 +2206,30 @@ fun KellvynApp() {
                                     onClick = {
                                         showAttachmentMenu = false
                                         readFileLauncher.launch(arrayOf("*/*"))
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                            Text(if (webModuleEnabled) "Desconectar da Web" else "Conectar à Web")
+                                            Text(
+                                                if (webModuleEnabled) "A IA volta a trabalhar offline" else "Usa Wi-Fi/dados deste celular",
+                                                color = Muted,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        showAttachmentMenu = false
+                                        val enabled = !webModuleEnabled
+                                        webModuleEnabled = enabled
+                                        uiPreferences.edit().putBoolean("web_module_enabled", enabled).apply()
+                                        status = if (enabled) {
+                                            "Acesso à Web conectado pela internet do celular. A IA continua local; não há troca de provedor."
+                                        } else {
+                                            "Acesso à Web desconectado. A Kellvyn IA permanece offline."
+                                        }
+                                        recordBrainProgress(status)
                                     }
                                 )
                             }
