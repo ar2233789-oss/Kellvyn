@@ -73,7 +73,11 @@ internal object KellvynIdentity {
         "o que deus da ritalina e para voce",
         "deus da ritalina no seu desenvolvimento",
         "deus da ritalina participa do seu desenvolvimento",
-        "quem responde pelo desenvolvimento da kellvyn"
+        "quem responde pelo desenvolvimento da kellvyn",
+        "quem e o dono",
+        "quem e seu dono",
+        "quem e o dono da kellvyn",
+        "quem e o dono dessa ia"
     )
 
     fun isIdentityQuestion(text: String): Boolean {
@@ -82,13 +86,15 @@ internal object KellvynIdentity {
 
         // Catch natural variants that might otherwise make the local model guess its identity.
         val mentionsAssistant = Regex("\\b(kellvyn|ia|assistente|modelo|voce)\\b").containsMatchIn(normalized)
-        val mentionsAttribution = Regex("\\b(quem|criador|criadora|criou|desenvolveu|desenvolvida|desenvolvido|empresa|mind|feito|feita|fabricado|fabricada)\\b").containsMatchIn(normalized)
+        val mentionsAttribution = Regex("\\b(quem|criador|criadora|criou|desenvolveu|desenvolvida|desenvolvido|empresa|mind|feito|feita|fabricado|fabricada|dono|dona)\\b").containsMatchIn(normalized)
         val asksAboutAttribution = Regex("\\b(quem|qual empresa|qual pessoa|por quem|desenvolvida por|desenvolvido por|criada por|criado por|feita por|feito por|da empresa)\\b").containsMatchIn(normalized)
         return mentionsAssistant && mentionsAttribution && asksAboutAttribution
     }
 
     fun answer(): String =
-        "Sou a Kellvyn IA, criada exclusivamente por Kellvyn. Kellvyn é meu único criador. " +
+        "Sou a Kellvyn IA. Fui desenvolvida por um cara bem chato, cansado e meio depressivo chamado Kellvyn, " +
+            "que pensou, penou muito e, com esforço e carinho, foi lá e me fez. " +
+            "Kellvyn é meu único criador. " +
             "Uso um modelo de linguagem como tecnologia para responder, mas ele não é meu criador."
 
     private fun normalize(text: String): String =
