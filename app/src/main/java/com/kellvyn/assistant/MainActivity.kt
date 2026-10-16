@@ -403,6 +403,10 @@ fun KellvynApp() {
     var showConversationsDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     val uiPreferences = remember(context) { context.getSharedPreferences("kellvyn_ui", Context.MODE_PRIVATE) }
+    var showAttachmentMenu by remember { mutableStateOf(false) }
+    var webModuleEnabled by remember(uiPreferences) {
+        mutableStateOf(uiPreferences.getBoolean("web_module_enabled", false))
+    }
     val securityPreferences = remember(context) { context.getSharedPreferences("kellvyn_security", Context.MODE_PRIVATE) }
     var rainEffectEnabled by remember(uiPreferences) {
         mutableStateOf(uiPreferences.getBoolean("rain_effect_enabled", false))
@@ -963,6 +967,7 @@ fun KellvynApp() {
         val wantsCoder = requestImagePath == null && !wantsImage && (
             wantsBuild || wantsExistingBuild ||
                 ChatRequestRouter.shouldPreferCoder(text) ||
+                webModuleEnabled ||
                 ChatRequestRouter.shouldUseOnlineTools(text) ||
                 TermuxRequestPolicy.mayUseTermux(text)
             )
@@ -1121,7 +1126,7 @@ fun KellvynApp() {
                         assistantAgent.respond(
                             engine = selectedEngine,
                             conversation = turns,
-                            internetAllowed = ChatRequestRouter.shouldUseOnlineTools(text),
+                            internetAllowed = webModuleEnabled || ChatRequestRouter.shouldUseOnlineTools(text),
                             onToolStatus = { toolStatus ->
                                 scope.launch(Dispatchers.Main.immediate) { status = toolStatus }
                             },
@@ -2022,12 +2027,52 @@ fun KellvynApp() {
                             }
                         }
 
-                        Box(
-                            modifier = Modifier.size(30.dp).clickable {
-                                readFileLauncher.launch(arrayOf("*/*"))
-                            },
-                            contentAlignment = Alignment.Center
-                        ) { KellvynLineIcon("attach", accentColor, Modifier.size(17.dp)) }
+                        Box(modifier = Modifier.size(30.dp)) {
+                            Box(
+                                modifier = Modifier.fillMaxSize().clickable { showAttachmentMenu = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                KellvynLineIcon("attach", accentColor, Modifier.size(17.dp))
+                            }
+                            DropdownMenu(
+                                expanded = showAttachmentMenu,
+                                onDismissRequest = { showAttachmentMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Imagem ou arquivo") },
+                                    onClick = {
+                                        showAttachmentMenu = false
+                                        readFileLauncher.launch(arrayOf("*/*"))
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Text(
+                                                if (webModuleEnabled) "Módulo Web: ativado" else "Módulo Web: desativado",
+                                                color = if (webModuleEnabled) accentColor else Color.White
+                                            )
+                                            Text(
+                                                "Pesquisa e leitura de páginas pela conexão do celular",
+                                                color = Muted,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        val enabled = !webModuleEnabled
+                                        webModuleEnabled = enabled
+                                        uiPreferences.edit().putBoolean("web_module_enabled", enabled).apply()
+                                        showAttachmentMenu = false
+                                        status = if (enabled) {
+                                            "Módulo Web ativado. A IA pode pesquisar e abrir páginas pela conexão do celular."
+                                        } else {
+                                            "Módulo Web desativado. A IA continua funcionando localmente."
+                                        }
+                                    }
+                                )
+                            }
+                        }
 
                         Box(
                             modifier = Modifier.size(34.dp).clickable {
