@@ -3,6 +3,7 @@ package com.kellvyn.assistant.data
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 data class SavedConversation(
     val id: String,
@@ -15,10 +16,20 @@ data class SavedConversation(
  * Stores separate chat conversations on-device. No conversation is sent to an online service.
  */
 class ChatConversationStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences(
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(
         "kellvyn_conversations",
         Context.MODE_PRIVATE
     )
+
+    private fun validImagePath(path: String?): String? {
+        if (path.isNullOrBlank()) return null
+        return runCatching {
+            val root = File(appContext.filesDir, "kellvyn_attachments").canonicalFile
+            val image = File(path).canonicalFile
+            image.path.takeIf { image.isFile && image.length() > 0L && image.path.startsWith(root.path + File.separator) }
+        }.getOrNull()
+    }
 
     @Synchronized
     fun load(): List<SavedConversation> {
@@ -40,7 +51,8 @@ class ChatConversationStore(context: Context) {
                                 add(
                                     ChatHistoryStore.SavedMessage(
                                         text = text.take(MAX_MESSAGE_CHARS),
-                                        fromUser = message.optBoolean("fromUser")
+                                        fromUser = message.optBoolean("fromUser"),
+                                        imagePath = validImagePath(message.optString("imagePath").takeIf { it.isNotBlank() })
                                     )
                                 )
                             }
@@ -88,6 +100,7 @@ class ChatConversationStore(context: Context) {
                     JSONObject()
                         .put("text", message.text.take(MAX_MESSAGE_CHARS))
                         .put("fromUser", message.fromUser)
+                        .put("imagePath", validImagePath(message.imagePath))
                 )
             }
             array.put(
