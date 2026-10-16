@@ -366,6 +366,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
     private fun isRecoverableGenerationFailure(reason: String): Boolean {
         val text = reason.lowercase()
         return listOf(
+            "não retornou uma activity android válida",
             "não retornou um projeto estruturado",
             "não contém uma lista de arquivos",
             "formato inválido",
