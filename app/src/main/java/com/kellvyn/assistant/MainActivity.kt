@@ -2012,7 +2012,7 @@ fun KellvynApp() {
                                     horizontalArrangement = Arrangement.spacedBy(7.dp)
                                 ) {
                                     Text("🧠", fontSize = 16.sp)
-                                    Text("Cérebro da Kellvyn", color = accentColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Cérebrozinho pensando…", color = accentColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                     Spacer(Modifier.weight(1f))
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(14.dp),
@@ -2026,16 +2026,12 @@ fun KellvynApp() {
                                     fontSize = 11.sp,
                                     lineHeight = 15.sp
                                 )
-                                brainSteps.takeLast(4).forEachIndexed { index, step ->
+                                brainSteps.dropLast(1).takeLast(3).forEach { step ->
                                     Row(
                                         verticalAlignment = Alignment.Top,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Text(
-                                            if (index == brainSteps.takeLast(4).lastIndex) "›" else "✓",
-                                            color = if (index == brainSteps.takeLast(4).lastIndex) accentColor else Muted,
-                                            fontSize = 11.sp
-                                        )
+                                        Text("✓", color = Muted, fontSize = 11.sp)
                                         Text(
                                             step,
                                             color = Muted,
