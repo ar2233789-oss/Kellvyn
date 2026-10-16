@@ -510,6 +510,7 @@ fun KellvynApp() {
     var projectToDelete by remember { mutableStateOf<WorkspaceProject?>(null) }
     var showEditorDialog by remember { mutableStateOf(false) }
     var showBrowserDialog by remember { mutableStateOf(false) }
+    var showPluginsDialog by remember { mutableStateOf(false) }
     var browserAddressDraft by remember { mutableStateOf("https://www.google.com") }
     var showGitDialog by remember { mutableStateOf(false) }
     var gitProjectId by remember { mutableStateOf<String?>(null) }
@@ -2334,6 +2335,13 @@ fun KellvynApp() {
                                     }
                                 )
                                 DropdownMenuItem(
+                                    text = { Text("Plugins") },
+                                    onClick = {
+                                        showAttachmentMenu = false
+                                        showPluginsDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
                                     text = {
                                         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                             Text(if (webModuleEnabled) "Desconectar da Web" else "Conectar à Web")
@@ -2500,6 +2508,209 @@ fun KellvynApp() {
                 dismissButton = { TextButton(onClick = { showBrowserDialog = false }) { Text("Cancelar") } },
                 containerColor = Panel
             )
+        }
+
+        if (showPluginsDialog) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { showPluginsDialog = false },
+                properties = androidx.compose.ui.window.DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    decorFitsSystemWindows = true
+                )
+            ) {
+                Surface(
+                    Modifier.fillMaxSize().padding(8.dp),
+                    color = Night,
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                ) {
+                    Column(
+                        Modifier.fillMaxSize().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("PLUGINS E FERRAMENTAS", color = accentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text("Integrações nativas do cérebro Kellvyn", color = Muted, fontSize = 10.sp)
+                            }
+                            TextButton(onClick = { showPluginsDialog = false }) {
+                                Text("Fechar", color = Color.White)
+                            }
+                        }
+                        Text(
+                            "Esta lista abre somente módulos reais do app Android. A IA continua sendo uma só, local; não adiciona provedores de IA nem ativa plugins externos sem uma integração configurada.",
+                            color = Muted,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                        Column(
+                            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                Modifier.fillMaxWidth(),
+                                color = Panel,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                            ) {
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text("Cérebro local", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        when {
+                                            modelReady -> "Modelo local pronto para conversar."
+                                            isLoadingModel -> "O modelo local está sendo preparado."
+                                            modelInitializationAttempted -> "O último preparo não ficou pronto. Verifique o status do chat."
+                                            else -> "O modelo local será preparado na inicialização."
+                                        },
+                                        color = if (modelReady) accentColor else Muted,
+                                        fontSize = 11.sp
+                                    )
+                                    if (!modelReady && !isLoadingModel) {
+                                        TextButton(onClick = {
+                                            showPluginsDialog = false
+                                            retryLocalModelInitialization()
+                                        }) { Text("Tentar preparar IA", color = accentColor) }
+                                    }
+                                }
+                            }
+                            Surface(
+                                Modifier.fillMaxWidth(),
+                                color = Panel,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                            ) {
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            Text("Acesso à Web", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                            Text("Usa a conexão Wi-Fi/dados do próprio celular como ferramenta da IA local.", color = Muted, fontSize = 11.sp)
+                                        }
+                                        Switch(
+                                            checked = webModuleEnabled,
+                                            onCheckedChange = { enabled ->
+                                                webModuleEnabled = enabled
+                                                uiPreferences.edit().putBoolean("web_module_enabled", enabled).apply()
+                                                status = if (enabled) "Acesso à Web conectado pela internet do celular. O modelo continua local."
+                                                    else "Acesso à Web desconectado. A Kellvyn IA permanece offline."
+                                                recordBrainProgress(status)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                            Surface(
+                                Modifier.fillMaxWidth(),
+                                color = Panel,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                            ) {
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text("Construtor Android e editor", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("O cérebro cria projetos pelo chat; o editor abre os arquivos reais guardados no workspace.", color = Muted, fontSize = 11.sp)
+                                    TextButton(onClick = {
+                                        showPluginsDialog = false
+                                        existingProjects.clear()
+                                        existingProjects.addAll(workspaceStore.listProjects())
+                                        if (activeEditProject?.id !in existingProjects.map { it.id }) {
+                                            activeEditProject = null
+                                            editablePaths = emptyList()
+                                            activeFilePath = ""
+                                            editorContent = ""
+                                            editorStatus = ""
+                                        }
+                                        showEditorDialog = true
+                                        activeBottomTab = "Editor"
+                                    }) { Text("Abrir editor", color = accentColor) }
+                                }
+                            }
+                            Surface(
+                                Modifier.fillMaxWidth(),
+                                color = Panel,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                            ) {
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    val termuxInstalled = termuxBridge.isInstalled()
+                                    val termuxAuthorized = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+                                        context.checkSelfPermission(TermuxBridge.TERMUX_RUN_COMMAND_PERMISSION) == PackageManager.PERMISSION_GRANTED
+                                    Text("Terminal Termux independente", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        when {
+                                            !termuxInstalled -> "Termux não está instalado neste aparelho."
+                                            !termuxAuthorized -> "Termux instalado; falta a permissão Android RUN_COMMAND."
+                                            else -> "Termux encontrado. A execução também exige allow-external-apps=true no próprio Termux."
+                                        },
+                                        color = if (termuxInstalled && termuxAuthorized) accentColor else Muted,
+                                        fontSize = 11.sp
+                                    )
+                                    TextButton(onClick = {
+                                        showPluginsDialog = false
+                                        termuxOutput = "Terminal independente do Termux. Os comandos digitados aqui não passam pelo chat da IA."
+                                        showTermuxDialog = true
+                                        activeBottomTab = "Terminal"
+                                    }) { Text("Abrir terminal separado", color = accentColor) }
+                                }
+                            }
+                            Surface(
+                                Modifier.fillMaxWidth(),
+                                color = Panel,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                            ) {
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    val activeBots = activeRuntimeProjects.size
+                                    Text("Bots Discord / Telegram", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "$activeBots bot(s) com runtime marcado como ativo neste aparelho. O estado real da conexão é exibido pelo serviço/notificação.",
+                                        color = Muted,
+                                        fontSize = 11.sp
+                                    )
+                                    TextButton(onClick = {
+                                        showPluginsDialog = false
+                                        existingProjects.clear()
+                                        existingProjects.addAll(workspaceStore.listProjects())
+                                        botsOnlyFilter = true
+                                        showAppsDialog = true
+                                        activeBottomTab = "Bots"
+                                    }) { Text("Gerenciar bots ativos", color = accentColor) }
+                                }
+                            }
+                            Surface(
+                                Modifier.fillMaxWidth(),
+                                color = Panel,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                            ) {
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text("Navegador do Android", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Abre páginas e pesquisas no navegador disponível no aparelho.", color = Muted, fontSize = 11.sp)
+                                    TextButton(onClick = {
+                                        showPluginsDialog = false
+                                        showBrowserDialog = true
+                                        activeBottomTab = "Navegador"
+                                    }) { Text("Abrir navegador", color = accentColor) }
+                                }
+                            }
+                            Surface(
+                                Modifier.fillMaxWidth(),
+                                color = Panel,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                            ) {
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text("Git / JGit do cérebro", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "As operações de workspace (status, diff, branches, histórico, init, stage e commit local) continuam integradas ao agente pelo chat. Esta lista não publica commits em servidores remotos.",
+                                        color = Muted,
+                                        fontSize = 11.sp,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         if (showPhoneAppsDialog) {
