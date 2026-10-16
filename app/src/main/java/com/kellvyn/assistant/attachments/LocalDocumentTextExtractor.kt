@@ -250,8 +250,10 @@ object LocalDocumentTextExtractor {
         }
         val factory = DocumentBuilderFactory.newInstance().apply {
             isNamespaceAware = true
-            isXIncludeAware = false
-            isExpandEntityReferences = false
+            // Android may not implement these optional setters; tolerate unsupported parser features.
+            // DTD/entity declarations are rejected above, and external entity features are disabled below.
+            runCatching { isXIncludeAware = false }
+            runCatching { isExpandEntityReferences = false }
             // Different Android XML parsers support different optional feature URIs.
             // The source is also checked above to reject DTD/entity declarations.
             runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
