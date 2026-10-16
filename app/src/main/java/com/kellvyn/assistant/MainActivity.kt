@@ -2727,7 +2727,15 @@ fun KellvynApp() {
                                 Text("APPS, BOTS E PROJETOS", color = accentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 Text("Catálogo permanente de tudo que o construtor gerou", color = Muted, fontSize = 11.sp)
                             }
-                            TextButton(
+                            TextButton(onClick = { showAppsDialog = false }) {
+                                Text("Fechar", color = Color.White, fontSize = 12.sp)
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
                                 onClick = {
                                     showAppsDialog = false
                                     existingProjects.clear()
@@ -2740,9 +2748,26 @@ fun KellvynApp() {
                                         editorStatus = ""
                                     }
                                     showEditorDialog = true
-                                }
-                            ) { Text("Códigos", color = accentColor, fontSize = 11.sp) }
-                            TextButton(
+                                },
+                                modifier = Modifier.weight(1f).height(42.dp)
+                            ) { Text("Códigos", color = accentColor, fontSize = 12.sp) }
+                            OutlinedButton(
+                                onClick = {
+                                    showAppsDialog = false
+                                    existingProjects.clear()
+                                    existingProjects.addAll(workspaceStore.listProjects())
+                                    gitProjectId = existingProjects.firstOrNull()?.id
+                                    gitOutput = ""
+                                    showGitDialog = true
+                                },
+                                modifier = Modifier.weight(1f).height(42.dp)
+                            ) { Text("Git", color = accentColor, fontSize = 12.sp) }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
                                 onClick = {
                                     showAppsDialog = false
                                     val launch = context.packageManager.getLaunchIntentForPackage("com.termux")
@@ -2755,27 +2780,18 @@ fun KellvynApp() {
                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://f-droid.org/packages/com.termux/")))
                                         }.onFailure { status = "Instale o Termux pelo F-Droid; não há terminal padrão instalado neste aparelho." }
                                     }
-                                }
-                            ) { Text("Termux", color = accentColor, fontSize = 11.sp) }
-                            TextButton(
-                                onClick = {
-                                    showAppsDialog = false
-                                    existingProjects.clear()
-                                    existingProjects.addAll(workspaceStore.listProjects())
-                                    gitProjectId = existingProjects.firstOrNull()?.id
-                                    gitOutput = ""
-                                    showGitDialog = true
-                                }
-                            ) { Text("Git", color = accentColor, fontSize = 11.sp) }
-                            TextButton(
+                                },
+                                modifier = Modifier.weight(1f).height(42.dp)
+                            ) { Text("Abrir Termux", color = accentColor, fontSize = 12.sp) }
+                            OutlinedButton(
                                 onClick = {
                                     showAppsDialog = false
                                     runCatching {
                                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com")))
                                     }.onFailure { status = "Não consegui abrir o navegador padrão." }
-                                }
-                            ) { Text("Navegador", color = accentColor, fontSize = 10.sp) }
-                            TextButton(onClick = { showAppsDialog = false }) { Text("Fechar", color = Color.White, fontSize = 11.sp) }
+                                },
+                                modifier = Modifier.weight(1f).height(42.dp)
+                            ) { Text("Navegador / Google", color = accentColor, fontSize = 12.sp) }
                         }
                         if (existingProjects.isEmpty()) {
                             Text("Ainda não há aplicativos criados. Peça ao chat principal para criar um; o editor serve só para editar arquivos.", color = Muted, fontSize = 13.sp)
