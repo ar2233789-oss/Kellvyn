@@ -604,10 +604,11 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 // The output is already the designated MainActivity.java file. Promote a package-private
                 // top-level Activity to public instead of rejecting an otherwise usable local-model result.
                 val declaration = Regex("""(?m)^([ \t]*)(?:final[ \t]+)?class[ \t]+MainActivity(?=[ \t]+extends[ \t]+Activity\b)""")
-                if (!declaration.containsMatchIn(normalizedRaw)) return null
-                normalizedRaw = declaration.replaceFirst(normalizedRaw) { match ->
-                    match.groupValues[1] + "public class MainActivity"
-                }
+                val declarationMatch = declaration.find(normalizedRaw) ?: return null
+                normalizedRaw = normalizedRaw.replaceRange(
+                    declarationMatch.range,
+                    declarationMatch.groupValues[1] + "public class MainActivity"
+                )
                 classMatch = Regex("""\bpublic\s+class\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
                     .find(normalizedRaw) ?: return null
             }
