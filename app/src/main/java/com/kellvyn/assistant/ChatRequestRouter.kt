@@ -26,11 +26,16 @@ object ChatRequestRouter {
         ).any { value.startsWith(it + " ") || value.contains(" " + it + " ") }
         val projectObject = listOf(
             "app", "aplicativo", "aplicação", "aplicacao", "apk", "jogo", "sistema",
-            "programa", "ferramenta", "bot", "projeto", "construtor", "assistente"
-        ).any { it in value }
+            "programa", "ferramenta", "projeto", "construtor", "assistente", "chatbot", "chat bot"
+        ).any { it in value } || containsWholeWord(value, "bot") || containsWholeWord(value, "bots")
         val asksCapabilityOnly = listOf("você consegue", "voce consegue", "como criar", "como faço", "como faco", "é possível", "e possivel").any { it in value }
         return createIntent && projectObject && !asksCapabilityOnly
     }
+
+    /** Unicode-aware whole-word match. Accent characters must not split Portuguese words like "botões". */
+    private fun containsWholeWord(value: String, word: String): Boolean =
+        Regex("""(?<![\\p{L}\\p{N}_])${Regex.escape(word)}(?![\\p{L}\\p{N}_])""", RegexOption.IGNORE_CASE)
+            .containsMatchIn(value)
 
     /** Direct requests create an image artifact; questions and image analysis stay in chat. */
     fun shouldGenerateImage(text: String): Boolean {
@@ -237,8 +242,9 @@ object ChatRequestRouter {
             "chatbot", "chat bot", "jogo", "sistema", "software", "programa", "ferramenta",
             "minha ia", "ia local"
         ).any { it in t } ||
-            t.split(Regex("[^a-z0-9]+")).contains("app") ||
-            t.split(Regex("[^a-z0-9]+")).contains("bot") ||
+            containsWholeWord(t, "app") ||
+            containsWholeWord(t, "bot") ||
+            containsWholeWord(t, "bots") ||
             Regex("(^|[^a-z0-9])ia([^a-z0-9]|$)").containsMatchIn(t)
 
         val directCreationIntent = listOf(
