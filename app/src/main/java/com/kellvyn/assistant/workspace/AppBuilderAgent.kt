@@ -207,7 +207,9 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
                 val files = createAndroidProjectFiles(name, idea, candidateSource, readme)
                     ?: return@withContext AppBuildResult.Failure(
-                        "A IA local não retornou um projeto estruturado válido: a MainActivity.java está incompleta ou não é uma Activity funcional. A correção automática tentará novamente."
+                        "A IA local não retornou uma Activity Android válida. Diagnóstico: " +
+                            diagnoseAndroidActivity(candidateSource) +
+                            " A correção automática usará esse diagnóstico e a resposta anterior."
                     )
                 val totalChars = files.sumOf { it.content.length }
                 if (totalChars > MAX_PROJECT_CHARS) {
@@ -518,6 +520,33 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
          * Adds implementation-level acceptance criteria for projects that need real mechanics.
          * These remain constraints for the generated source, not claims that the app has been tested.
          */
+        /** Explains structural failures so the next generation repairs the actual problem. */
+        internal fun diagnoseAndroidActivity(raw: String): String {
+            if (raw.isBlank()) return "a resposta do modelo veio vazia."
+            if (raw.length > MAX_REPAIR_FILE_CHARS) return "a resposta ultrapassou o limite seguro de caracteres."
+            if (!Regex("""\bclass\s+MainActivity\b""").containsMatchIn(raw)) {
+                return "não encontrei a declaração da classe MainActivity."
+            }
+            if (!Regex("""\bpublic\s+class\s+MainActivity\b""").containsMatchIn(raw)) {
+                return "MainActivity não foi declarada como classe pública."
+            }
+            val activityDeclaration = Regex("""\bclass\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
+                .find(raw)
+            if (activityDeclaration == null) return "MainActivity não estende android.app.Activity como o compilador local exige."
+            if (!Regex("""\bonCreate\s*\(""").containsMatchIn(raw)) {
+                return "faltou implementar onCreate(Bundle) para iniciar a tela."
+            }
+            if (!raw.contains("setContentView(")) return "faltou montar a interface com setContentView(...)."
+            val nativeControls = Regex("""\bnew\s+(?:TextView|Button|EditText|LinearLayout|FrameLayout|ScrollView|ImageView|CheckBox|Switch|RadioButton|ProgressBar|SeekBar|Spinner|ListView|RecyclerView)\s*\(""")
+                .containsMatchIn(raw)
+            if (!nativeControls) return "não encontrei nenhum controle nativo visível criado por código."
+            val openingBrace = raw.indexOf('{', activityDeclaration.range.last + 1)
+            if (openingBrace < 0 || findMatchingJavaBrace(raw, openingBrace) == null) {
+                return "o bloco da classe está incompleto, provavelmente porque a geração foi interrompida antes das chaves finais."
+            }
+            return "a classe parece conter os elementos básicos, mas não passou pela extração segura; gere uma Activity curta e completa."
+        }
+
         /**
          * Accepts raw Java or JSON/file-list output, but only returns a complete native Activity.
          * Braces inside Java strings and comments do not count toward class closure.
