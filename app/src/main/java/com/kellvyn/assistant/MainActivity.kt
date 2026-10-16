@@ -2689,9 +2689,9 @@ fun KellvynApp() {
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text("Captura automática da tela", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Modo de jogo", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    "Quando ativo, guarda um quadro local automaticamente para a IA analisar no próximo pedido. Não há botão de print separado.",
+                                    "Ao ativar, a captura da tela acontece automaticamente para a IA analisar o jogo no próximo pedido. Não existe botão de print separado.",
                                     color = Muted,
                                     fontSize = 11.sp
                                 )
