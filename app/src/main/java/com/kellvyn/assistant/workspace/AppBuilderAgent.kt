@@ -15,6 +15,43 @@ sealed interface AppBuildResult {
     data class Failure(val reason: String) : AppBuildResult
 }
 
+/** Visible, task-specific plan shown inside the main chat while the builder works. */
+internal fun visibleBuilderPlan(brief: String, botProject: Boolean): String {
+    val value = brief.lowercase(Locale.ROOT)
+    if (botProject) {
+        val platform = when {
+            "discord" in value -> "Discord"
+            "telegram" in value -> "Telegram"
+            "whatsapp" in value || "wpp" in value -> "WhatsApp Business"
+            else -> "a plataforma solicitada"
+        }
+        return "Plano do cérebro: preparar o projeto para $platform; gerar os arquivos e a configuração exigida; validar os comandos/manifesto; salvar o código no catálogo. A conexão real exige as credenciais oficiais."
+    }
+
+    val featureSignals = listOf(
+        listOf("login", "entrar", "autenticação", "autenticacao") to "login",
+        listOf("cadastro", "registrar", "registro") to "cadastro",
+        listOf("busca", "pesquisa", "pesquisar", "filtrar") to "busca/filtragem",
+        listOf("histórico", "historico") to "histórico",
+        listOf("salvar", "guardar", "persistência", "persistencia", "banco de dados") to "salvamento de dados",
+        listOf("notificação", "notificacao", "alerta") to "notificações",
+        listOf("offline", "sem internet") to "uso offline",
+        listOf("música", "musica", "áudio", "audio", "player") to "áudio/reprodução",
+        listOf("chuva", "tempestade", "clima") to "simulação/controles de chuva",
+        listOf("imagem", "imagens", "galeria", "foto") to "imagens",
+        listOf("estoque", "produto", "inventário", "inventario") to "gestão de itens",
+        listOf("mapa", "localização", "localizacao", "rota") to "mapa/localização",
+        listOf("agenda", "calendário", "calendario", "evento") to "agenda"
+    )
+    val requested = featureSignals
+        .filter { (signals, _) -> signals.any { it in value } }
+        .map { it.second }
+        .distinct()
+        .take(6)
+    val features = requested.joinToString(", ").ifBlank { "os recursos descritos no pedido" }
+    return "Plano do cérebro: implementar $features; criar a interface e a lógica em Android nativo/Java; validar MainActivity e os arquivos; salvar o projeto; tentar compilar, assinar e verificar o APK. O resultado final será informado conforme os testes reais."
+}
+
 /**
  * Converts a user's application brief into a proposed source-code project.
  * The model's output is treated as untrusted text: it is parsed as JSON,
@@ -53,7 +90,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         if (idea.length > MAX_BRIEF_CHARS) {
             return AppBuildResult.Failure("A descrição é muito longa. Limite: $MAX_BRIEF_CHARS caracteres.")
         }
-        onProgress(if (botProject) "Plano definido: gerar os arquivos do bot e validar sua configuração." else "Plano definido: criar a interface e a lógica do aplicativo Android.")
+        onProgress(visibleBuilderPlan(idea, botProject))
         val prompt = buildString {
             if (botProject) {
                 appendLine("TAREFA: criar código-fonte funcional de um bot para a plataforma do pedido, não um APK Android.")
