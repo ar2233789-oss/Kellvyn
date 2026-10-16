@@ -88,7 +88,6 @@ import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.WorkspaceProject
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
 import com.kellvyn.assistant.workspace.LocalApkBuildResult
-import com.kellvyn.assistant.tools.WorkspaceConsoleDialog
 import com.kellvyn.assistant.tools.TermuxBridge
 import com.kellvyn.assistant.runtime.DiscordBotCredentialsStore
 import com.kellvyn.assistant.runtime.DiscordBotRuntimeService
@@ -423,7 +422,6 @@ fun KellvynApp() {
     var isGenerating by remember { mutableStateOf(false) }
     var isLoadingModel by remember { mutableStateOf(false) }
     var modelInitializationAttempted by remember { mutableStateOf(false) }
-    var showTerminalDialog by remember { mutableStateOf(false) }
     var showConversationsDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     val uiPreferences = remember(context) { context.getSharedPreferences("kellvyn_ui", Context.MODE_PRIVATE) }
@@ -2639,13 +2637,6 @@ fun KellvynApp() {
                 }
             }
         }
-        if (showTerminalDialog) {
-            WorkspaceConsoleDialog(
-                termux = termuxBridge,
-                onDismiss = { showTerminalDialog = false }
-            )
-        }
-
         if (showSettingsDialog) {
             AlertDialog(
                 onDismissRequest = { showSettingsDialog = false },
@@ -2922,22 +2913,6 @@ fun KellvynApp() {
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            OutlinedButton(
-                                onClick = {
-                                    showAppsDialog = false
-                                    val launch = context.packageManager.getLaunchIntentForPackage("com.termux")
-                                    if (launch != null) {
-                                        runCatching { context.startActivity(launch) }
-                                            .onFailure { status = "Não consegui abrir o Termux instalado: " + (it.message ?: "erro desconhecido") }
-                                    } else {
-                                        status = "O Termux padrão não está instalado. Abrindo a página oficial para instalar."
-                                        runCatching {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://f-droid.org/packages/com.termux/")))
-                                        }.onFailure { status = "Instale o Termux pelo F-Droid; não há terminal padrão instalado neste aparelho." }
-                                    }
-                                },
-                                modifier = Modifier.weight(1f).height(42.dp)
-                            ) { Text("Abrir Termux", color = accentColor, fontSize = 12.sp) }
                             OutlinedButton(
                                 onClick = {
                                     showAppsDialog = false
