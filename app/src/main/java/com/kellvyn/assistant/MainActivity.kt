@@ -2840,7 +2840,7 @@ fun KellvynApp() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text("APPS, BOTS E PROJETOS", color = accentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                Text("Catálogo permanente de tudo que o construtor gerou", color = Muted, fontSize = 11.sp)
+                                Text("Seus apps e projetos salvos", color = Muted, fontSize = 11.sp)
                             }
                             TextButton(onClick = { showAppsDialog = false }) {
                                 Text("Fechar", color = Color.White, fontSize = 12.sp)
