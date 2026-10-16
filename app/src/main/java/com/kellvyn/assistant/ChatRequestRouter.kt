@@ -37,8 +37,9 @@ object ChatRequestRouter {
         val value = text.trim().lowercase(Locale.ROOT)
         return listOf(
             "gere uma imagem", "gera uma imagem", "gerar uma imagem",
-            "crie uma imagem", "criar uma imagem", "faz uma imagem", "fazer uma imagem",
-            "desenhe uma imagem", "desenha uma imagem", "desenhar uma imagem",
+            "crie uma imagem", "criar uma imagem", "cria uma imagem", "faz uma imagem", "fazer uma imagem",
+            "desenhe uma imagem", "desenha uma imagem", "desenhar uma imagem", "desenha", "desenhe",
+            "crie uma arte", "criar uma arte", "faz uma arte", "fazer uma arte", "gera uma arte", "gerar uma arte",
             "faça uma imagem", "faca uma imagem", "gere imagem", "gera imagem", "gerar imagem",
             "crie imagem", "criar imagem", "faz imagem", "gere uma foto", "gera uma foto",
             "gerar uma foto", "crie uma foto", "gere uma ilustração", "gera uma ilustração",
