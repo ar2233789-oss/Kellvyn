@@ -17,7 +17,7 @@ sealed interface AppBuildResult {
 
 /** Unicode-aware whole-word check: Portuguese "botões" must never be interpreted as "bot". */
 internal fun containsStandaloneBotKeyword(text: String): Boolean =
-    Regex("""(?<![\\p{L}\\p{N}_])bots?(?![\\p{L}\\p{N}_])""", RegexOption.IGNORE_CASE)
+    Regex("(?<![\\p{L}\\p{N}_])bots?(?![\\p{L}\\p{N}_])", RegexOption.IGNORE_CASE)
         .containsMatchIn(text)
 
 /** Visible, task-specific plan shown inside the main chat while the builder works. */
