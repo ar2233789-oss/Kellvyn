@@ -351,6 +351,17 @@ private fun KellvynLineIcon(
                 rect(.18f,.28f,.82f,.78f,.15f); line(.5f,.14f,.5f,.28f); drawCircle(tint,w*.045f,Offset(w*.5f,h*.12f))
                 drawCircle(tint,w*.065f,Offset(w*.36f,h*.48f)); drawCircle(tint,w*.065f,Offset(w*.64f,h*.48f)); line(.35f,.66f,.65f,.66f)
             }
+            "code" -> {
+                line(.39f,.25f,.19f,.5f); line(.19f,.5f,.39f,.75f)
+                line(.61f,.25f,.81f,.5f); line(.81f,.5f,.61f,.75f)
+                line(.56f,.18f,.44f,.82f)
+            }
+            "sparkles" -> {
+                line(.50f,.10f,.50f,.40f); line(.35f,.25f,.65f,.25f)
+                line(.18f,.55f,.18f,.80f); line(.055f,.675f,.305f,.675f)
+                line(.78f,.48f,.78f,.70f); line(.67f,.59f,.89f,.59f)
+                line(.68f,.12f,.68f,.28f); line(.60f,.20f,.76f,.20f)
+            }
             else -> { rect(.16f,.16f,.84f,.84f,.1f); line(.36f,.37f,.64f,.37f); line(.36f,.5f,.64f,.5f); line(.36f,.63f,.64f,.63f) }
         }
     }
@@ -482,6 +493,14 @@ fun KellvynApp() {
     var ttsReady by remember { mutableStateOf(false) }
     var ttsEngine by remember { mutableStateOf<TextToSpeech?>(null) }
     var showAppsDialog by remember { mutableStateOf(false) }
+    var activeBottomTab by remember { mutableStateOf("AI") }
+    var botsOnlyFilter by remember { mutableStateOf(false) }
+    var showPhoneAppsDialog by remember { mutableStateOf(false) }
+    var showTermuxDialog by remember { mutableStateOf(false) }
+    var termuxCommandDraft by remember { mutableStateOf("") }
+    var termuxWorkingDirectory by remember { mutableStateOf("~/") }
+    var termuxOutput by remember { mutableStateOf("Terminal independente do Termux. Os comandos digitados aqui não passam pelo chat da IA.") }
+    var termuxBusy by remember { mutableStateOf(false) }
     var pendingAgentApproval by remember { mutableStateOf<String?>(null) }
     var agentApprovalGate by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     var showMemoryDialog by remember { mutableStateOf(false) }
@@ -1242,9 +1261,31 @@ fun KellvynApp() {
                         )
                     } else {
                         // Everyday conversation uses the local model directly, but a stalled native inference must not lock the composer forever.
+                        var reportedStreamStage = 0
                         withTimeoutOrNull(180_000L) {
                             localEngine.replyStreaming(turns) { partial ->
-                                withContext(Dispatchers.Main.immediate) { streamingReply = partial }
+                                withContext(Dispatchers.Main.immediate) {
+                                    streamingReply = partial
+
+                                    // Show observable generation progress, not hidden model reasoning.
+                                    // Stages are driven by real streamed output, never by a fake timer.
+                                    val stage = when {
+                                        partial.length >= 900 -> 3
+                                        partial.length >= 300 -> 2
+                                        partial.isNotBlank() -> 1
+                                        else -> 0
+                                    }
+                                    if (stage > reportedStreamStage) {
+                                        reportedStreamStage = stage
+                                        recordBrainProgress(
+                                            when (stage) {
+                                                1 -> "O modelo local começou a responder; o texto está sendo exibido em tempo real."
+                                                2 -> "Resposta parcial recebida; a geração continua e o chat está sendo atualizado."
+                                                else -> "A resposta já avançou; aguardando o restante da saída real do modelo local."
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         } ?: AssistantResult.Failure(
                             "A IA demorou mais de 3 minutos para responder. O envio foi encerrado para liberar o chat; tente novamente."
@@ -1758,6 +1799,8 @@ fun KellvynApp() {
                     onClick = {
                         existingProjects.clear()
                         existingProjects.addAll(workspaceStore.listProjects())
+                        botsOnlyFilter = false
+                        activeBottomTab = "Apps"
                         showAppsDialog = true
                     },
                     modifier = Modifier.size(44.dp).semantics { contentDescription = "Apps e APKs" }
@@ -2350,6 +2393,76 @@ fun KellvynApp() {
                 }
             }
 
+            Divider(color = Color(0xFF236B56), thickness = 0.8.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth().background(Panel).height(48.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(
+                    "AI" to "sparkles",
+                    "Navegador" to "globe",
+                    "Editor" to "code",
+                    "Terminal" to "terminal",
+                    "Bots" to "bot",
+                    "Apps" to "apps"
+                ).forEach { (label, iconKind) ->
+                    val selected = activeBottomTab == label
+                    Column(
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                            .clickable {
+                                activeBottomTab = label
+                                when (label) {
+                                    "AI" -> {
+                                        showBrowserDialog = false
+                                        showEditorDialog = false
+                                        showAppsDialog = false
+                                        showTermuxDialog = false
+                                        showPhoneAppsDialog = false
+                                    }
+                                    "Navegador" -> showBrowserDialog = true
+                                    "Editor" -> {
+                                        existingProjects.clear()
+                                        existingProjects.addAll(workspaceStore.listProjects())
+                                        if (activeEditProject?.id !in existingProjects.map { it.id }) {
+                                            activeEditProject = null
+                                            editablePaths = emptyList()
+                                            activeFilePath = ""
+                                            editorContent = ""
+                                            editorStatus = ""
+                                        }
+                                        showEditorDialog = true
+                                    }
+                                    "Terminal" -> {
+                                        termuxOutput = "Terminal independente do Termux. Digite um comando e toque em Executar no Termux."
+                                        showTermuxDialog = true
+                                    }
+                                    "Bots" -> {
+                                        existingProjects.clear()
+                                        existingProjects.addAll(workspaceStore.listProjects())
+                                        botsOnlyFilter = true
+                                        showAppsDialog = true
+                                    }
+                                    "Apps" -> { showAppsDialog = false; showPhoneAppsDialog = true }
+                                }
+                            }
+                            .padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        KellvynLineIcon(
+                            iconKind,
+                            if (selected) accentColor else accentColor.copy(alpha = 0.82f),
+                            Modifier.size(21.dp)
+                        )
+                        Text(
+                            label,
+                            color = if (selected) accentColor else Muted,
+                            fontSize = 9.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
 
         }
 
@@ -2385,6 +2498,163 @@ fun KellvynApp() {
                 dismissButton = { TextButton(onClick = { showBrowserDialog = false }) { Text("Cancelar") } },
                 containerColor = Panel
             )
+        }
+
+        if (showPhoneAppsDialog) {
+            AlertDialog(
+                onDismissRequest = { showPhoneAppsDialog = false },
+                title = { Text("APPS DO CELULAR", color = accentColor) },
+                text = {
+                    Text(
+                        "Abra a tela inicial do Android para acessar os aplicativos instalados neste aparelho.",
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_MAIN)
+                                    .addCategory(Intent.CATEGORY_HOME)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }.onFailure {
+                            status = "Não consegui abrir a tela de aplicativos do Android: " +
+                                (it.message ?: it.javaClass.simpleName)
+                        }
+                        showPhoneAppsDialog = false
+                    }) { Text("Abrir apps do celular", color = accentColor) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPhoneAppsDialog = false }) { Text("Cancelar") }
+                },
+                containerColor = Panel
+            )
+        }
+
+        if (showTermuxDialog) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { if (!termuxBusy) showTermuxDialog = false },
+                properties = androidx.compose.ui.window.DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    decorFitsSystemWindows = true
+                )
+            ) {
+                Surface(
+                    Modifier.fillMaxSize().padding(6.dp),
+                    color = Night,
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                ) {
+                    Column(
+                        Modifier.fillMaxSize().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("TERMINAL TERMUX", color = accentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text("Sessão independente do chat da IA", color = Muted, fontSize = 10.sp)
+                            }
+                            TextButton(
+                                enabled = !termuxBusy,
+                                onClick = { showTermuxDialog = false }
+                            ) { Text("Fechar", color = Color.White) }
+                        }
+
+                        Text(
+                            "Os comandos digitados aqui são executados no ambiente Linux real do Termux, nunca em um shell Android substituto. Cada execução começa somente quando você toca no botão.",
+                            color = Muted,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+
+                        OutlinedTextField(
+                            value = termuxWorkingDirectory,
+                            onValueChange = { termuxWorkingDirectory = it.take(TermuxBridge.MAX_PATH_CHARS) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("Diretório de trabalho do Termux") },
+                            placeholder = { Text("~/") },
+                            enabled = !termuxBusy
+                        )
+
+                        OutlinedTextField(
+                            value = termuxCommandDraft,
+                            onValueChange = { termuxCommandDraft = it.take(TermuxBridge.MAX_COMMAND_CHARS) },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 1,
+                            maxLines = 4,
+                            label = { Text("Comando") },
+                            placeholder = { Text("ex.: pwd, ls -la, git status") },
+                            enabled = !termuxBusy
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                modifier = Modifier.weight(1f),
+                                enabled = !termuxBusy,
+                                onClick = {
+                                    val message = termuxBridge.openFullTerminal()
+                                    termuxOutput = message
+                                    status = message
+                                }
+                            ) { Text("Abrir Termux completo", color = accentColor, fontSize = 11.sp) }
+
+                            Button(
+                                modifier = Modifier.weight(1f),
+                                enabled = !termuxBusy && termuxCommandDraft.isNotBlank(),
+                                onClick = {
+                                    val command = termuxCommandDraft.trim()
+                                    val directory = termuxWorkingDirectory.trim().ifBlank { TermuxBridge.TERMUX_HOME }
+                                    termuxBusy = true
+                                    termuxOutput = "\\$ $command\n\nExecutando no Termux…"
+                                    scope.launch {
+                                        try {
+                                            val commandResult = withContext(Dispatchers.IO) {
+                                                termuxBridge.runCommand(command, directory)
+                                            }
+                                            termuxOutput = ("\\$ $command\n" + commandResult.formattedOutput()).takeLast(24_000)
+                                            status = "Termux finalizou com código ${commandResult.exitCode}."
+                                        } catch (e: Exception) {
+                                            val reason = e.message ?: e.javaClass.simpleName
+                                            termuxOutput = "\\$ $command\nERRO: $reason".takeLast(24_000)
+                                            status = "Falha real ao executar o comando no Termux."
+                                        } finally {
+                                            termuxBusy = false
+                                        }
+                                    }
+                                }
+                            ) {
+                                if (termuxBusy) {
+                                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Night)
+                                } else {
+                                    Text("Executar", color = Night, fontSize = 12.sp)
+                                }
+                            }
+                        }
+
+                        Surface(
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            color = Color(0xFF030907),
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                        ) {
+                            Text(
+                                termuxOutput,
+                                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp),
+                                color = Color(0xFFBCE8D9),
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         if (showGitDialog) {
@@ -2915,7 +3185,12 @@ fun KellvynApp() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text("APPS, BOTS E PROJETOS", color = accentColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                Text("Seus apps e projetos salvos", color = Muted, fontSize = 11.sp)
+                                Text(
+                                    if (botsOnlyFilter) "Bots: confira o estado e use Manter ativo / Parar bot"
+                                    else "Seus apps e projetos salvos",
+                                    color = Muted,
+                                    fontSize = 11.sp
+                                )
                             }
                             TextButton(onClick = { showAppsDialog = false }) {
                                 Text("Fechar", color = Color.White, fontSize = 12.sp)
@@ -2943,15 +3218,13 @@ fun KellvynApp() {
                             ) { Text("Códigos", color = accentColor, fontSize = 12.sp) }
                             OutlinedButton(
                                 onClick = {
-                                    showAppsDialog = false
                                     existingProjects.clear()
                                     existingProjects.addAll(workspaceStore.listProjects())
-                                    gitProjectId = existingProjects.firstOrNull()?.id
-                                    gitOutput = ""
-                                    showGitDialog = true
+                                    botsOnlyFilter = true
+                                    activeBottomTab = "Bots"
                                 },
                                 modifier = Modifier.weight(1f).height(42.dp)
-                            ) { Text("Git", color = accentColor, fontSize = 12.sp) }
+                            ) { Text("Bots ativos", color = accentColor, fontSize = 12.sp) }
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -2967,11 +3240,33 @@ fun KellvynApp() {
                                 modifier = Modifier.weight(1f).height(42.dp)
                             ) { Text("Navegador / Google", color = accentColor, fontSize = 12.sp) }
                         }
-                        if (existingProjects.isEmpty()) {
-                            Text("Ainda não há aplicativos criados. Peça ao chat principal para criar um; o editor serve só para editar arquivos.", color = Muted, fontSize = 13.sp)
+                        val catalogProjects = remember(existingProjects.toList(), botsOnlyFilter) {
+                            if (!botsOnlyFilter) {
+                                existingProjects.toList()
+                            } else {
+                                existingProjects.filter { project ->
+                                    runCatching {
+                                        val paths = workspaceStore.listFiles(project.id).toSet()
+                                        val packageText = if ("package.json" in paths) workspaceStore.readFile(project.id, "package.json") else ""
+                                        val kind = GeneratedProjectClassifier.classify(paths, packageText, project.description, project.name)
+                                        kind == GeneratedProjectKind.DISCORD_BOT || kind == GeneratedProjectKind.TELEGRAM_BOT
+                                    }.getOrDefault(false)
+                                }
+                            }
+                        }
+                        if (catalogProjects.isEmpty()) {
+                            Text(
+                                if (botsOnlyFilter) {
+                                    "Nenhum bot Discord ou Telegram compatível foi salvo ainda. Peça à Kellvyn IA para criar o bot pelo chat principal."
+                                } else {
+                                    "Ainda não há aplicativos criados. Peça ao chat principal para criar um; o editor serve só para editar arquivos."
+                                },
+                                color = Muted,
+                                fontSize = 13.sp
+                            )
                         } else {
                             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                existingProjects.forEach { project ->
+                                catalogProjects.forEach { project ->
                                     val projectPaths = runCatching { workspaceStore.listFiles(project.id).toSet() }.getOrDefault(emptySet())
                                     val packageText = if ("package.json" in projectPaths) runCatching { workspaceStore.readFile(project.id, "package.json") }.getOrDefault("") else ""
                                     val projectKind = GeneratedProjectClassifier.classify(projectPaths, packageText, project.description, project.name)
