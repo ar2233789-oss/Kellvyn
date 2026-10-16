@@ -39,6 +39,22 @@ private const val MIN_STREAM_UPDATE_CHARS = 12
 
 /** Removes protocol/control markers before generated text is shown in the chat. */
 internal fun sanitizeModelOutput(raw: String): String {
+    // The coder agent uses a private JSON envelope. If it accidentally leaks into ordinary chat,
+    // expose only its final answer and never show an internal tool call. Hide incomplete envelopes
+    // while the model is still streaming them.
+    val envelopePrefix = Regex("""(?is)^\\s*\\{\\s*"kind"\\s*:\\s*"(answer|tool)"(?:\\s*[,}]|$)""")
+        .find(raw)
+    if (envelopePrefix != null) {
+        val trimmed = raw.trim()
+        if (!trimmed.endsWith("}")) return ""
+        val envelope = runCatching { org.json.JSONObject(trimmed) }.getOrNull() ?: return ""
+        return when (envelope.optString("kind")) {
+            "answer" -> sanitizeModelOutput(envelope.optString("text"))
+            "tool" -> ""
+            else -> raw.trim()
+        }
+    }
+
     var text = raw
         // Remove complete hidden sections first, then discard any still-open section while streaming.
         .replace(Regex("""(?is)<think\b[^>]*>.*?</think\s*>"""), "")
