@@ -54,6 +54,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -416,6 +417,7 @@ fun KellvynApp() {
     var streamingReply by remember { mutableStateOf("") }
     var brainActivity by remember { mutableStateOf("Aguardando uma solicitação no chat principal.") }
     var brainPlan by remember { mutableStateOf("") }
+    var brainOutputPreview by remember { mutableStateOf("") }
     val brainSteps = remember { mutableStateListOf<String>() }
     var status by remember { mutableStateOf("Kellvyn pronto. Converse pelo chat principal.") }
     var modelReady by remember { mutableStateOf(false) }
@@ -1058,6 +1060,7 @@ fun KellvynApp() {
             wantsCoder -> "Identificar os arquivos e ferramentas relevantes; executar a alteração solicitada; verificar o resultado e resumir as evidências."
             else -> "Interpretar a pergunta; verificar o contexto necessário; preparar uma resposta clara e informar qualquer limitação real."
         }
+        brainOutputPreview = ""
         brainSteps.clear()
         recordBrainProgress("Pedido recebido pelo chat principal.")
         recordBrainProgress(when {
@@ -1107,12 +1110,21 @@ fun KellvynApp() {
                         saveHistory()
                         return@launch
                     }
-                    when (val result = appBuilderAgent.createProject(selectedEngine, text) { progress ->
-                        scope.launch(Dispatchers.Main.immediate) {
-                            recordBrainProgress(progress)
-                            status = progress
+                    when (val result = appBuilderAgent.createProject(
+                        engine = selectedEngine,
+                        brief = text,
+                        onProgress = { progress ->
+                            scope.launch(Dispatchers.Main.immediate) {
+                                recordBrainProgress(progress)
+                                status = progress
+                            }
+                        },
+                        onOutputPreview = { preview ->
+                            scope.launch(Dispatchers.Main.immediate) {
+                                brainOutputPreview = preview.takeLast(900)
+                            }
                         }
-                    }) {
+                    )) {
                         is AppBuildResult.Success -> {
                             val project = result.project
                             existingProjects.clear()
@@ -2066,6 +2078,30 @@ fun KellvynApp() {
                                     fontSize = 11.sp,
                                     lineHeight = 15.sp
                                 )
+                                if (brainOutputPreview.isNotBlank()) {
+                                    Text(
+                                        "SAÍDA PARCIAL DA GERAÇÃO",
+                                        color = accentColor,
+                                        fontSize = 9.sp,
+                                        letterSpacing = 0.8.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = Color(0xFF03100D),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            brainOutputPreview,
+                                            modifier = Modifier.fillMaxWidth().padding(6.dp),
+                                            color = Color(0xFFC9F6E8),
+                                            fontSize = 9.sp,
+                                            lineHeight = 12.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 7
+                                        )
+                                    }
+                                }
                                 if (brainSteps.size > 1) {
                                     Text(
                                         "ETAPAS OBSERVÁVEIS",
