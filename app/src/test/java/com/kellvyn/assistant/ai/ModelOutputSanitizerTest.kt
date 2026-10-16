@@ -31,14 +31,14 @@ class ModelOutputSanitizerTest {
     fun unwrapsAnAccidentallyVisibleInternalAnswerEnvelope() {
         assertEquals(
             "Resposta curta.",
-            sanitizeModelOutput("""{"kind":"answer","text":"Resposta curta."}""")
+            sanitizeDirectChatOutput("""{"kind":"answer","text":"Resposta curta."}""")
         )
     }
 
     @Test
     fun hidesAnInternalToolCallEnvelopeFromTheChat() {
-        assertEquals("", sanitizeModelOutput("""{"kind":"tool","name":"web_search","arguments":{"query":"segredo"}}"""))
-        assertEquals("", sanitizeModelOutput("""{"kind":"tool","name":"web_search","arguments":{"query":"segredo"}"""))
+        assertEquals("", sanitizeDirectChatOutput("""{"kind":"tool","name":"web_search","arguments":{"query":"segredo"}}"""))
+        assertEquals("", sanitizeDirectChatOutput("""{"kind":"tool","name":"web_search","arguments":{"query":"segredo"}"""))
     }
 
     @Test
