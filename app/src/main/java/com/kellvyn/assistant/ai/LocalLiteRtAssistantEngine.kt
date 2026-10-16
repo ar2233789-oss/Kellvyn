@@ -37,26 +37,26 @@ private const val MIN_OUTPUT_TOKEN_BUDGET = 256
 private const val LONG_GENERATION_SYSTEM_RESERVE_TOKENS = 2048
 private const val MIN_STREAM_UPDATE_CHARS = 12
 
-/** Removes protocol/control markers before generated text is shown in the chat. */
-internal fun sanitizeModelOutput(raw: String): String {
-    // The coder agent uses a private JSON envelope. If it accidentally leaks into ordinary chat,
-    // expose only its final answer and never show an internal tool call. Hide incomplete envelopes
-    // while the model is still streaming them.
+/**
+ * Unwraps agent-protocol JSON only at a user-facing chat boundary. Internal tools need the
+ * original JSON envelope to execute real work, so this must not run on an agent's internal turn.
+ */
+internal fun sanitizeDirectChatOutput(raw: String): String {
     val envelopePrefix = Regex("""(?is)^\s*\{\s*"kind"\s*:\s*"(answer|tool)"(?:\s*[,}]|$)""")
-        .find(raw)
-    if (envelopePrefix != null) {
-        val trimmed = raw.trim()
-        if (!trimmed.endsWith("}")) return ""
-        val envelope = runCatching { org.json.JSONObject(trimmed) }.getOrNull() ?: return ""
-        return when (envelope.optString("kind")) {
-            "answer" -> sanitizeModelOutput(envelope.optString("text"))
-            "tool" -> ""
-            else -> raw.trim()
-        }
+        .find(raw) ?: return raw.trim()
+    val trimmed = raw.trim()
+    if (!trimmed.endsWith("}")) return ""
+    val envelope = runCatching { org.json.JSONObject(trimmed) }.getOrNull() ?: return ""
+    return when (envelope.optString("kind")) {
+        "answer" -> sanitizeModelOutput(envelope.optString("text"))
+        "tool" -> ""
+        else -> raw.trim()
     }
+}
 
+/** Removes reasoning/protocol markers while retaining JSON envelopes needed by internal tools. */
+internal fun sanitizeModelOutput(raw: String): String {
     var text = raw
-        // Remove complete hidden sections first, then discard any still-open section while streaming.
         .replace(Regex("""(?is)<think\b[^>]*>.*?</think\s*>"""), "")
         .replace(Regex("""(?is)<analysis\b[^>]*>.*?</analysis\s*>"""), "")
         .replace(Regex("""(?is)<think\b[^>]*>.*$"""), "")
@@ -439,6 +439,10 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                 // Thinking is disabled for user-facing turns so internal analysis is not streamed as chat text.
                 thinkingConfig = ThinkingConfig(enableThinking = false)
             )
+            val expectsAgentProtocolEnvelope = conversation.any {
+                it.role == AssistantTurn.Role.SYSTEM &&
+                    it.content.contains("Responda SOMENTE com um JSON")
+            }
             activeEngine.createConversation(config).use { chat ->
                 val request = if (requestedImageFile != null) {
                     Contents.of(
@@ -451,13 +455,17 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                 stream.collect { part ->
                     answer.append(part.contents.toString())
                     if (answer.isNotEmpty() && (lastPublishedLength == 0 || answer.length - lastPublishedLength >= MIN_STREAM_UPDATE_CHARS)) {
-                        val visiblePartial = sanitizeModelOutput(answer.toString())
+                        val cleanedPartial = sanitizeModelOutput(answer.toString())
+                        val visiblePartial = if (expectsAgentProtocolEnvelope) cleanedPartial
+                            else sanitizeDirectChatOutput(cleanedPartial)
                         if (visiblePartial.isNotBlank()) onPartial(visiblePartial)
                         lastPublishedLength = answer.length
                     }
                 }
             }
-            val text = sanitizeModelOutput(answer.toString())
+            val cleanedText = sanitizeModelOutput(answer.toString())
+            val text = if (expectsAgentProtocolEnvelope) cleanedText
+                else sanitizeDirectChatOutput(cleanedText)
             // Do not leak an unsanitized final streaming event after sanitized partial events.
             onPartial(text)
             if (text.isBlank()) {
