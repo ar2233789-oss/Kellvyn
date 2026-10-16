@@ -84,7 +84,8 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
     suspend fun createProject(
         engine: AssistantEngine,
         brief: String,
-        onProgress: (String) -> Unit = {}
+        onProgress: (String) -> Unit = {},
+        onOutputPreview: (String) -> Unit = {}
     ): AppBuildResult {
         val idea = brief.trim()
         val botProject = isBotProjectRequest(idea)
@@ -131,7 +132,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
         onProgress("Gerando os arquivos com o modelo local…")
         return try {
-            when (val response = generateProjectOutput(engine, prompt, onProgress, "Gerando o código do projeto")) {
+            when (val response = generateProjectOutput(engine, prompt, onProgress, "Gerando o código do projeto", onOutputPreview)) {
                 is AssistantResult.Unavailable -> AppBuildResult.Failure(response.reason)
                 is AssistantResult.Failure -> AppBuildResult.Failure(response.reason)
                 is AssistantResult.Success -> {
@@ -166,7 +167,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                             appendLine(idea)
                         }
                         onProgress("A primeira versão falhou. O cérebro está corrigindo a saída com base no erro e na resposta anterior…")
-                        when (val retry = generateProjectOutput(engine, repairPrompt, onProgress, "Gerando a versão corrigida")) {
+                        when (val retry = generateProjectOutput(engine, repairPrompt, onProgress, "Gerando a versão corrigida", onOutputPreview)) {
                             is AssistantResult.Unavailable -> AppBuildResult.Failure(
                                 "A primeira geração falhou na validação (${firstAttempt.reason}) e o modelo ficou indisponível na tentativa de correção: ${retry.reason}"
                             )
@@ -199,13 +200,24 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         engine: AssistantEngine,
         prompt: String,
         onProgress: (String) -> Unit,
-        phase: String
+        phase: String,
+        onOutputPreview: (String) -> Unit
     ): AssistantResult {
         val turns = listOf(AssistantTurn(AssistantTurn.Role.USER, prompt))
         val streaming = engine as? StreamingAssistantEngine ?: return engine.reply(turns)
         var lastReportedChars = 0
+        var lastPreviewLength = 0
         return streaming.replyStreaming(turns) { partial ->
             val receivedChars = partial.length
+            if (receivedChars > 0 && (
+                    lastPreviewLength == 0 ||
+                        receivedChars - lastPreviewLength >= 360 ||
+                        receivedChars < lastPreviewLength
+                    )
+            ) {
+                lastPreviewLength = receivedChars
+                onOutputPreview(partial.takeLast(900))
+            }
             if (receivedChars > 0 && (
                     lastReportedChars == 0 ||
                         receivedChars - lastReportedChars >= 180 ||
