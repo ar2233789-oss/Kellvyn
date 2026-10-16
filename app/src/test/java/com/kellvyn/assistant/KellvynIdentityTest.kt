@@ -13,6 +13,8 @@ class KellvynIdentityTest {
         assertTrue(KellvynIdentity.isIdentityQuestion("Kellvyn criou você?"))
         assertTrue(KellvynIdentity.isIdentityQuestion("Você foi criada por quem?"))
         assertTrue(KellvynIdentity.isIdentityQuestion("Quem desenvolveu a Kellvyn?"))
+        assertTrue(KellvynIdentity.isIdentityQuestion("Você foi desenvolvida pela Mind?"))
+        assertTrue(KellvynIdentity.isIdentityQuestion("Qual empresa desenvolveu você?"))
     }
 
     @Test
