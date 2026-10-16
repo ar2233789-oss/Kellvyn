@@ -30,6 +30,13 @@ class ChatRequestRouterTest {
     }
 
     @Test
+    fun PortugueseBotoesDoNotCountAsTheBotProjectType() {
+        assertFalse(ChatRequestRouter.shouldBuild("Crie um painel com botões de chuva e reinício."))
+        assertTrue(ChatRequestRouter.shouldBuild("Crie um jogo Android com botões de chuva e reinício."))
+        assertTrue(ChatRequestRouter.shouldBuild("Crie um bot do Discord com comando ping."))
+    }
+
+    @Test
     fun mentioningATerminalOrConsoleAsAnAppFeatureDoesNotBlockBuilderRouting() {
         val brief = "Um aplicativo de gerenciamento com tela de login, cadastro de usuários, banco de dados, botões para salvar e busca, além de um console de logs."
         assertTrue(ChatRequestRouter.shouldBuild(brief))
