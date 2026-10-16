@@ -84,7 +84,6 @@ import com.kellvyn.assistant.workspace.AppBuilderAgent
 import com.kellvyn.assistant.workspace.EditorSyncPolicy
 import com.kellvyn.assistant.workspace.AppBuildResult
 import com.kellvyn.assistant.workspace.ProjectWorkspaceStore
-import com.kellvyn.assistant.workspace.WorkspaceGitService
 import com.kellvyn.assistant.workspace.ProjectFileInput
 import com.kellvyn.assistant.workspace.WorkspaceProject
 import com.kellvyn.assistant.workspace.LocalAndroidCompiler
@@ -512,10 +511,6 @@ fun KellvynApp() {
     var showBrowserDialog by remember { mutableStateOf(false) }
     var showPluginsDialog by remember { mutableStateOf(false) }
     var browserAddressDraft by remember { mutableStateOf("https://www.google.com") }
-    var showGitDialog by remember { mutableStateOf(false) }
-    var gitProjectId by remember { mutableStateOf<String?>(null) }
-    var gitOutput by remember { mutableStateOf("") }
-    var gitCommitDraft by remember { mutableStateOf("") }
     var activeEditProject by remember { mutableStateOf<WorkspaceProject?>(null) }
     var editablePaths by remember { mutableStateOf(emptyList<String>()) }
     var activeFilePath by remember { mutableStateOf("") }
@@ -2691,22 +2686,6 @@ fun KellvynApp() {
                                     }) { Text("Abrir navegador", color = accentColor) }
                                 }
                             }
-                            Surface(
-                                Modifier.fillMaxWidth(),
-                                color = Panel,
-                                shape = RoundedCornerShape(12.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
-                            ) {
-                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                    Text("Git / JGit do cérebro", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        "As operações de workspace (status, diff, branches, histórico, init, stage e commit local) continuam integradas ao agente pelo chat. Esta lista não publica commits em servidores remotos.",
-                                        color = Muted,
-                                        fontSize = 11.sp,
-                                        lineHeight = 15.sp
-                                    )
-                                }
-                            }
                         }
                     }
                 }
@@ -2868,78 +2847,6 @@ fun KellvynApp() {
                     }
                 }
             }
-        }
-
-        if (showGitDialog) {
-            val gitService = remember(workspaceStore) { WorkspaceGitService(workspaceStore) }
-            AlertDialog(
-                onDismissRequest = { showGitDialog = false },
-                title = { Text("Git do workspace", color = accentColor) },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (existingProjects.isEmpty()) {
-                            Text("Nenhum projeto local disponível. Peça à IA pelo chat para criar ou abrir um projeto.", color = Muted, fontSize = 12.sp)
-                        } else {
-                            Text("PROJETO", color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            existingProjects.forEach { project ->
-                                TextButton(
-                                    onClick = { gitProjectId = project.id; gitOutput = "" },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Text((if (gitProjectId == project.id) "● " else "○ ") + project.name, color = if (gitProjectId == project.id) accentColor else Color.White, maxLines = 1)
-                                }
-                            }
-                            val selectedProject = existingProjects.firstOrNull { it.id == gitProjectId }
-                            if (selectedProject != null) {
-                                Text("REPOSITÓRIO LOCAL", color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    TextButton(onClick = {
-                                        gitOutput = runCatching { gitService.status(selectedProject.id) }.getOrElse { it.message ?: "Falha ao consultar status Git." }
-                                    }) { Text("Status", color = accentColor) }
-                                    TextButton(onClick = {
-                                        gitOutput = runCatching { gitService.branches(selectedProject.id) }.getOrElse { it.message ?: "Falha ao listar branches." }
-                                    }) { Text("Branches", color = accentColor) }
-                                    TextButton(onClick = {
-                                        gitOutput = runCatching { gitService.log(selectedProject.id) }.getOrElse { it.message ?: "Falha ao ler commits." }
-                                    }) { Text("Commits", color = accentColor) }
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    TextButton(onClick = {
-                                        gitOutput = runCatching { gitService.init(selectedProject.id) }.getOrElse { it.message ?: "Falha ao inicializar Git." }
-                                    }) { Text("Inicializar", color = accentColor) }
-                                    TextButton(onClick = {
-                                        gitOutput = runCatching { gitService.stageAll(selectedProject.id) }.getOrElse { it.message ?: "Falha ao preparar alterações." }
-                                    }) { Text("Preparar arquivos", color = accentColor) }
-                                }
-                                OutlinedTextField(
-                                    value = gitCommitDraft,
-                                    onValueChange = { gitCommitDraft = it.take(300) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    label = { Text("Mensagem do commit") }
-                                )
-                                TextButton(onClick = {
-                                    gitOutput = runCatching { gitService.commit(selectedProject.id, gitCommitDraft) }
-                                        .getOrElse { it.message ?: "Falha ao criar commit local." }
-                                    if (gitOutput.startsWith("Commit local criado:")) gitCommitDraft = ""
-                                }) { Text("Criar commit local", color = accentColor) }
-                            }
-                        }
-                        if (gitOutput.isNotBlank()) {
-                            Surface(color = Night, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                Text(gitOutput, color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(9.dp))
-                            }
-                        }
-                        Text("Operações locais no workspace; não envia commits a um servidor remoto.", color = Muted, fontSize = 10.sp)
-                    }
-                },
-                confirmButton = { TextButton(onClick = { showGitDialog = false }) { Text("Fechar", color = accentColor) } },
-                containerColor = Panel
-            )
         }
 
         if (showEditorDialog) {
