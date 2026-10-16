@@ -19,6 +19,15 @@ internal object KellvynIdentity {
         "quem criou a kellvyn",
         "quem desenvolveu voce",
         "quem desenvolveu a kellvyn",
+        "quem e mind",
+        "quem desenvolveu a mind",
+        "mind desenvolveu voce",
+        "voce foi desenvolvida pela mind",
+        "voce foi desenvolvido pela mind",
+        "voce foi criada pela mind",
+        "voce foi criado pela mind",
+        "qual empresa desenvolveu voce",
+        "qual empresa criou a kellvyn",
         "quem fez voce",
         "quem fez a kellvyn",
         "quem e seu criador",
@@ -69,7 +78,13 @@ internal object KellvynIdentity {
 
     fun isIdentityQuestion(text: String): Boolean {
         val normalized = normalize(text)
-        return identityPhrases.any { phrase -> normalized.contains(phrase) }
+        if (identityPhrases.any { phrase -> normalized.contains(phrase) }) return true
+
+        // Catch natural variants that might otherwise make the local model guess its identity.
+        val mentionsAssistant = Regex("\\\\b(kellvyn|ia|assistente|modelo|voce)\\\\b").containsMatchIn(normalized)
+        val mentionsAttribution = Regex("\\\\b(quem|criador|criadora|criou|desenvolveu|desenvolvida|desenvolvido|empresa|mind|feito|feita|fabricado|fabricada)\\\\b").containsMatchIn(normalized)
+        val asksAboutAttribution = Regex("\\\\b(quem|qual empresa|qual pessoa|por quem|desenvolvida por|desenvolvido por|criada por|criado por|feita por|feito por|da empresa)\\\\b").containsMatchIn(normalized)
+        return mentionsAssistant && mentionsAttribution && asksAboutAttribution
     }
 
     fun answer(): String =
