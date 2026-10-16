@@ -779,7 +779,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
         const val MAX_BRIEF_CHARS = 3_000
         const val MAX_FILES = 12
-        const val MAX_PROJECT_CHARS = 18_000
+        const val MAX_PROJECT_CHARS = 22_000
         const val MAX_REPAIR_FILES = 8
         const val MAX_REPAIR_FILE_CHARS = 16_000
         const val MAX_REPAIR_CONTEXT_CHARS = 14_000
