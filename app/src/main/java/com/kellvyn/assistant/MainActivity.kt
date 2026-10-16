@@ -36,9 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -286,6 +284,28 @@ private fun KellvynLineIcon(
                 }
                 drawPath(path, tint)
             }
+            "terminal" -> {
+                rect(.12f,.16f,.88f,.84f,.09f)
+                line(.27f,.36f,.43f,.50f); line(.43f,.50f,.27f,.64f)
+                line(.52f,.64f,.72f,.64f)
+            }
+            "globe" -> {
+                drawCircle(tint, w*.36f, Offset(w*.5f,h*.5f), style=stroke)
+                line(.16f,.5f,.84f,.5f); line(.23f,.34f,.77f,.34f); line(.23f,.66f,.77f,.66f)
+                val meridian = Path().apply {
+                    moveTo(w*.5f,h*.14f)
+                    cubicTo(w*.25f,h*.28f,w*.25f,h*.72f,w*.5f,h*.86f)
+                    cubicTo(w*.75f,h*.72f,w*.75f,h*.28f,w*.5f,h*.14f)
+                }
+                drawPath(meridian, tint, style=stroke)
+            }
+            "git" -> {
+                line(.33f,.22f,.33f,.78f); line(.33f,.50f,.67f,.50f); line(.67f,.22f,.67f,.50f)
+                drawCircle(tint,w*.09f,Offset(w*.33f,h*.22f),style=stroke)
+                drawCircle(tint,w*.09f,Offset(w*.33f,h*.50f),style=stroke)
+                drawCircle(tint,w*.09f,Offset(w*.33f,h*.78f),style=stroke)
+                drawCircle(tint,w*.09f,Offset(w*.67f,h*.22f),style=stroke)
+            }
             "game" -> {
                 rect(.12f,.31f,.88f,.72f,.22f)
                 line(.27f,.47f,.46f,.47f); line(.365f,.37f,.365f,.57f)
@@ -415,16 +435,19 @@ fun KellvynApp() {
     var rainEffectEnabled by remember(uiPreferences) {
         mutableStateOf(uiPreferences.getBoolean("rain_effect_enabled", false))
     }
-    val rainOffset = remember { Animatable(0f) }
+    // Frame-clock animation keeps the drops moving continuously instead of jumping at each loop reset.
+    var rainElapsedNanos by remember { mutableStateOf(0L) }
     LaunchedEffect(rainEffectEnabled) {
         if (rainEffectEnabled) {
-            rainOffset.snapTo(0f)
+            var startNanos: Long? = null
             while (true) {
-                rainOffset.animateTo(1f, animationSpec = tween(durationMillis = 2_200, easing = LinearEasing))
-                rainOffset.snapTo(0f)
+                withFrameNanos { frameTimeNanos ->
+                    val animationStart = startNanos ?: frameTimeNanos.also { startNanos = it }
+                    rainElapsedNanos = frameTimeNanos - animationStart
+                }
             }
         } else {
-            rainOffset.snapTo(0f)
+            rainElapsedNanos = 0L
         }
     }
     var reinforcedProtection by remember(securityPreferences) {
@@ -1617,7 +1640,8 @@ fun KellvynApp() {
                         val lane = (drop * 53) % dropCount
                         val x = (lane.toFloat() / dropCount) * size.width
                         val speed = 0.65f + ((drop * 17) % 55) / 100f
-                        val phase = (rainOffset.value * speed + ((drop * 37) % 97) / 97f) % 1f
+                        val phase = ((rainElapsedNanos.toDouble() / 2_200_000_000.0 * speed.toDouble() +
+                            ((drop * 37) % 97) / 97.0) % 1.0).toFloat()
                         val y = phase * (size.height + dropLength + 10.dp.toPx()) - dropLength
                         if (y >= -dropLength && y <= size.height) {
                             val opacity = 0.28f + ((drop * 13) % 20) / 100f
@@ -1950,64 +1974,6 @@ fun KellvynApp() {
                 }
 
             }
-            // Quick-access tools requested for the main chat. Keep the existing chat design unchanged.
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 1.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = { showTerminalDialog = true },
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        KellvynLineIcon("terminal", accentColor, Modifier.size(16.dp))
-                        Text("Terminal", color = accentColor, fontSize = 9.sp, maxLines = 1)
-                    }
-                }
-                TextButton(
-                    onClick = { browserAddressDraft = ""; showBrowserDialog = true },
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        KellvynLineIcon("globe", accentColor, Modifier.size(16.dp))
-                        Text("Navegador", color = accentColor, fontSize = 9.sp, maxLines = 1)
-                    }
-                }
-                TextButton(
-                    onClick = {
-                        existingProjects.clear()
-                        existingProjects.addAll(workspaceStore.listProjects())
-                        gitProjectId = existingProjects.firstOrNull()?.id.orEmpty()
-                        gitOutput = ""
-                        showGitDialog = true
-                    },
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        KellvynLineIcon("git", accentColor, Modifier.size(16.dp))
-                        Text("Git", color = accentColor, fontSize = 9.sp, maxLines = 1)
-                    }
-                }
-                TextButton(
-                    onClick = {
-                        existingProjects.clear()
-                        existingProjects.addAll(workspaceStore.listProjects())
-                        showAppsDialog = true
-                    },
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        KellvynLineIcon("apps", accentColor, Modifier.size(16.dp))
-                        Text("Apps", color = accentColor, fontSize = 9.sp, maxLines = 1)
-                    }
-                }
-            }
-
             val currentLatestApk = latestBuiltApk?.takeIf { it.isFile && it.length() > 0L }
             val latestApkHasCardInCurrentConversation = currentLatestApk?.let { apk ->
                 messages.any { message ->
@@ -2124,6 +2090,63 @@ fun KellvynApp() {
                             cursorColor = accentColor
                         )
                     )
+                    // Main chat tool shortcuts stay inside the bottom composer, preserving the existing visual style.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = { showTerminalDialog = true },
+                            modifier = Modifier.weight(1f).height(36.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                KellvynLineIcon("terminal", accentColor, Modifier.size(16.dp))
+                                Text("Terminal", color = accentColor, fontSize = 9.sp, maxLines = 1)
+                            }
+                        }
+                        TextButton(
+                            onClick = { browserAddressDraft = ""; showBrowserDialog = true },
+                            modifier = Modifier.weight(1f).height(36.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                KellvynLineIcon("globe", accentColor, Modifier.size(16.dp))
+                                Text("Navegador", color = accentColor, fontSize = 9.sp, maxLines = 1)
+                            }
+                        }
+                        TextButton(
+                            onClick = {
+                                existingProjects.clear()
+                                existingProjects.addAll(workspaceStore.listProjects())
+                                gitProjectId = existingProjects.firstOrNull()?.id.orEmpty()
+                                gitOutput = ""
+                                showGitDialog = true
+                            },
+                            modifier = Modifier.weight(1f).height(36.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                KellvynLineIcon("git", accentColor, Modifier.size(16.dp))
+                                Text("Git", color = accentColor, fontSize = 9.sp, maxLines = 1)
+                            }
+                        }
+                        TextButton(
+                            onClick = {
+                                existingProjects.clear()
+                                existingProjects.addAll(workspaceStore.listProjects())
+                                showAppsDialog = true
+                            },
+                            modifier = Modifier.weight(1f).height(36.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                KellvynLineIcon("apps", accentColor, Modifier.size(16.dp))
+                                Text("Apps", color = accentColor, fontSize = 9.sp, maxLines = 1)
+                            }
+                        }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
