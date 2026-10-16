@@ -40,14 +40,13 @@ private const val MIN_STREAM_UPDATE_CHARS = 12
 /** Removes protocol/control markers before generated text is shown in the chat. */
 internal fun sanitizeModelOutput(raw: String): String {
     var text = raw
-        .replace(Regex("""(?is)<think\\b[^>]*>.*?</think\\s*>"""), "")
-        .replace(Regex("""(?is)<analysis\\b[^>]*>.*?</analysis\\s*>"""), "")
-        .replace(Regex("""<\\|[^>\\r\\n]{1,100}>"""), "")
-        .replace(Regex("""(?im)^\\s*(?:analysis|reasoning|thought|final|assistant|model|commentary)\\s*:?[ \\t]*$"""), "")
-        .replace(Regex("""(?m)^\\s*(?:<\\/?(?:think|analysis|final)>)+\\s*$"""), "")
+        .replace(Regex("""(?is)<think\b[^>]*>.*?</think\s*>"""), "")
+        .replace(Regex("""(?is)<analysis\b[^>]*>.*?</analysis\s*>"""), "")
+        .replace(Regex("""<\|[^>\r\n]{1,100}>"""), "")
+        .replace(Regex("""(?im)^\s*(?:analysis|reasoning|thought|final|assistant|model|commentary)\s*:?[ \t]*$"""), "")
+        .replace(Regex("""(?m)^\s*(?:<\/?(?:think|analysis|final)>)+\s*$"""), "")
         .replace(Regex("\\n{3,}"), "\\n\\n")
         .trim()
-    // Never render an empty response as a successful answer.
     if (text.isBlank()) return ""
     return text
 }
