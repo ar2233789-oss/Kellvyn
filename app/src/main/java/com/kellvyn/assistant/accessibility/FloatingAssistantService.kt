@@ -317,7 +317,8 @@ class FloatingAssistantService : Service() {
             try {
                 val result = withContext(Dispatchers.IO) {
                     val loaded = engine.ensureReady { progress ->
-                        withContext(Dispatchers.Main.immediate) { setStatus(progress) }
+                        // ensureReady's progress callback is not suspending; post status to the UI scope.
+                        scope.launch(Dispatchers.Main.immediate) { setStatus(progress) }
                     }
                     if (loaded !is AssistantResult.Success) {
                         loaded
