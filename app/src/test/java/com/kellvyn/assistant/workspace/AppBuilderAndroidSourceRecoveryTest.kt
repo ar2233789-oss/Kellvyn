@@ -84,6 +84,37 @@ class AppBuilderAndroidSourceRecoveryTest {
     }
 
     @Test
+    fun normalizesPublicFinalMainActivityToAValidTopLevelActivity() {
+        val response = """
+            package generated.demo;
+            import android.app.Activity;
+            import android.os.Bundle;
+            import android.widget.TextView;
+            public final class MainActivity extends Activity {
+                @Override public void onCreate(Bundle state) {
+                    super.onCreate(state);
+                    TextView title = new TextView(this);
+                    title.setText("Native app");
+                    setContentView(title);
+                }
+            }
+        """.trimIndent()
+
+        val activity = AppBuilderAgent.extractCompleteAndroidActivity(response)
+        assertNotNull(activity)
+        assertTrue(activity!!.contains("public class MainActivity extends Activity"))
+        assertFalse(activity.contains("public final class MainActivity"))
+
+        val files = AppBuilderAgent.createAndroidProjectFiles(
+            name = "Final Activity",
+            idea = "Crie um aplicativo Android nativo de teste.",
+            rawActivity = response
+        )
+        assertNotNull(files)
+        assertNull(GeneratedAndroidProjectValidator.validate(files!!.associate { it.path to it.content }))
+    }
+
+    @Test
     fun diagnosesIncompleteActivityWithTheSpecificMissingPiece() {
         assertTrue(
             AppBuilderAgent.diagnoseAndroidActivity("Aqui está uma ideia de aplicativo.")
