@@ -82,6 +82,7 @@ class LocalPromptBudgetTest {
     @Test
     fun nativeAndroidBuilderAndRepairPromptsAreRecognizedAsLongGeneration() {
         assertTrue(isProjectGenerationPrompt("TAREFA: criar o código completo de um aplicativo Android nativo em um único arquivo Java."))
+        assertTrue(isProjectGenerationPrompt("TAREFA: criar um projeto Android nativo funcional em Java usando uma Activity principal e configuração local."))
         assertTrue(isProjectGenerationPrompt("TAREFA: corrigir uma falha real da compilação Android local."))
         assertTrue(isProjectGenerationPrompt("TAREFA: criar código-fonte funcional de um bot."))
         assertTrue(!isProjectGenerationPrompt("Explique o que é uma Activity Android."))
