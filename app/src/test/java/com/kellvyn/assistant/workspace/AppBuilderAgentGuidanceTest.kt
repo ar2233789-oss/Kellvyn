@@ -50,6 +50,14 @@ class AppBuilderAgentGuidanceTest {
     }
 
     @Test
+    fun PortugueseBotoesNeverTriggersTheBotProjectTemplate() {
+        assertFalse(containsStandaloneBotKeyword("Crie um jogo Android com botões de chuva e reinício."))
+        assertFalse(containsStandaloneBotKeyword("Adicione vários botões para controlar o aplicativo."))
+        assertTrue(containsStandaloneBotKeyword("Crie um bot do Discord com comando ping."))
+        assertTrue(containsStandaloneBotKeyword("Configure um BOT para o Telegram."))
+    }
+
+    @Test
     fun ordinaryAppsDoNotReceiveUnrelatedGameOrMusicRules() {
         val rules = AppBuilderAgent.projectSpecificGuidance(
             "Crie uma calculadora simples com histórico de operações."
