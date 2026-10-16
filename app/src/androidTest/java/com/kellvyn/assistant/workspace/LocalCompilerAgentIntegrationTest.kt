@@ -204,7 +204,14 @@ class LocalCompilerAgentIntegrationTest {
         suspend fun ask(title: String, prompt: String, history: MutableList<AssistantTurn>): String {
             history.add(AssistantTurn(AssistantTurn.Role.USER, prompt))
             val startedAt = SystemClock.elapsedRealtime()
-            val result = withTimeoutOrNull(180_000L) { engine.reply(history.toList()) }
+            var firstVisibleChunkMs: Long? = null
+            val result = withTimeoutOrNull(180_000L) {
+                engine.replyStreaming(history.toList()) { partial ->
+                    if (firstVisibleChunkMs == null && partial.isNotBlank()) {
+                        firstVisibleChunkMs = SystemClock.elapsedRealtime() - startedAt
+                    }
+                }
+            }
             val elapsedMs = SystemClock.elapsedRealtime() - startedAt
             val answer = when (result) {
                 is AssistantResult.Success -> result.text
@@ -214,10 +221,22 @@ class LocalCompilerAgentIntegrationTest {
             }
             if (result is AssistantResult.Success) {
                 history.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, result.text))
+                if (Regex("""(?is)<(?:think|analysis)\\b|\\{\\s*"kind"\\s*:\\s*"(?:answer|tool)"|^\\s*analysis\\s*:""")
+                        .containsMatchIn(answer)) {
+                    failures.add("Conversa: " + title + " — possível vazamento de metadados internos.")
+                }
             } else {
                 failures.add("Conversa: " + title + " — " + answer)
             }
-            section("Conversa real: " + title, "**Tempo de resposta:** " + elapsedMs + " ms\n\n**Prompt enviado:**\n\n" + prompt + "\n\n**Resposta real do modelo:**\n\n" + answer)
+            val firstChunk = firstVisibleChunkMs?.let { it.toString() + " ms" } ?: "nenhum trecho visível"
+            section(
+                "Conversa real: " + title,
+                "**Tempo até primeiro trecho visível:** " + firstChunk +
+                    "\\n\\n**Tempo total:** " + elapsedMs + " ms" +
+                    "\\n\\n**Caracteres da resposta:** " + answer.length +
+                    "\\n\\n**Prompt enviado:**\\n\\n" + prompt +
+                    "\\n\\n**Resposta real do modelo:**\\n\\n" + answer
+            )
             return answer
         }
         fun shell(command: String): String {
