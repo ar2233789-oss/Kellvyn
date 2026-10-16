@@ -1126,7 +1126,7 @@ fun KellvynApp() {
                         assistantAgent.respond(
                             engine = selectedEngine,
                             conversation = turns,
-                            internetAllowed = webModuleEnabled || ChatRequestRouter.shouldUseOnlineTools(text),
+                            internetAllowed = webModuleEnabled,
                             onToolStatus = { toolStatus ->
                                 scope.launch(Dispatchers.Main.immediate) { status = toolStatus }
                             },
