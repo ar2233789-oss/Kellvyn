@@ -52,6 +52,24 @@ class KellvynIdentityTest {
     }
 
     @Test
+    fun ownershipQuestionsAreRecognizedAcrossNaturalWording() {
+        val questions = listOf(
+            "Quem manda na IA?",
+            "Quem é responsável pela Kellvyn?",
+            "A quem pertence essa inteligência artificial?",
+            "Quem controla o assistente?",
+            "Quem decide os rumos do Kellvyn?"
+        )
+        questions.forEach { question ->
+            assertTrue("Question not recognized: $question", KellvynIdentity.isIdentityQuestion(question))
+            assertTrue(
+                "Creator attribution missing for: $question",
+                KellvynIdentity.answer().lowercase().contains("kellvyn é meu único criador")
+            )
+        }
+    }
+
+    @Test
     fun recognizesIdentityAndModelAttributionQuestions() {
         assertTrue(KellvynIdentity.isIdentityQuestion("Quem é você?"))
         assertTrue(KellvynIdentity.isIdentityQuestion("Qual é seu nome?"))
