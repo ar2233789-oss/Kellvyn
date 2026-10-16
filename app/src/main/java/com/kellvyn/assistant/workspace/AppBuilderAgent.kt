@@ -583,7 +583,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             if (!Regex("""\bclass\s+MainActivity\b""").containsMatchIn(raw)) {
                 return "não encontrei a declaração da classe MainActivity."
             }
-            if (!Regex("""\bpublic\s+class\s+MainActivity\b""").containsMatchIn(raw)) {
+            if (!Regex("""\bpublic(?:\s+(?:final|abstract|strictfp))*\s+class\s+MainActivity\b""").containsMatchIn(raw)) {
                 return "MainActivity não foi declarada como classe pública."
             }
             val activityDeclaration = Regex("""\bclass\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
@@ -615,7 +615,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             if (!Regex("""\bpublic\s+class\s+MainActivity\b""").containsMatchIn(normalizedRaw.substring(0, classMatch.range.last + 1))) {
                 // The output is already the designated MainActivity.java file. Promote a package-private
                 // top-level Activity to public instead of rejecting an otherwise usable local-model result.
-                val declaration = Regex("""(?m)^([ \t]*)(?:final[ \t]+)?class[ \t]+MainActivity(?=[ \t]+extends[ \t]+Activity\b)""")
+                val declaration = Regex("""(?m)^([ \t]*)(?:(?:public|protected|private|abstract|final|static|strictfp)[ \t]+)*class[ \t]+MainActivity(?=[ \t\r\n]+extends[ \t\r\n]+Activity\b)""")
                 val declarationMatch = declaration.find(normalizedRaw) ?: return null
                 normalizedRaw = normalizedRaw.replaceRange(
                     declarationMatch.range,
