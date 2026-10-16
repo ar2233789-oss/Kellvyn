@@ -26,12 +26,13 @@ class AppBuilderAgentGuidanceTest {
     }
 
     @Test
-    fun imageRequestsDoNotPretendTheTextModelGeneratedAFile() {
+    fun imageProjectRequestsClarifyGeneratedIllustrationsVersusProjectAssets() {
         val rules = AppBuilderAgent.projectSpecificGuidance(
             "Crie um jogo com uma imagem de referência visual complexa."
         )
-        assertTrue(rules.any { it.contains("LIMITAÇÃO VISUAL") })
-        assertTrue(rules.any { it.contains("não pode anexar PNG/JPEG") })
+        assertTrue(rules.any { it.contains("ESCOPO DE RECURSOS VISUAIS") })
+        assertTrue(rules.any { it.contains("não incorpora automaticamente arquivos PNG/JPEG binários") })
+        assertTrue(rules.any { it.contains("A IA principal pode gerar ilustrações PNG localmente") })
     }
 
     @Test
