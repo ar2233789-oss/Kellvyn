@@ -416,6 +416,7 @@ fun KellvynApp() {
     val pendingChatRequests = remember { mutableStateListOf<PendingChatRequest>() }
     var streamingReply by remember { mutableStateOf("") }
     var brainActivity by remember { mutableStateOf("Aguardando uma solicitação no chat principal.") }
+    var brainPlan by remember { mutableStateOf("") }
     val brainSteps = remember { mutableStateListOf<String>() }
     var status by remember { mutableStateOf("Kellvyn pronto. Converse pelo chat principal.") }
     var modelReady by remember { mutableStateOf(false) }
@@ -443,6 +444,14 @@ fun KellvynApp() {
     fun recordBrainProgress(detail: String) {
         val clean = detail.trim().replace(Regex("\\s+"), " ")
         if (clean.isBlank()) return
+        if (clean.startsWith("Plano do cérebro:", ignoreCase = true)) {
+            brainPlan = clean.substringAfter(":").trim()
+            brainActivity = "Plano definido. Preparando a primeira etapa."
+            val milestone = "Plano de execução definido a partir do pedido."
+            if (brainSteps.lastOrNull() != milestone) brainSteps.add(milestone)
+            while (brainSteps.size > 5) brainSteps.removeAt(0)
+            return
+        }
         brainActivity = clean
         // Character counters update the live status but must not erase meaningful plan/validation steps.
         val isStreamingCounter = clean.contains("caracteres recebidos do modelo local", ignoreCase = true)
@@ -1042,6 +1051,7 @@ fun KellvynApp() {
             "Gerando resposta no aparelho…"
         }
 
+        brainPlan = ""
         brainSteps.clear()
         recordBrainProgress("Pedido recebido pelo chat principal.")
         recordBrainProgress(when {
@@ -2022,12 +2032,42 @@ fun KellvynApp() {
                                         color = accentColor
                                     )
                                 }
+                                if (brainPlan.isNotBlank()) {
+                                    Text(
+                                        "PLANO DE TRABALHO",
+                                        color = accentColor,
+                                        fontSize = 9.sp,
+                                        letterSpacing = 0.8.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        brainPlan,
+                                        color = Color(0xFFC9F6E8),
+                                        fontSize = 10.sp,
+                                        lineHeight = 14.sp
+                                    )
+                                }
+                                Text(
+                                    "O QUE ESTÁ FAZENDO AGORA",
+                                    color = accentColor,
+                                    fontSize = 9.sp,
+                                    letterSpacing = 0.8.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                                 Text(
                                     brainActivity,
                                     color = Color(0xFFC9F6E8),
                                     fontSize = 11.sp,
                                     lineHeight = 15.sp
                                 )
+                                if (brainSteps.size > 1) {
+                                    Text(
+                                        "ETAPAS OBSERVÁVEIS",
+                                        color = Muted,
+                                        fontSize = 9.sp,
+                                        letterSpacing = 0.8.sp
+                                    )
+                                }
                                 brainSteps.dropLast(1).takeLast(3).forEach { step ->
                                     Row(
                                         verticalAlignment = Alignment.Top,
