@@ -54,6 +54,24 @@ class AppBuilderAndroidSourceRecoveryTest {
     }
 
     @Test
+    fun diagnosesIncompleteActivityWithTheSpecificMissingPiece() {
+        assertTrue(
+            AppBuilderAgent.diagnoseAndroidActivity("Aqui está uma ideia de aplicativo.")
+                .contains("não encontrei a declaração da classe MainActivity")
+        )
+        assertTrue(
+            AppBuilderAgent.diagnoseAndroidActivity(
+                "package com.example.app; public class MainActivity extends Activity { void onCreate() { setContentView(new TextView(this));"
+            ).contains("bloco da classe está incompleto")
+        )
+        assertTrue(
+            AppBuilderAgent.diagnoseAndroidActivity(
+                "package com.example.app; public class MainActivity extends Activity { void onCreate() { setContentView(new View(this)); } }"
+            ).contains("nenhum controle nativo visível")
+        )
+    }
+
+    @Test
     fun scaffoldsCompleteProjectFromAPlainJavaResponse() {
         val response = """
             package another.package;
