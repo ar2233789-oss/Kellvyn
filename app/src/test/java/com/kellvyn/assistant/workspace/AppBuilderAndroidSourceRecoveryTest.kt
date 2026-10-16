@@ -115,6 +115,36 @@ class AppBuilderAndroidSourceRecoveryTest {
     }
 
     @Test
+    fun normalizesPackagePrivateActivityWhenExtendsIsWrappedAcrossLines() {
+        val response = """
+            package generated.demo;
+            import android.app.Activity;
+            import android.os.Bundle;
+            import android.widget.TextView;
+            class MainActivity
+                extends Activity {
+                @Override public void onCreate(Bundle state) {
+                    super.onCreate(state);
+                    TextView title = new TextView(this);
+                    title.setText("Native app");
+                    setContentView(title);
+                }
+            }
+        """.trimIndent()
+
+        val activity = AppBuilderAgent.extractCompleteAndroidActivity(response)
+        assertNotNull(activity)
+        assertTrue(activity!!.contains("public class MainActivity extends Activity"))
+        val files = AppBuilderAgent.createAndroidProjectFiles(
+            name = "Wrapped Activity",
+            idea = "Crie um aplicativo Android nativo de teste.",
+            rawActivity = response
+        )
+        assertNotNull(files)
+        assertNull(GeneratedAndroidProjectValidator.validate(files!!.associate { it.path to it.content }))
+    }
+
+    @Test
     fun diagnosesIncompleteActivityWithTheSpecificMissingPiece() {
         assertTrue(
             AppBuilderAgent.diagnoseAndroidActivity("Aqui está uma ideia de aplicativo.")
