@@ -40,8 +40,12 @@ private const val MIN_STREAM_UPDATE_CHARS = 12
 /** Removes protocol/control markers before generated text is shown in the chat. */
 internal fun sanitizeModelOutput(raw: String): String {
     var text = raw
+        // Remove complete hidden sections first, then discard any still-open section while streaming.
         .replace(Regex("""(?is)<think\b[^>]*>.*?</think\s*>"""), "")
         .replace(Regex("""(?is)<analysis\b[^>]*>.*?</analysis\s*>"""), "")
+        .replace(Regex("""(?is)<think\b[^>]*>.*$"""), "")
+        .replace(Regex("""(?is)<analysis\b[^>]*>.*$"""), "")
+        .replace(Regex("""(?im)^\s*(?:analysis|reasoning|thought|commentary)\s*:\s*.*$"""), "")
         .replace(Regex("""<\|[^>\r\n]{1,100}>"""), "")
         .replace(Regex("""(?im)^\s*(?:analysis|reasoning|thought|final|assistant|model|commentary)\s*:?[ \t]*$"""), "")
         .replace(Regex("""(?m)^\s*(?:<\/?(?:think|analysis|final)>)+\s*$"""), "")
