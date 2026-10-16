@@ -2749,11 +2749,6 @@ fun KellvynApp() {
                         ) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text("Proteção reforçada da IA", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    if (reinforcedProtection) "Ativada: pede autorização antes de criar/alterar projetos, corrigir arquivos ou compilar." else "Desativada: edições pedidas no chat continuam automáticas.",
-                                    color = Muted,
-                                    fontSize = 11.sp
-                                )
                             }
                             Switch(
                                 checked = reinforcedProtection,
