@@ -1049,7 +1049,15 @@ fun KellvynApp() {
             "Gerando resposta no aparelho…"
         }
 
-        brainPlan = ""
+        brainPlan = when {
+            wantsImage -> "Interpretar a descrição visual; gerar a ilustração vetorial local; renderizar o PNG; verificar o arquivo gerado."
+            wantsBuild -> "Identificar os recursos solicitados; criar o projeto Android nativo; validar o código; compilar e verificar o APK."
+            wantsExistingBuild -> "Localizar o projeto pedido; compilar no aparelho; inspecionar o diagnóstico e tentar uma correção limitada se necessário."
+            TermuxRequestPolicy.mayUseTermux(text) -> "Confirmar o pedido explícito de ajuda com Termux; solicitar autorização antes de cada comando; verificar a saída real."
+            ChatRequestRouter.shouldAutomaticallyResearch(text) -> "Identificar a informação atual necessária; consultar fontes externas com a conexão do celular; conferir evidências antes de responder."
+            wantsCoder -> "Identificar os arquivos e ferramentas relevantes; executar a alteração solicitada; verificar o resultado e resumir as evidências."
+            else -> "Interpretar a pergunta; verificar o contexto necessário; preparar uma resposta clara e informar qualquer limitação real."
+        }
         brainSteps.clear()
         recordBrainProgress("Pedido recebido pelo chat principal.")
         recordBrainProgress(when {
