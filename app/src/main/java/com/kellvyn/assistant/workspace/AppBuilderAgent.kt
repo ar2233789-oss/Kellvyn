@@ -612,18 +612,18 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             var normalizedRaw = raw
             var classMatch = Regex("""\bclass\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
                 .find(normalizedRaw) ?: return null
-            if (!Regex("""\bpublic\s+class\s+MainActivity\b""").containsMatchIn(normalizedRaw.substring(0, classMatch.range.last + 1))) {
-                // The output is already the designated MainActivity.java file. Promote a package-private
-                // top-level Activity to public instead of rejecting an otherwise usable local-model result.
-                val declaration = Regex("""(?m)^([ \t]*)(?:(?:public|protected|private|abstract|final|static|strictfp)[ \t]+)*class[ \t]+MainActivity(?=[ \t\r\n]+extends[ \t\r\n]+Activity\b)""")
-                val declarationMatch = declaration.find(normalizedRaw) ?: return null
-                normalizedRaw = normalizedRaw.replaceRange(
-                    declarationMatch.range,
-                    declarationMatch.groupValues[1] + "public class MainActivity"
-                )
-                classMatch = Regex("""\bpublic\s+class\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
-                    .find(normalizedRaw) ?: return null
-            }
+
+            // The source is saved specifically as MainActivity.java, so normalize all top-level
+            // visibility/modifier combinations to one valid, public Android launcher Activity.
+            // This also repairs otherwise valid "public final class MainActivity" output.
+            val declaration = Regex("""(?m)^([ \t]*)(?:(?:public|protected|private|abstract|final|static|strictfp)[ \t]+)*class[ \t]+MainActivity(?=[ \t\r\n]+extends[ \t\r\n]+Activity\b)""")
+            val declarationMatch = declaration.find(normalizedRaw) ?: return null
+            normalizedRaw = normalizedRaw.replaceRange(
+                declarationMatch.range,
+                declarationMatch.groupValues[1] + "public class MainActivity"
+            )
+            classMatch = Regex("""\bpublic\s+class\s+MainActivity\b[\s\S]{0,300}?\bextends\s+Activity\b""")
+                .find(normalizedRaw) ?: return null
             val packagePattern = Regex("""(?m)^[ \t]*package[ \t]+[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*[ \t]*;?[ \t]*$""")
             val packageMatch = packagePattern.find(normalizedRaw)?.takeIf { it.range.first < classMatch.range.first }
             val importPattern = Regex("""(?m)^[ \t]*import[ \t]+(?:static[ \t]+)?[A-Za-z_$][A-Za-z0-9_$.]*(?:\.\*)?[ \t]*;[ \t]*$""")
