@@ -38,15 +38,21 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
     fun isTelegramBotRequest(brief: String): Boolean =
         BotPlatformDetector.isTelegram(brief)
 
-    suspend fun createProject(engine: AssistantEngine, brief: String): AppBuildResult {
+    suspend fun createProject(
+        engine: AssistantEngine,
+        brief: String,
+        onProgress: (String) -> Unit = {}
+    ): AppBuildResult {
         val idea = brief.trim()
         val botProject = isBotProjectRequest(idea)
+        onProgress("Cérebro: entendendo o pedido e organizando o plano.")
         if (idea.length < 12) {
             return AppBuildResult.Failure("Descreva o projeto com pelo menos 12 caracteres.")
         }
         if (idea.length > MAX_BRIEF_CHARS) {
             return AppBuildResult.Failure("A descrição é muito longa. Limite: $MAX_BRIEF_CHARS caracteres.")
         }
+        onProgress(if (botProject) "Plano definido: gerar os arquivos do bot e validar sua configuração." else "Plano definido: criar a interface e a lógica do aplicativo Android.")
         val prompt = buildString {
             if (botProject) {
                 appendLine("TAREFA: criar código-fonte funcional de um bot para a plataforma do pedido, não um APK Android.")
@@ -80,15 +86,19 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             appendLine(idea)
         }
 
+        onProgress("Gerando os arquivos com o modelo local…")
         return try {
             when (val response = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, prompt)))) {
                 is AssistantResult.Unavailable -> AppBuildResult.Failure(response.reason)
                 is AssistantResult.Failure -> AppBuildResult.Failure(response.reason)
                 is AssistantResult.Success -> {
+                    onProgress("Resposta recebida. Validando os arquivos e a estrutura do projeto…")
                     val firstAttempt = if (botProject) parseAndSave(response.text, idea) else parseAndSaveAndroidProject(response.text, idea)
+                    onProgress(if (firstAttempt is AppBuildResult.Success) "Estrutura válida; projeto salvo no catálogo local." else "A validação inicial encontrou um problema.")
                     if (firstAttempt !is AppBuildResult.Failure || !isRecoverableGenerationFailure(firstAttempt.reason)) {
                         firstAttempt
                     } else {
+                        onProgress("Preparando uma única correção automática limitada pelo erro encontrado…")
                         val repairPrompt = if (botProject) buildString {
                             appendLine("A geração anterior do bot não passou pela validação automática.")
                             appendLine("Erro detectado: ${firstAttempt.reason}")
@@ -106,6 +116,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                             appendLine("PEDIDO ORIGINAL:")
                             appendLine(idea)
                         }
+                        onProgress("Regenerando os arquivos para corrigir a validação…")
                         when (val retry = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, repairPrompt)))) {
                             is AssistantResult.Unavailable -> AppBuildResult.Failure(
                                 "A primeira geração falhou na validação (${firstAttempt.reason}) e o modelo ficou indisponível na tentativa de correção: ${retry.reason}"
@@ -114,7 +125,9 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                                 "A primeira geração falhou na validação (${firstAttempt.reason}); a tentativa automática de correção também falhou: ${retry.reason}"
                             )
                             is AssistantResult.Success -> {
+                                onProgress("Verificando a versão corrigida…")
                                 val corrected = if (botProject) parseAndSave(retry.text, idea) else parseAndSaveAndroidProject(retry.text, idea)
+                                onProgress(if (corrected is AppBuildResult.Success) "Correção validada; projeto salvo no catálogo local." else "A segunda validação também encontrou um problema.")
                                 if (corrected is AppBuildResult.Failure) {
                                     AppBuildResult.Failure(
                                         "O construtor tentou corrigir automaticamente, mas o projeto ainda não passou pela validação. Primeiro erro: ${firstAttempt.reason}. Segunda tentativa: ${corrected.reason}"
