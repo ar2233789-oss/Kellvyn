@@ -2,6 +2,14 @@
 
 Kellvyn IA é um aplicativo Android nativo em Kotlin/Jetpack Compose, em desenvolvimento para funcionar primeiro no próprio aparelho.
 
+## Download direto do APK pelo GitHub
+
+**[Baixar o APK mais recente diretamente](https://github.com/ar2233789-oss/Kellvyn/releases/latest/download/app-debug.apk)**
+
+[Ver a versão publicada e os detalhes do APK](https://github.com/ar2233789-oss/Kellvyn/releases/latest)
+
+O primeiro link sempre aponta para o arquivo `app-debug.apk` da release marcada como mais recente. O APK é de depuração; a compilação não substitui o teste de instalação e funcionamento no aparelho físico.
+
 ## Código implementado até agora
 
 - Interface nativa preta/esmeralda: tela única de chat, cabeçalho compacto e compositor inferior. O hambúrguer abre somente o histórico; Apps/APKs abre o catálogo; ⋮ abre configurações de interface e segurança, incluindo cor e efeito de chuva digital. Não há menu superior de ferramentas. A anexação de arquivos fica junto ao compositor.
@@ -41,7 +49,7 @@ A conversa usa o modelo local integrado. Pesquisa web/GitHub só ocorre quando a
 
 ## Validação pendente
 
-As rotas de PDF/DOCX/ODT, envio de imagem ao modelo multimodal, renderização SVG→PNG, sobreposição, recuperação do SDK e integração Termux ainda precisam de build e teste Android reais. O repositório não contém APK novo validado.
+As rotas de PDF/DOCX/ODT, envio de imagem ao modelo multimodal, renderização SVG→PNG, sobreposição, recuperação do SDK e integração Termux ainda precisam de validação completa no aparelho físico. Há APK de depuração publicado na release do GitHub, mas isso não significa que todas essas funções já tenham sido aprovadas em um celular.
 
 ## Build do próprio Kellvyn durante o desenvolvimento
-Os workflows de build e teste em nuvem foram removidos. O Gradle Wrapper oficial 8.9 está incluído com SHA-256 da distribuição fixado para a transferência ser verificada antes de executar o build. Em um ambiente local com JDK 17, Android SDK 35 e conexão para baixar as dependências, use `./gradlew assembleDebug` (Windows: `gradlew.bat assembleDebug`); para os testes unitários, use `./gradlew testDebugUnitTest`. Essas tarefas executam no ambiente local e não enviam a compilação para a nuvem. Este commit não contém um APK novo validado: ainda falta executar o build, verificar pacote/assinatura e testar a instalação no Poco F6 antes de anunciar a distribuição como pronta.
+O Gradle Wrapper oficial 8.9 está incluído com SHA-256 da distribuição fixado para verificar a transferência antes do build. Em ambiente local com JDK 17 e Android SDK 35, use `./gradlew assembleDebug` (Windows: `gradlew.bat assembleDebug`) e `./gradlew testDebugUnitTest`. O repositório também publica um APK de depuração pelo GitHub Actions a cada atualização da branch `main`; o link direto e estável para a versão mais recente está na seção de download acima. A validação final de instalação e comportamento ainda precisa ser feita no aparelho físico.
