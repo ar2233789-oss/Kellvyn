@@ -83,6 +83,8 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
     private val modelFile = File(modelDirectory, "kellvyn-model.litertlm")
     private val bundlePrefs = appContext.getSharedPreferences("kellvyn_model_bundle", Context.MODE_PRIVATE)
     private val modelInitializationMutex = Mutex()
+    // A single local model must not run two memory-heavy turns simultaneously.
+    private val inferenceMutex = Mutex()
     @Volatile private var engine: Engine? = null
 
     // One integrated Kellvyn assistant; no light/heavy model modes are exposed.
@@ -336,7 +338,8 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
     override suspend fun replyStreaming(
         conversation: List<AssistantTurn>,
         onPartial: suspend (String) -> Unit
-    ): AssistantResult = withContext(Dispatchers.IO) {
+    ): AssistantResult = inferenceMutex.withLock {
+        withContext(Dispatchers.IO) {
         val activeEngine = engine
             ?: return@withContext AssistantResult.Unavailable("A IA local ainda está inicializando. Tente enviar novamente quando o status indicar que está pronta.")
 
@@ -453,6 +456,7 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
             AssistantResult.Failure(
                 "Falha durante a geração local: " + (e.message ?: e.javaClass.simpleName)
             )
+        }
         }
     }
 
