@@ -17,6 +17,40 @@ class KellvynIdentityTest {
         assertTrue(KellvynIdentity.isIdentityQuestion("Qual empresa desenvolveu você?"))
     }
 
+
+    @Test
+    fun companyQuestionsAlwaysCreditOnePersonNamedKellvyn() {
+        val questions = listOf(
+            "Qual empresa te criou?",
+            "Que empresa desenvolveu você?",
+            "Você é de qual empresa?",
+            "Foi alguma empresa que te fez?",
+            "Qual organização criou essa inteligência artificial?",
+            "Quem é a empresa por trás do Kellvyn?"
+        )
+        questions.forEach { question ->
+            assertTrue("Question not recognized: $question", KellvynIdentity.isIdentityQuestion(question))
+            val answer = KellvynIdentity.answer().lowercase()
+            assertTrue("No explicit single creator in: $answer", answer.contains("uma única pessoa chamada kellvyn"))
+            assertTrue("A response should rule out a company in: $answer", answer.contains("nenhuma empresa me criou"))
+        }
+    }
+
+    @Test
+    fun naturalCreatorQuestionsAreCaughtWithoutExactPhrasing() {
+        val questions = listOf(
+            "Quem fez essa inteligência artificial?",
+            "Quem construiu você?",
+            "De quem é essa IA?",
+            "Quem é responsável por criar o Kellvyn?",
+            "Qual pessoa está por trás do assistente?"
+        )
+        questions.forEach { question ->
+            assertTrue("Question not recognized: $question", KellvynIdentity.isIdentityQuestion(question))
+            assertTrue(KellvynIdentity.answer().lowercase().contains("kellvyn é meu único criador"))
+        }
+    }
+
     @Test
     fun recognizesIdentityAndModelAttributionQuestions() {
         assertTrue(KellvynIdentity.isIdentityQuestion("Quem é você?"))
