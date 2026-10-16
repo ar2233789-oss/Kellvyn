@@ -244,9 +244,9 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
                 val files = createAndroidProjectFiles(name, idea, candidateSource, readme)
                     ?: return@withContext AppBuildResult.Failure(
-                        "A IA local não retornou uma Activity Android válida. Diagnóstico: " +
+                        "A IA local não conseguiu gerar um código válido para a tela inicial do aplicativo (MainActivity.java). Diagnóstico técnico: " +
                             diagnoseAndroidActivity(candidateSource) +
-                            " A correção automática usará esse diagnóstico e a resposta anterior."
+                            " O cérebro tentará corrigir o problema usando esse diagnóstico e a resposta anterior."
                     )
                 val totalChars = files.sumOf { it.content.length }
                 if (totalChars > MAX_PROJECT_CHARS) {
@@ -403,6 +403,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
     private fun isRecoverableGenerationFailure(reason: String): Boolean {
         val text = reason.lowercase()
         return listOf(
+            "não conseguiu gerar um código válido para a tela inicial do aplicativo",
             "não retornou uma activity android válida",
             "não retornou um projeto estruturado",
             "não contém uma lista de arquivos",
