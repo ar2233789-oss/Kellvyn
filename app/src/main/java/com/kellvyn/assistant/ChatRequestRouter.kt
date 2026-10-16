@@ -15,8 +15,22 @@ object ChatRequestRouter {
      * Route concrete app briefs automatically; questions and modifications to an
      * existing project remain in the regular chat agent.
      */
-    fun shouldBuild(text: String): Boolean =
-        isExplicitAppBuildRequest(text) || isBuildBrief(text)
+    fun shouldBuild(text: String): Boolean {
+        if (isExplicitAppBuildRequest(text) || isBuildBrief(text)) return true
+        val value = text.trim().lowercase(Locale.ROOT)
+        if (value.isBlank()) return false
+        val createIntent = listOf(
+            "crie", "criar", "cria", "construa", "construir", "constrói", "desenvolva",
+            "desenvolver", "faça", "faca", "faz", "monta", "monte", "implemente", "implementar",
+            "build", "make", "create", "develop"
+        ).any { value.startsWith(it + " ") || value.contains(" " + it + " ") }
+        val projectObject = listOf(
+            "app", "aplicativo", "aplicação", "aplicacao", "apk", "jogo", "sistema",
+            "programa", "ferramenta", "bot", "projeto", "construtor", "assistente"
+        ).any { it in value }
+        val asksCapabilityOnly = listOf("você consegue", "voce consegue", "como criar", "como faço", "como faco", "é possível", "e possivel").any { it in value }
+        return createIntent && projectObject && !asksCapabilityOnly
+    }
 
     /** Direct requests create an image artifact; questions and image analysis stay in chat. */
     fun shouldGenerateImage(text: String): Boolean {
