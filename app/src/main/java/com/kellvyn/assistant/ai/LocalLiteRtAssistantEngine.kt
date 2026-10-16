@@ -441,8 +441,9 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                     }
                 }
             }
-            onPartial(answer.toString())
             val text = sanitizeModelOutput(answer.toString())
+            // Do not leak an unsanitized final streaming event after sanitized partial events.
+            onPartial(text)
             if (text.isBlank()) {
                 AssistantResult.Failure("O modelo terminou sem produzir texto.")
             } else {
