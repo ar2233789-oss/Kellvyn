@@ -420,7 +420,7 @@ fun KellvynApp() {
         if (rainEffectEnabled) {
             rainOffset.snapTo(0f)
             while (true) {
-                rainOffset.animateTo(1f, animationSpec = tween(durationMillis = 5_200, easing = LinearEasing))
+                rainOffset.animateTo(1f, animationSpec = tween(durationMillis = 2_200, easing = LinearEasing))
                 rainOffset.snapTo(0f)
             }
         } else {
@@ -729,6 +729,12 @@ fun KellvynApp() {
         val latestUserIndex = recent.indexOfLast { it.fromUser }
         val memoryContext = memoryStore.promptContext()
         return buildList {
+            add(
+                AssistantTurn(
+                    AssistantTurn.Role.SYSTEM,
+                    "IDENTIDADE E CAPACIDADES DA KELLVYN IA: Você é Kellvyn IA, o assistente do projeto Kellvyn, criado por Kellvyn. Não diga que foi desenvolvida pelo Google DeepMind, Google, OpenAI ou outra empresa, e não se apresente como o modelo-base. O modelo de linguagem local é tecnologia subjacente, não o criador nem a identidade do produto. Responda em português brasileiro. Não diga que é incapaz de criar imagens ou aplicativos de forma genérica: você pode criar ilustrações vetoriais locais e salvá-las em PNG, e pode planejar, gerar e tentar compilar aplicativos Android nativos em APK pelo construtor e compilador local. Seja precisa sobre limites: geração de imagem atual é ilustração vetorial, não geração fotográfica; só diga que um APK foi compilado quando o compilador confirmar sucesso. Acesso à web só pode ser usado quando o usuário o ativar no botão +; então a mesma IA pode consultar páginas usando a conexão do celular, sem trocar de modelo. O navegador abre o navegador externo do aparelho. O Termux padrão é um app separado; só conecte a ele se o usuário pedir explicitamente ajuda com Termux no chat. Nunca invente execução, teste, recurso ou resultado."
+                )
+            )
             if (memoryContext.isNotBlank()) {
                 add(AssistantTurn(AssistantTurn.Role.SYSTEM, memoryContext))
             }
@@ -1602,11 +1608,11 @@ fun KellvynApp() {
             modifier = Modifier.fillMaxSize().background(Night).drawBehind {
                 if (rainEffectEnabled) {
                     // Ordinary pale rain streaks: individual diagonal drops, not green Matrix trails.
-                    val spacing = 17.dp.toPx()
-                    val dropLength = 8.dp.toPx()
+                    val spacing = 13.dp.toPx()
+                    val dropLength = 11.dp.toPx()
                     val dropColumns = (size.width / spacing).toInt().coerceAtLeast(1)
                     val dropCount = dropColumns * 2 + 12
-                    val horizontalSlant = 2.2.dp.toPx()
+                    val horizontalSlant = 3.6.dp.toPx()
                     for (drop in 0 until dropCount) {
                         val lane = (drop * 53) % dropCount
                         val x = (lane.toFloat() / dropCount) * size.width
@@ -1614,7 +1620,7 @@ fun KellvynApp() {
                         val phase = (rainOffset.value * speed + ((drop * 37) % 97) / 97f) % 1f
                         val y = phase * (size.height + dropLength + 10.dp.toPx()) - dropLength
                         if (y >= -dropLength && y <= size.height) {
-                            val opacity = 0.16f + ((drop * 13) % 12) / 100f
+                            val opacity = 0.28f + ((drop * 13) % 20) / 100f
                             val slant = horizontalSlant * (0.7f + (drop % 4) * 0.18f)
                             drawLine(
                                 color = Color(0xFFD7E5EC).copy(alpha = opacity),
@@ -1633,9 +1639,9 @@ fun KellvynApp() {
             ) {
                 IconButton(
                     onClick = { showConversationsDialog = true },
-                    modifier = Modifier.size(38.dp).semantics { contentDescription = "Histórico de conversas" }
+                    modifier = Modifier.size(46.dp).semantics { contentDescription = "Histórico de conversas" }
                 ) {
-                    KellvynLineIcon("menu", accentColor, Modifier.size(19.dp))
+                    KellvynLineIcon("menu", accentColor, Modifier.size(26.dp))
                 }
                 Spacer(Modifier.width(2.dp))
                 KellvynMark(34.dp, accentColor)
@@ -1660,15 +1666,15 @@ fun KellvynApp() {
                         existingProjects.addAll(workspaceStore.listProjects())
                         showAppsDialog = true
                     },
-                    modifier = Modifier.size(36.dp).semantics { contentDescription = "Apps e APKs" }
+                    modifier = Modifier.size(44.dp).semantics { contentDescription = "Apps e APKs" }
                 ) {
-                    KellvynLineIcon("apps", accentColor, Modifier.size(20.dp))
+                    KellvynLineIcon("apps", accentColor, Modifier.size(26.dp))
                 }
                 IconButton(
                     onClick = { showSettingsDialog = true },
-                    modifier = Modifier.size(36.dp).semantics { contentDescription = "Configurações" }
+                    modifier = Modifier.size(44.dp).semantics { contentDescription = "Configurações" }
                 ) {
-                    KellvynLineIcon("more", accentColor, Modifier.size(20.dp))
+                    KellvynLineIcon("more", accentColor, Modifier.size(26.dp))
                 }
             }
 
@@ -1925,6 +1931,23 @@ fun KellvynApp() {
                         }
                     }
                 }
+                if (isGenerating) {
+                    item(key = "kellvyn_thinking_indicator") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(start = 36.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            Text("🧠", fontSize = 16.sp)
+                            Text("Kellvyn pensando…", color = accentColor, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 1.8.dp,
+                                color = accentColor
+                            )
+                        }
+                    }
+                }
 
             }
             val currentLatestApk = latestBuiltApk?.takeIf { it.isFile && it.length() > 0L }
@@ -1968,21 +1991,6 @@ fun KellvynApp() {
                     lineHeight = 13.sp,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)
                 )
-            }
-            if (isGenerating) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text("🧠", fontSize = 13.sp)
-                    Text("Kellvyn pensando…", color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(10.dp),
-                        strokeWidth = 1.4.dp,
-                        color = accentColor
-                    )
-                }
             }
             if (modelInitializationAttempted && !modelReady && !isLoadingModel) {
                 TextButton(
@@ -2082,12 +2090,12 @@ fun KellvynApp() {
                             }
                         }
 
-                        Box(modifier = Modifier.size(30.dp)) {
+                        Box(modifier = Modifier.size(38.dp)) {
                             Box(
                                 modifier = Modifier.fillMaxSize().clickable { showAttachmentMenu = true },
                                 contentAlignment = Alignment.Center
                             ) {
-                                KellvynLineIcon("attach", accentColor, Modifier.size(17.dp))
+                                Text("+", color = accentColor, fontSize = 30.sp, lineHeight = 32.sp, fontWeight = FontWeight.Normal)
                             }
                             DropdownMenu(
                                 expanded = showAttachmentMenu,
@@ -2164,59 +2172,6 @@ fun KellvynApp() {
                 }
             }
 
-            // Persistent six-destination navigation requested for the main app.
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFF04110D),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF143D33)),
-                shape = RoundedCornerShape(13.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 5.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    @Composable
-                    fun MainNavItem(label: String, glyph: String, onClick: () -> Unit) {
-                        Column(
-                            modifier = Modifier.weight(1f).clickable(onClick = onClick).padding(vertical = 2.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Text(glyph, color = accentColor, fontSize = 17.sp, lineHeight = 19.sp)
-                            Text(label, color = Color.White, fontSize = 9.sp, maxLines = 1)
-                        }
-                    }
-                    MainNavItem("IA", "◉") {
-                        showEditorDialog = false
-                        showTerminalDialog = false
-                        showAppsDialog = false
-                        status = ""
-                    }
-                    MainNavItem("Navegador", "◎") {
-                        browserAddressDraft = "https://www.google.com"
-                        showBrowserDialog = true
-                    }
-                    MainNavItem("Editor", "⌘") {
-                        existingProjects.clear()
-                        existingProjects.addAll(workspaceStore.listProjects())
-                        showEditorDialog = true
-                    }
-                    MainNavItem("Terminal", ">_") { showTerminalDialog = true }
-                    MainNavItem("Git", "⑂") {
-                        existingProjects.clear()
-                        existingProjects.addAll(workspaceStore.listProjects())
-                        gitProjectId = existingProjects.firstOrNull()?.id
-                        gitOutput = ""
-                        showGitDialog = true
-                    }
-                    MainNavItem("Apps", "▦") {
-                        existingProjects.clear()
-                        existingProjects.addAll(workspaceStore.listProjects())
-                        showAppsDialog = true
-                    }
-                }
-            }
 
         }
 
@@ -2680,14 +2635,6 @@ fun KellvynApp() {
                             TextButton(
                                 onClick = {
                                     showSettingsDialog = false
-                                    showTerminalDialog = true
-                                },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 3.dp)
-                            ) { Text("Terminal Termux", color = accentColor, fontSize = 10.sp) }
-                            TextButton(
-                                onClick = {
-                                    showSettingsDialog = false
                                     status = "Ative o serviço de leitura de tela do Kellvyn nas Configurações de Acessibilidade. A captura de texto é sob demanda; capturas automáticas de imagem só ocorrem com o Modo de jogo ativado."
                                     try {
                                         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -2798,9 +2745,36 @@ fun KellvynApp() {
                             TextButton(
                                 onClick = {
                                     showAppsDialog = false
-                                    showTerminalDialog = true
+                                    val launch = context.packageManager.getLaunchIntentForPackage("com.termux")
+                                    if (launch != null) {
+                                        runCatching { context.startActivity(launch) }
+                                            .onFailure { status = "Não consegui abrir o Termux instalado: " + (it.message ?: "erro desconhecido") }
+                                    } else {
+                                        status = "O Termux padrão não está instalado. Abrindo a página oficial para instalar."
+                                        runCatching {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://f-droid.org/packages/com.termux/")))
+                                        }.onFailure { status = "Instale o Termux pelo F-Droid; não há terminal padrão instalado neste aparelho." }
+                                    }
                                 }
-                            ) { Text("Terminal", color = accentColor, fontSize = 11.sp) }
+                            ) { Text("Termux", color = accentColor, fontSize = 11.sp) }
+                            TextButton(
+                                onClick = {
+                                    showAppsDialog = false
+                                    existingProjects.clear()
+                                    existingProjects.addAll(workspaceStore.listProjects())
+                                    gitProjectId = existingProjects.firstOrNull()?.id
+                                    gitOutput = ""
+                                    showGitDialog = true
+                                }
+                            ) { Text("Git", color = accentColor, fontSize = 11.sp) }
+                            TextButton(
+                                onClick = {
+                                    showAppsDialog = false
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com")))
+                                    }.onFailure { status = "Não consegui abrir o navegador padrão." }
+                                }
+                            ) { Text("Navegador", color = accentColor, fontSize = 10.sp) }
                             TextButton(onClick = { showAppsDialog = false }) { Text("Fechar", color = Color.White, fontSize = 11.sp) }
                         }
                         if (existingProjects.isEmpty()) {
