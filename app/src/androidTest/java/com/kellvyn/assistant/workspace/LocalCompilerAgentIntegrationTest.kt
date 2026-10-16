@@ -221,7 +221,7 @@ class LocalCompilerAgentIntegrationTest {
             }
             if (result is AssistantResult.Success) {
                 history.add(AssistantTurn(AssistantTurn.Role.ASSISTANT, result.text))
-                if (Regex("""(?is)<(?:think|analysis)\\b|\\{\\s*"kind"\\s*:\\s*"(?:answer|tool)"|^\\s*analysis\\s*:""")
+                if (Regex("""(?is)<(?:think|analysis)\b|\{\s*"kind"\s*:\s*"(?:answer|tool)"|^\s*analysis\s*:""")
                         .containsMatchIn(answer)) {
                     failures.add("Conversa: " + title + " — possível vazamento de metadados internos.")
                 }
@@ -232,10 +232,10 @@ class LocalCompilerAgentIntegrationTest {
             section(
                 "Conversa real: " + title,
                 "**Tempo até primeiro trecho visível:** " + firstChunk +
-                    "\\n\\n**Tempo total:** " + elapsedMs + " ms" +
-                    "\\n\\n**Caracteres da resposta:** " + answer.length +
-                    "\\n\\n**Prompt enviado:**\\n\\n" + prompt +
-                    "\\n\\n**Resposta real do modelo:**\\n\\n" + answer
+                    "\n\n**Tempo total:** " + elapsedMs + " ms" +
+                    "\n\n**Caracteres da resposta:** " + answer.length +
+                    "\n\n**Prompt enviado:**\n\n" + prompt +
+                    "\n\n**Resposta real do modelo:**\n\n" + answer
             )
             return answer
         }
