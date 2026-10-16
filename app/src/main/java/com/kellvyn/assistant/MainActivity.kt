@@ -979,8 +979,7 @@ fun KellvynApp() {
         val wantsCoder = requestImagePath == null && !wantsImage && (
             wantsBuild || wantsExistingBuild ||
                 ChatRequestRouter.shouldPreferCoder(text) ||
-                webModuleEnabled ||
-                ChatRequestRouter.shouldUseOnlineTools(text) ||
+                ChatRequestRouter.shouldAutomaticallyResearch(text) ||
                 TermuxRequestPolicy.mayUseTermux(text)
             )
         isGenerating = true
