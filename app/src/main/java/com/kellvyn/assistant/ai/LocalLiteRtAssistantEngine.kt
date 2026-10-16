@@ -377,12 +377,7 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
                 "TAREFA: criar código-fonte funcional de uma ilustração vetorial SVG autossuficiente.",
                 ignoreCase = true
             )
-            val projectGeneration = !svgGeneration && (
-                requestedText.contains("TAREFA: criar um projeto", ignoreCase = true) ||
-                    requestedText.contains("TAREFA: criar código-fonte funcional", ignoreCase = true) ||
-                    requestedText.contains("REGRAS TÉCNICAS E ESQUEMA:", ignoreCase = true) ||
-                    requestedText.contains("Esquema obrigatório:", ignoreCase = true)
-                )
+            val projectGeneration = !svgGeneration && isProjectGenerationPrompt(requestedText)
             if (requestedImageFile == null && !projectGeneration && isExplicitImageGenerationRequest(requestedText)) {
                 val capabilityNotice = "O pedido é para criar uma imagem nova, não analisar uma imagem anexada. O fluxo de ilustração vetorial do Kellvyn pode criar um PNG; envie uma descrição visual mais específica se a geração não foi iniciada."
                 onPartial(capabilityNotice)
@@ -531,6 +526,21 @@ class LocalLiteRtAssistantEngine(context: Context) : StreamingAssistantEngine, A
 
 }
 
+
+/** Recognizes every long-form builder/repair task so the model gets the correct output budget. */
+internal fun isProjectGenerationPrompt(text: String): Boolean {
+    val value = text.lowercase(Locale.ROOT)
+    return listOf(
+        "tarefa: criar um projeto",
+        "tarefa: criar código-fonte funcional",
+        "tarefa: criar o código completo de um aplicativo android nativo",
+        "tarefa: corrigir uma falha real da compilação android local",
+        "tarefa: corrigir a falha real da compilação android local",
+        "tarefa: reparar o código de um aplicativo android",
+        "regras técnicas e esquema:",
+        "esquema obrigatório:"
+    ).any { it in value }
+}
 
 /** True only for direct requests to create an image, not for discussion or image analysis. */
 internal fun isExplicitImageGenerationRequest(prompt: String): Boolean {
