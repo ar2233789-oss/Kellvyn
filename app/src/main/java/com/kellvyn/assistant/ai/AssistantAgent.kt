@@ -1081,7 +1081,7 @@ class AssistantAgent(
                     val buildApproved = !tools.approvalRequired("build_project_apk", reinforcedProtection) ||
                         requestApproval(tools.approvalSummary("build_project_apk", buildArguments))
                     if (!buildApproved) {
-                        "Compilação cancelada pela proteção reforçada. Nenhum novo APK foi criado."
+                        "Compilação cancelada."
                     } else {
                         onToolStatus("Iniciando a compilação local do projeto pelo agente…")
                         val result = runCatchingSuspend {
