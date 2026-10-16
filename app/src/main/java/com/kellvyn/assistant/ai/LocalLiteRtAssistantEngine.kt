@@ -42,7 +42,7 @@ internal fun sanitizeModelOutput(raw: String): String {
     // The coder agent uses a private JSON envelope. If it accidentally leaks into ordinary chat,
     // expose only its final answer and never show an internal tool call. Hide incomplete envelopes
     // while the model is still streaming them.
-    val envelopePrefix = Regex("""(?is)^\\s*\\{\\s*"kind"\\s*:\\s*"(answer|tool)"(?:\\s*[,}]|$)""")
+    val envelopePrefix = Regex("""(?is)^\s*\{\s*"kind"\s*:\s*"(answer|tool)"(?:\s*[,}]|$)""")
         .find(raw)
     if (envelopePrefix != null) {
         val trimmed = raw.trim()
