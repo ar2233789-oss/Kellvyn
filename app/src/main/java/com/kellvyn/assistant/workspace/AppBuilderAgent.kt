@@ -3,6 +3,7 @@ package com.kellvyn.assistant.workspace
 import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.ai.AssistantResult
 import com.kellvyn.assistant.ai.AssistantTurn
+import com.kellvyn.assistant.ai.StreamingAssistantEngine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -73,7 +74,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 appendLine("O README precisa documentar requisitos reais, dependências, configuração e limitações. Bots precisam de Node.js e credenciais; WhatsApp Cloud também precisa de conta empresarial, número registrado e webhook HTTPS público.")
                 appendLine("Limite total de 12 arquivos e 18.000 caracteres. Escape corretamente o JSON. Nunca retorne arquivos vazios, binários, caminhos absolutos, .git ou .gradle.")
             } else {
-                appendLine("TAREFA: criar o código completo de um aplicativo Android nativo em um único arquivo Java.")
+                appendLine("TAREFA: criar um projeto Android nativo funcional em Java usando uma Activity principal e configuração local.")
                 appendLine("Retorne SOMENTE o código-fonte Java de MainActivity.java. Sem JSON, markdown, cercas de código ou explicações.")
                 appendLine("O arquivo deve usar package com.example.app; declarar public class MainActivity extends Activity; implementar onCreate e chamar setContentView com uma interface nativa funcional.")
                 appendLine("Use Java 8 e APIs públicas de android.app, android.os, android.content, android.view e android.widget. Importe as classes utilizadas.")
@@ -88,7 +89,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
 
         onProgress("Gerando os arquivos com o modelo local…")
         return try {
-            when (val response = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, prompt)))) {
+            when (val response = generateProjectOutput(engine, prompt, onProgress, "Gerando o código do projeto")) {
                 is AssistantResult.Unavailable -> AppBuildResult.Failure(response.reason)
                 is AssistantResult.Failure -> AppBuildResult.Failure(response.reason)
                 is AssistantResult.Success -> {
@@ -100,24 +101,30 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                     } else {
                         onProgress("Preparando uma única correção automática limitada pelo erro encontrado…")
                         val repairPrompt = if (botProject) buildString {
-                            appendLine("A geração anterior do bot não passou pela validação automática.")
-                            appendLine("Erro detectado: ${firstAttempt.reason}")
-                            appendLine("Gere uma versão corrigida completa do projeto do bot. Retorne SOMENTE JSON válido no esquema já informado, sem markdown.")
+                            appendLine("TAREFA: criar código-fonte funcional corrigido do projeto de bot solicitado.")
+                            appendLine("A tentativa anterior falhou nesta validação: ${firstAttempt.reason}")
+                            appendLine("Não repita a resposta inválida. Corrija o problema e retorne o projeto completo em JSON válido, sem markdown.")
                             appendLine(prompt.substringBefore("PEDIDO DO USUÁRIO:"))
+                            appendLine("RESPOSTA ANTERIOR PARA CORRIGIR (pode estar incompleta):")
+                            appendLine(response.text.take(4_500))
                             appendLine("PEDIDO ORIGINAL DO USUÁRIO:")
                             appendLine(idea)
                         } else buildString {
-                            appendLine("A saída anterior não passou pela validação: ${firstAttempt.reason}")
-                            appendLine("Gere novamente uma Activity Android nativa COMPLETA para o pedido abaixo.")
-                            appendLine("Responda somente com código Java, sem JSON, markdown, cercas ou explicações.")
-                            appendLine("Use package com.example.app; public class MainActivity extends Activity; implemente onCreate e setContentView.")
-                            appendLine("Use Java 8 e controles android.widget reais, imports corretos, listeners funcionais e sem dependências externas.")
+                            appendLine("TAREFA: corrigir uma falha real da compilação Android local e retornar uma Activity válida.")
+                            appendLine("A tentativa anterior foi rejeitada pelo construtor: ${firstAttempt.reason}")
+                            appendLine("Não copie a versão incompleta. Gere uma nova versão completa e curta, em até 180 linhas, sem comentários longos.")
+                            appendLine("Retorne somente Java, sem JSON, markdown, cercas ou explicações.")
+                            appendLine("Obrigatório: package com.example.app; imports válidos; public class MainActivity extends Activity; onCreate com super.onCreate; pelo menos um controle android.widget real e setContentView.")
+                            appendLine("Use Java 8, listeners funcionais com classes anônimas, sem Kotlin, Compose, WebView, dependências externas, TODO ou métodos vazios.")
                             projectSpecificGuidance(idea).forEach { appendLine(it) }
+                            appendLine("SAÍDA ANTERIOR REPROVADA — corrija os problemas em vez de repetir o erro:")
+                            appendLine(response.text.take(4_500))
+                            appendLine("DIAGNÓSTICO DA VALIDAÇÃO: ${firstAttempt.reason}")
                             appendLine("PEDIDO ORIGINAL:")
                             appendLine(idea)
                         }
-                        onProgress("Regenerando os arquivos para corrigir a validação…")
-                        when (val retry = engine.reply(listOf(AssistantTurn(AssistantTurn.Role.USER, repairPrompt)))) {
+                        onProgress("A primeira versão falhou. O cérebro está corrigindo a saída com base no erro e na resposta anterior…")
+                        when (val retry = generateProjectOutput(engine, repairPrompt, onProgress, "Gerando a versão corrigida")) {
                             is AssistantResult.Unavailable -> AppBuildResult.Failure(
                                 "A primeira geração falhou na validação (${firstAttempt.reason}) e o modelo ficou indisponível na tentativa de correção: ${retry.reason}"
                             )
@@ -142,6 +149,30 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             throw e
         } catch (e: Exception) {
             AppBuildResult.Failure("O construtor falhou: " + (e.message ?: e.javaClass.simpleName))
+        }
+    }
+
+    /** Streams model progress into the chat without exposing private reasoning or raw intermediate tool data. */
+    private suspend fun generateProjectOutput(
+        engine: AssistantEngine,
+        prompt: String,
+        onProgress: (String) -> Unit,
+        phase: String
+    ): AssistantResult {
+        val turns = listOf(AssistantTurn(AssistantTurn.Role.USER, prompt))
+        val streaming = engine as? StreamingAssistantEngine ?: return engine.reply(turns)
+        var lastReportedChars = 0
+        return streaming.replyStreaming(turns) { partial ->
+            val receivedChars = partial.length
+            if (receivedChars > 0 && (
+                    lastReportedChars == 0 ||
+                        receivedChars - lastReportedChars >= 180 ||
+                        receivedChars < lastReportedChars
+                    )
+            ) {
+                lastReportedChars = receivedChars
+                onProgress("$phase — $receivedChars caracteres recebidos do modelo local.")
+            }
         }
     }
 
