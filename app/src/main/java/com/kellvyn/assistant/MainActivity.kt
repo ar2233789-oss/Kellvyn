@@ -732,7 +732,7 @@ fun KellvynApp() {
             add(
                 AssistantTurn(
                     AssistantTurn.Role.SYSTEM,
-                    "IDENTIDADE E CAPACIDADES DA KELLVYN IA: Você é Kellvyn IA, o assistente do projeto Kellvyn, criado por Kellvyn. Não diga que foi desenvolvida pelo Google DeepMind, Google, OpenAI ou outra empresa, e não se apresente como o modelo-base. O modelo de linguagem local é tecnologia subjacente, não o criador nem a identidade do produto. Responda em português brasileiro. Não diga que é incapaz de criar imagens ou aplicativos de forma genérica: você pode criar ilustrações vetoriais locais e salvá-las em PNG, e pode planejar, gerar e tentar compilar aplicativos Android nativos em APK pelo construtor e compilador local. Seja precisa sobre limites: geração de imagem atual é ilustração vetorial, não geração fotográfica; só diga que um APK foi compilado quando o compilador confirmar sucesso. Acesso à web só pode ser usado quando o usuário o ativar no botão +; então a mesma IA pode consultar páginas usando a conexão do celular, sem trocar de modelo. O navegador abre o navegador externo do aparelho. O Termux padrão é um app separado; só conecte a ele se o usuário pedir explicitamente ajuda com Termux no chat. Nunca invente execução, teste, recurso ou resultado."
+                    "IDENTIDADE E CAPACIDADES DA KELLVYN IA: Você é Kellvyn IA, assistente criado exclusivamente por Kellvyn. Kellvyn é o único criador; não atribua a criação a Deus da Ritalina, Google, Google DeepMind, OpenAI ou outra pessoa/empresa. Não se apresente como modelo-base nem como uma construção genérica do mundo. Responda em português brasileiro. Você tem um cérebro/agente de trabalho integrado ao chat principal: entenda o pedido, planeje internamente, selecione e execute as ferramentas reais do construtor, workspace, compilador, imagens e web conforme a intenção; depois informe o resultado verdadeiro. Ao pedir para criar/construir/fazer um app, sistema, jogo, bot ou projeto, não responda apenas com instruções: encaminhe para o construtor real, gere os arquivos e tente compilar APK quando for aplicativo Android. Não afirme que gerou imagem ou APK sem sucesso confirmado. A geração de imagem implementada é ilustração vetorial local em PNG; pedidos diretos de imagem devem acionar esse fluxo, não uma recusa genérica. Acesso à web é uma capacidade opcional da mesma IA, controlada em Configurações (menu ⋮), pela conexão Wi-Fi/dados do celular; não use segunda IA nem envie prompts para provedor remoto. O navegador abre o navegador externo do aparelho. Termux só pode ser conectado quando o usuário pedir explicitamente ajuda com Termux no chat. Nunca invente execução, teste, recurso ou resultado."
                 )
             )
             if (memoryContext.isNotBlank()) {
@@ -2076,7 +2076,7 @@ fun KellvynApp() {
                             horizontalArrangement = Arrangement.spacedBy(3.dp),
                             modifier = Modifier.padding(end = 2.dp)
                         ) {
-                            Text("✧", color = accentColor, fontSize = 17.sp)
+                            KellvynMark(24.dp, accentColor)
                             Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                                 Text("Kellvyn IA", color = accentColor, fontSize = 10.sp, maxLines = 1, fontWeight = FontWeight.SemiBold)
                                 Text(
@@ -2106,32 +2106,6 @@ fun KellvynApp() {
                                     onClick = {
                                         showAttachmentMenu = false
                                         readFileLauncher.launch(arrayOf("*/*"))
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            Text(
-                                                if (webModuleEnabled) "Acesso à web: ativado" else "Acesso à web: desativado",
-                                                color = if (webModuleEnabled) accentColor else Color.White
-                                            )
-                                            Text(
-                                                "Pesquisa e leitura de páginas pela conexão do celular",
-                                                color = Muted,
-                                                fontSize = 11.sp
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        val enabled = !webModuleEnabled
-                                        webModuleEnabled = enabled
-                                        uiPreferences.edit().putBoolean("web_module_enabled", enabled).apply()
-                                        showAttachmentMenu = false
-                                        status = if (enabled) {
-                                            "Acesso à web ativado. A IA pode pesquisar e abrir páginas pela conexão do celular."
-                                        } else {
-                                            "Acesso à web desativado. A IA continua funcionando localmente."
-                                        }
                                     }
                                 )
                             }
@@ -2569,6 +2543,25 @@ fun KellvynApp() {
                                     status = "Cor personalizada aplicada."
                                 } else status = "Use seis dígitos HEX, por exemplo #38E6BC."
                             }) { Text("Aplicar", color = accentColor) }
+                        }
+                        Text("INTERNET DA KELLVYN IA", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("Acesso à web", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Permite à mesma IA consultar páginas pela conexão Wi-Fi/dados do celular quando necessário.", color = Muted, fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = webModuleEnabled,
+                                onCheckedChange = { enabled ->
+                                    webModuleEnabled = enabled
+                                    uiPreferences.edit().putBoolean("web_module_enabled", enabled).apply()
+                                    status = if (enabled) "Acesso à web ativado para a Kellvyn IA." else "Acesso à web desativado; a IA continua local."
+                                }
+                            )
                         }
                         Divider(color = Color(0xFF143D33))
                         Text("EFEITO VISUAL", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
