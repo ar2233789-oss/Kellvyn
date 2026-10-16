@@ -81,9 +81,9 @@ internal object KellvynIdentity {
         if (identityPhrases.any { phrase -> normalized.contains(phrase) }) return true
 
         // Catch natural variants that might otherwise make the local model guess its identity.
-        val mentionsAssistant = Regex("\\\\b(kellvyn|ia|assistente|modelo|voce)\\\\b").containsMatchIn(normalized)
-        val mentionsAttribution = Regex("\\\\b(quem|criador|criadora|criou|desenvolveu|desenvolvida|desenvolvido|empresa|mind|feito|feita|fabricado|fabricada)\\\\b").containsMatchIn(normalized)
-        val asksAboutAttribution = Regex("\\\\b(quem|qual empresa|qual pessoa|por quem|desenvolvida por|desenvolvido por|criada por|criado por|feita por|feito por|da empresa)\\\\b").containsMatchIn(normalized)
+        val mentionsAssistant = Regex("\\b(kellvyn|ia|assistente|modelo|voce)\\b").containsMatchIn(normalized)
+        val mentionsAttribution = Regex("\\b(quem|criador|criadora|criou|desenvolveu|desenvolvida|desenvolvido|empresa|mind|feito|feita|fabricado|fabricada)\\b").containsMatchIn(normalized)
+        val asksAboutAttribution = Regex("\\b(quem|qual empresa|qual pessoa|por quem|desenvolvida por|desenvolvido por|criada por|criado por|feita por|feito por|da empresa)\\b").containsMatchIn(normalized)
         return mentionsAssistant && mentionsAttribution && asksAboutAttribution
     }
 
