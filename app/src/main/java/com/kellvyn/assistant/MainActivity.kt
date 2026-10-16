@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kellvyn.assistant.ai.AssistantEngine
 import com.kellvyn.assistant.accessibility.FloatingAssistantService
+import com.kellvyn.assistant.accessibility.KellvynScreenReaderAccessibilityService
 import com.kellvyn.assistant.attachments.LocalDocumentTextExtractor
 import com.kellvyn.assistant.attachments.LocalSvgImageGenerator
 import com.kellvyn.assistant.attachments.LocalSvgGenerationResult
@@ -161,7 +162,7 @@ private fun cacheImageAttachment(context: Context, uri: Uri, displayName: String
         mime == "image/jpeg" || mime == "image/jpg" -> "jpg"
         else -> throw IllegalArgumentException("Formato de imagem não suportado. Use JPG, PNG, WEBP, BMP ou HEIC.")
     }
-    val directory = File(context.cacheDir, "kellvyn_attachments")
+    val directory = File(context.filesDir, "kellvyn_attachments")
     check(directory.exists() || directory.mkdirs()) { "Não foi possível preparar o anexo de imagem." }
     val destination = File(directory, "imagem-${UUID.randomUUID()}.$extension")
     try {
@@ -383,7 +384,7 @@ fun KellvynApp() {
     val historyStore = remember(context) { ChatHistoryStore(context) }
     val conversationStore = remember(context) { ChatConversationStore(context) }
     val memoryStore = remember(context) { UserMemoryStore(context) }
-    val localEngine = remember(context) { LocalLiteRtAssistantEngine(context) }
+    val localEngine = remember(context) { LocalLiteRtAssistantEngine.shared(context) }
     val workspaceStore = remember(context) { ProjectWorkspaceStore(context) }
     val appBuilderAgent = remember(workspaceStore) { AppBuilderAgent(workspaceStore) }
     val localAndroidCompiler = remember(context, workspaceStore) { LocalAndroidCompiler(context, workspaceStore) }
@@ -406,6 +407,9 @@ fun KellvynApp() {
     var showAttachmentMenu by remember { mutableStateOf(false) }
     var webModuleEnabled by remember(uiPreferences) {
         mutableStateOf(uiPreferences.getBoolean("web_module_enabled", false))
+    }
+    var gameModeEnabled by remember(uiPreferences) {
+        mutableStateOf(uiPreferences.getBoolean("game_mode_enabled", false))
     }
     val securityPreferences = remember(context) { context.getSharedPreferences("kellvyn_security", Context.MODE_PRIVATE) }
     var rainEffectEnabled by remember(uiPreferences) {
@@ -656,7 +660,7 @@ fun KellvynApp() {
                     false
                 ))
             } else {
-                addAll(saved.map { ChatMessage(it.text, it.fromUser) })
+                addAll(saved.map { ChatMessage(it.text, it.fromUser, it.imagePath) })
             }
         }
     }
@@ -678,7 +682,7 @@ fun KellvynApp() {
     }
 
     fun saveHistory() {
-        val savedMessages = messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser) }
+        val savedMessages = messages.map { ChatHistoryStore.SavedMessage(it.text, it.fromUser, it.imagePath) }
         historyStore.save(savedMessages)
         val previous = conversations.firstOrNull { it.id == activeConversationId }
         val firstPrompt = savedMessages.firstOrNull { it.fromUser }?.text
@@ -1283,15 +1287,7 @@ fun KellvynApp() {
             modelInitializationAttempted = true
             status = "Tentando preparar a IA local novamente…"
             try {
-                localEngine.prepareLocalModel { progress -> status = progress }
-                if (localEngine.hasSavedModel()) {
-                    status = "Modelo local encontrado; inicializando…"
-                    updateModelResult(localEngine.loadSavedModel())
-                } else {
-                    updateModelResult(AssistantResult.Unavailable(
-                        "O modelo local não ficou disponível. Verifique a conexão e tente novamente."
-                    ))
-                }
+                updateModelResult(localEngine.ensureReady { progress -> status = progress })
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -1505,15 +1501,7 @@ fun KellvynApp() {
     LaunchedEffect(localEngine) {
         isLoadingModel = true
         try {
-            localEngine.prepareLocalModel { progress -> status = progress }
-            if (localEngine.hasSavedModel()) {
-                status = "IA local encontrada; inicializando…"
-                updateModelResult(localEngine.loadSavedModel())
-            } else {
-                updateModelResult(AssistantResult.Unavailable(
-                    "O modelo local não ficou disponível. Verifique a conexão e tente novamente."
-                ))
-            }
+            updateModelResult(localEngine.ensureReady { progress -> status = progress })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -1537,9 +1525,7 @@ fun KellvynApp() {
         }
     }
 
-    DisposableEffect(localEngine) {
-        onDispose { localEngine.close() }
-    }
+    // The main chat and floating helper share one model instance for the process lifetime.
 
     DisposableEffect(context) {
         val engineHolder = arrayOfNulls<TextToSpeech>(1)
@@ -1668,7 +1654,8 @@ fun KellvynApp() {
                 }
             }
 
-            Divider(color = Color(0xFF143D33), thickness = 1.dp)
+            // Preserve the visible separator between the header and conversation.
+            Divider(color = Color(0xFF236B56), thickness = 1.2.dp)
             LazyColumn(
                 state = chatListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -1984,6 +1971,41 @@ fun KellvynApp() {
                     modifier = Modifier.padding(start = 8.dp, end = 6.dp, top = 3.dp, bottom = 3.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
+                    val stagedImagePath = pendingImagePath
+                    if (stagedImagePath != null) {
+                        val stagedImagePreview = remember(stagedImagePath) { loadImagePreview(stagedImagePath) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, end = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (stagedImagePreview != null) {
+                                Image(
+                                    bitmap = stagedImagePreview,
+                                    contentDescription = "Prévia da imagem anexada antes do envio",
+                                    modifier = Modifier.sizeIn(maxWidth = 104.dp, maxHeight = 84.dp),
+                                    contentScale = ContentScale.Fit
+                                )
+                            } else {
+                                Surface(color = Panel, shape = RoundedCornerShape(8.dp)) {
+                                    Text("Prévia indisponível", color = Warning, fontSize = 10.sp, modifier = Modifier.padding(8.dp))
+                                }
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("Imagem anexada", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text(File(stagedImagePath).name, color = Muted, fontSize = 9.sp, maxLines = 2)
+                            }
+                            TextButton(
+                                onClick = {
+                                    File(stagedImagePath).delete()
+                                    pendingImagePath = null
+                                    draft = draft.replace(Regex("\\s*\\[Imagem anexada: [^]]+]"), "").trim()
+                                    status = "Imagem removida do rascunho."
+                                },
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                            ) { Text("Remover", color = Warning, fontSize = 10.sp) }
+                        }
+                    }
                     OutlinedTextField(
                         value = draft,
                         onValueChange = { if (it.length <= MAX_INPUT_CHARS) draft = it },
