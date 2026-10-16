@@ -772,7 +772,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             }
             val requestsImage = listOf("imagem", "imagens", "referência visual", "referencia visual", "foto de referência", "foto de referencia", "gerar imagem", "gere uma imagem").any { it in value }
             if (requestsImage) {
-                rules += "LIMITAÇÃO VISUAL: o núcleo atual só produz texto e não pode anexar PNG/JPEG nem inspecionar a imagem de referência. Não invente um arquivo bitmap. Se necessário, descreva/implemente arte vetorial por Canvas como código e escreva essa limitação no README."
+                rules += "ESCOPO DE RECURSOS VISUAIS: este construtor gera código e arquivos textuais e ainda não incorpora automaticamente arquivos PNG/JPEG binários ao projeto. Não afirme que uma imagem foi adicionada ao aplicativo sem confirmar que o arquivo foi realmente salvo no workspace. Para elementos visuais dentro do app, implemente arte vetorial com Canvas e controles nativos. A IA principal pode gerar ilustrações PNG localmente, mas isso não significa que o arquivo foi anexado ao projeto gerado."
             }
             return rules
         }
