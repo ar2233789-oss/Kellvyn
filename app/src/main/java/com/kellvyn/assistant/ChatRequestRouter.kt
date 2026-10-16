@@ -34,7 +34,7 @@ object ChatRequestRouter {
 
     /** Unicode-aware whole-word match. Accent characters must not split Portuguese words like "botões". */
     private fun containsWholeWord(value: String, word: String): Boolean =
-        Regex("""(?<![\\p{L}\\p{N}_])${Regex.escape(word)}(?![\\p{L}\\p{N}_])""", RegexOption.IGNORE_CASE)
+        Regex("(?<![\\p{L}\\p{N}_])${Regex.escape(word)}(?![\\p{L}\\p{N}_])", RegexOption.IGNORE_CASE)
             .containsMatchIn(value)
 
     /** Direct requests create an image artifact; questions and image analysis stay in chat. */
