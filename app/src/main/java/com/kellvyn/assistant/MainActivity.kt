@@ -1242,9 +1242,31 @@ fun KellvynApp() {
                         )
                     } else {
                         // Everyday conversation uses the local model directly, but a stalled native inference must not lock the composer forever.
+                        var reportedStreamStage = 0
                         withTimeoutOrNull(180_000L) {
                             localEngine.replyStreaming(turns) { partial ->
-                                withContext(Dispatchers.Main.immediate) { streamingReply = partial }
+                                withContext(Dispatchers.Main.immediate) {
+                                    streamingReply = partial
+
+                                    // Show observable generation progress, not hidden model reasoning.
+                                    // Stages are driven by real streamed output, never by a fake timer.
+                                    val stage = when {
+                                        partial.length >= 900 -> 3
+                                        partial.length >= 300 -> 2
+                                        partial.isNotBlank() -> 1
+                                        else -> 0
+                                    }
+                                    if (stage > reportedStreamStage) {
+                                        reportedStreamStage = stage
+                                        recordBrainProgress(
+                                            when (stage) {
+                                                1 -> "O modelo local começou a responder; o texto está sendo exibido em tempo real."
+                                                2 -> "Resposta parcial recebida; a geração continua e o chat está sendo atualizado."
+                                                else -> "A resposta já avançou; aguardando o restante da saída real do modelo local."
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         } ?: AssistantResult.Failure(
                             "A IA demorou mais de 3 minutos para responder. O envio foi encerrado para liberar o chat; tente novamente."
