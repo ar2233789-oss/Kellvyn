@@ -33,7 +33,7 @@ internal fun visibleBuilderPlan(brief: String, botProject: Boolean): String {
         listOf("cadastro", "registrar", "registro") to "cadastro",
         listOf("busca", "pesquisa", "pesquisar", "filtrar") to "busca/filtragem",
         listOf("histórico", "historico") to "histórico",
-        listOf("salvar", "guardar", "persistência", "persistencia", "banco de dados") to "salvamento de dados",
+        listOf("salvar", "salvamento", "guardar", "persistência", "persistencia", "banco de dados") to "salvamento de dados",
         listOf("notificação", "notificacao", "alerta") to "notificações",
         listOf("offline", "sem internet") to "uso offline",
         listOf("música", "musica", "áudio", "audio", "player") to "áudio/reprodução",
