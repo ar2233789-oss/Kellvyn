@@ -39,8 +39,8 @@ class KellvynScreenReaderAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Screen reading remains on-demand. Auto-capture runs only after the user enables Game Mode.
-        if (isGameModeEnabled()) refreshGameCaptureLoop()
+        // Do not restart the capture timer for every game/window event; that can starve screenshots.
+        // The mode toggle and service connection alone start/stop the timer.
     }
 
     private fun isGameModeEnabled(): Boolean =
