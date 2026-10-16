@@ -2442,7 +2442,7 @@ fun KellvynApp() {
                                         botsOnlyFilter = true
                                         showAppsDialog = true
                                     }
-                                    "Apps" -> showPhoneAppsDialog = true
+                                    "Apps" -> { showAppsDialog = false; showPhoneAppsDialog = true }
                                 }
                             }
                             .padding(vertical = 4.dp),
@@ -2611,17 +2611,17 @@ fun KellvynApp() {
                                     val command = termuxCommandDraft.trim()
                                     val directory = termuxWorkingDirectory.trim().ifBlank { TermuxBridge.TERMUX_HOME }
                                     termuxBusy = true
-                                    termuxOutput = "$ $command\n\nExecutando no Termux…"
+                                    termuxOutput = "\\$ $command\n\nExecutando no Termux…"
                                     scope.launch {
                                         try {
                                             val commandResult = withContext(Dispatchers.IO) {
                                                 termuxBridge.runCommand(command, directory)
                                             }
-                                            termuxOutput = ("$ $command\n" + commandResult.formattedOutput()).takeLast(24_000)
+                                            termuxOutput = ("\\$ $command\n" + commandResult.formattedOutput()).takeLast(24_000)
                                             status = "Termux finalizou com código ${commandResult.exitCode}."
                                         } catch (e: Exception) {
                                             val reason = e.message ?: e.javaClass.simpleName
-                                            termuxOutput = "$ $command\nERRO: $reason".takeLast(24_000)
+                                            termuxOutput = "\\$ $command\nERRO: $reason".takeLast(24_000)
                                             status = "Falha real ao executar o comando no Termux."
                                         } finally {
                                             termuxBusy = false
