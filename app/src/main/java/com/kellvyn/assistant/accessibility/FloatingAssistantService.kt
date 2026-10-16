@@ -26,6 +26,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.EditText
@@ -279,8 +280,24 @@ class FloatingAssistantService : Service() {
         panelView.visibility = if (isExpanded) android.view.View.VISIBLE else android.view.View.GONE
         val params = layoutParams ?: return
         params.width = if (isExpanded) dp(320) else dp(72)
-        params.height = WindowManager.LayoutParams.WRAP_CONTENT
+        params.height = if (isExpanded) dp(420) else WindowManager.LayoutParams.WRAP_CONTENT
+        params.softInputMode = if (isExpanded) {
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
+        } else {
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+        }
         try { windowManager.updateViewLayout(view, params) } catch (_: Exception) {}
+        if (isExpanded) {
+            promptEdit?.post {
+                promptEdit?.requestFocus()
+                val inputMethod = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                promptEdit?.let { inputMethod.showSoftInput(it, InputMethodManager.SHOW_IMPLICIT) }
+            }
+        } else {
+            val inputMethod = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            promptEdit?.windowToken?.let { inputMethod.hideSoftInputFromWindow(it, 0) }
+        }
     }
 
     private fun readScreenAloud() {
