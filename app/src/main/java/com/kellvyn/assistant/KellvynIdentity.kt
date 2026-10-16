@@ -169,7 +169,7 @@ internal object KellvynIdentity {
     }
 
     private fun isCompanyAttributionQuestion(normalized: String): Boolean {
-        val mentionsCompany = Regex("\\b(empresa|companhia|organizacao|marca|companhias|empresas)\\b")
+        val mentionsCompany = Regex("\\b(empresa|impressa|companhia|organizacao|marca|companhias|empresas)\\b")
             .containsMatchIn(normalized)
         if (!mentionsCompany) return false
         val mentionsAssistant = Regex("\\b(kellvyn|ia|inteligencia artificial|assistente|modelo|voce|te|me|sua|seu|mim)\\b")
