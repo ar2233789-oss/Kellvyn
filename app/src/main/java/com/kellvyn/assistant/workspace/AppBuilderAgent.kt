@@ -190,7 +190,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            AppBuildResult.Failure("O construtor falhou: " + (e.message ?: e.javaClass.simpleName))
+            AppBuildResult.Failure("Não foi possível gerar e validar o projeto: " + (e.message ?: e.javaClass.simpleName))
         }
     }
 
