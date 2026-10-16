@@ -775,8 +775,8 @@ fun KellvynApp() {
                 "Compilar e assinar o APK do projeto ${project.name} no armazenamento local do aparelho"
             )
         ) {
-            messages.add(ChatMessage("Compilação cancelada pela proteção reforçada. Nenhum novo APK foi criado.", false))
-            status = "Build cancelada pela proteção reforçada."
+            messages.add(ChatMessage("Compilação cancelada.", false))
+            status = "Compilação cancelada."
             saveHistory()
             return
         }
@@ -1029,8 +1029,8 @@ fun KellvynApp() {
                             "Criar e salvar os arquivos do novo projeto solicitado: " + text.take(180)
                         )
                     ) {
-                        messages.add(ChatMessage("Criação cancelada pela proteção reforçada. Nenhum projeto novo foi salvo.", false))
-                        status = "Criação cancelada pela proteção reforçada."
+                        messages.add(ChatMessage("Criação cancelada.", false))
+                        status = "Criação cancelada."
                         saveHistory()
                         return@launch
                     }
@@ -1614,7 +1614,7 @@ fun KellvynApp() {
                             if (y >= -streakHeight && y <= size.height) {
                                 val opacity = (0.34f * (1f - segment / 7f)).coerceAtLeast(0.045f)
                                 drawLine(
-                                    color = Neon.copy(alpha = opacity),
+                                    color = Color(0xFFBFDCE8).copy(alpha = opacity),
                                     start = Offset(x, y),
                                     end = Offset(x + (if (column % 2 == 0) 0.6f else -0.6f) * streakHeight, y + streakHeight),
                                     strokeWidth = 1.35.dp.toPx()
@@ -1967,6 +1967,21 @@ fun KellvynApp() {
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)
                 )
             }
+            if (isGenerating) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("🧠", fontSize = 13.sp)
+                    Text("Kellvyn pensando…", color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(10.dp),
+                        strokeWidth = 1.4.dp,
+                        color = accentColor
+                    )
+                }
+            }
             if (modelInitializationAttempted && !modelReady && !isLoadingModel) {
                 TextButton(
                     onClick = { retryLocalModelInitialization() },
@@ -2087,7 +2102,7 @@ fun KellvynApp() {
                                     text = {
                                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                             Text(
-                                                if (webModuleEnabled) "Módulo Web: ativado" else "Módulo Web: desativado",
+                                                if (webModuleEnabled) "Acesso à web: ativado" else "Acesso à web: desativado",
                                                 color = if (webModuleEnabled) accentColor else Color.White
                                             )
                                             Text(
@@ -2103,9 +2118,9 @@ fun KellvynApp() {
                                         uiPreferences.edit().putBoolean("web_module_enabled", enabled).apply()
                                         showAttachmentMenu = false
                                         status = if (enabled) {
-                                            "Módulo Web ativado. A IA pode pesquisar e abrir páginas pela conexão do celular."
+                                            "Acesso à web ativado. A IA pode pesquisar e abrir páginas pela conexão do celular."
                                         } else {
-                                            "Módulo Web desativado. A IA continua funcionando localmente."
+                                            "Acesso à web desativado. A IA continua funcionando localmente."
                                         }
                                     }
                                 )
@@ -2120,6 +2135,7 @@ fun KellvynApp() {
                                     val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                                         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+                                        putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
                                         putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale em português")
                                     }
                                     try {
@@ -2606,7 +2622,7 @@ fun KellvynApp() {
                         ) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text("Chuva digital", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Efeito discreto verde no fundo do chat.", color = Muted, fontSize = 11.sp)
+                                Text("Gotas claras de chuva no fundo do chat.", color = Muted, fontSize = 11.sp)
                             }
                             Switch(
                                 checked = rainEffectEnabled,
@@ -2749,11 +2765,6 @@ fun KellvynApp() {
                                 onCheckedChange = { enabled ->
                                     reinforcedProtection = enabled
                                     securityPreferences.edit().putBoolean("reinforced_protection", enabled).apply()
-                                    status = if (enabled) {
-                                        "Proteção reforçada ativada. O chat pedirá confirmação antes de gravar, corrigir arquivos ou compilar APK."
-                                    } else {
-                                        "Proteção reforçada desativada. As confirmações para ações destrutivas continuam ativas."
-                                    }
                                 }
                             )
                         }
