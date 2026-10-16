@@ -158,6 +158,7 @@ class FloatingAssistantService : Service() {
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
             x = dp(8)
             y = 0
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
         try {
             windowManager.addView(root, params)
@@ -177,7 +178,7 @@ class FloatingAssistantService : Service() {
         }
         private val core = Paint(Paint.ANTI_ALIAS_FLAG)
         private val accent = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(92, 184, 255)
+            color = Color.rgb(191, 255, 241)
             style = Paint.Style.STROKE
             strokeWidth = 1.6f * resources.displayMetrics.density
         }
@@ -256,6 +257,9 @@ class FloatingAssistantService : Service() {
             setPadding(dp(8), dp(4), dp(8), dp(4))
             background = rounded(Color.rgb(12, 32, 27), Color.rgb(28, 92, 75), 10f, dp(1))
             maxLines = 3
+            isFocusable = true
+            isFocusableInTouchMode = true
+            showSoftInputOnFocus = true
         }
         outer.addView(promptEdit, LinearLayout.LayoutParams(-1, dp(62)).apply { topMargin = dp(5) })
         outer.addView(button("Enviar") {
@@ -312,24 +316,8 @@ class FloatingAssistantService : Service() {
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    if (!engine.hasSavedModel()) {
-                        engine.prepareLocalModel { progress -> setStatus(progress) }
-                    }
-                    var loaded = engine.loadSavedModel()
-                    if (loaded !is AssistantResult.Success) {
-                        // A damaged/incompatible cache should not leave the floating assistant
-                        // permanently dead. Re-run the checksum-verified preparation once.
-                        loaded = try {
-                            engine.prepareLocalModel { progress -> setStatus(progress) }
-                            engine.loadSavedModel()
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            AssistantResult.Failure(
-                                "Não foi possível preparar a IA local para o assistente flutuante: " +
-                                    (e.message ?: e.javaClass.simpleName)
-                            )
-                        }
+                    val loaded = engine.ensureReady { progress ->
+                        withContext(Dispatchers.Main.immediate) { setStatus(progress) }
                     }
                     if (loaded !is AssistantResult.Success) {
                         loaded
