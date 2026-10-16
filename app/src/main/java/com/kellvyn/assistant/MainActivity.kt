@@ -2090,63 +2090,6 @@ fun KellvynApp() {
                             cursorColor = accentColor
                         )
                     )
-                    // Main chat tool shortcuts stay inside the bottom composer, preserving the existing visual style.
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextButton(
-                            onClick = { showTerminalDialog = true },
-                            modifier = Modifier.weight(1f).height(36.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                KellvynLineIcon("terminal", accentColor, Modifier.size(16.dp))
-                                Text("Terminal", color = accentColor, fontSize = 9.sp, maxLines = 1)
-                            }
-                        }
-                        TextButton(
-                            onClick = { browserAddressDraft = ""; showBrowserDialog = true },
-                            modifier = Modifier.weight(1f).height(36.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                KellvynLineIcon("globe", accentColor, Modifier.size(16.dp))
-                                Text("Navegador", color = accentColor, fontSize = 9.sp, maxLines = 1)
-                            }
-                        }
-                        TextButton(
-                            onClick = {
-                                existingProjects.clear()
-                                existingProjects.addAll(workspaceStore.listProjects())
-                                gitProjectId = existingProjects.firstOrNull()?.id.orEmpty()
-                                gitOutput = ""
-                                showGitDialog = true
-                            },
-                            modifier = Modifier.weight(1f).height(36.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                KellvynLineIcon("git", accentColor, Modifier.size(16.dp))
-                                Text("Git", color = accentColor, fontSize = 9.sp, maxLines = 1)
-                            }
-                        }
-                        TextButton(
-                            onClick = {
-                                existingProjects.clear()
-                                existingProjects.addAll(workspaceStore.listProjects())
-                                showAppsDialog = true
-                            },
-                            modifier = Modifier.weight(1f).height(36.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                KellvynLineIcon("apps", accentColor, Modifier.size(16.dp))
-                                Text("Apps", color = accentColor, fontSize = 9.sp, maxLines = 1)
-                            }
-                        }
-                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
