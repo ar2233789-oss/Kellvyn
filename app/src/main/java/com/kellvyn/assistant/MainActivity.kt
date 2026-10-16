@@ -794,7 +794,7 @@ fun KellvynApp() {
             )
             if (!repairAllowed) {
                 result = LocalApkBuildResult.Failure(
-                    "A primeira compilação falhou. A proteção reforçada bloqueou a correção automática porque ela não foi autorizada."
+                    "A primeira compilação falhou; a correção automática não foi executada nesta tentativa."
                 )
             } else {
                 status = "O agente está corrigindo o código a partir dos diagnósticos reais e fará uma única nova build…"
@@ -2742,11 +2742,6 @@ fun KellvynApp() {
                         }
                         Divider(color = Color(0xFF143D33))
                         Text("SEGURANÇA", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            "Ações destrutivas e operações Git que alteram dados sempre exigem confirmação. Ative a proteção reforçada para também confirmar gravações, correções de arquivos e compilação de APK.",
-                            color = Muted,
-                            fontSize = 12.sp
-                        )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
