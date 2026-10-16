@@ -1601,25 +1601,27 @@ fun KellvynApp() {
         Column(
             modifier = Modifier.fillMaxSize().background(Night).drawBehind {
                 if (rainEffectEnabled) {
-                    val spacing = 36.dp.toPx()
-                    val streakHeight = 7.dp.toPx()
-                    val xGap = 3.dp.toPx()
-                    val columns = (size.width / spacing).toInt()
-                    for (column in 0..columns) {
-                        val x = column * spacing + (column % 3) * xGap
-                        val phase = (rainOffset.value + ((column * 37) % 100) / 100f) % 1f
-                        val head = phase * (size.height + 7 * streakHeight) - 7 * streakHeight
-                        for (segment in 0..6) {
-                            val y = head - segment * streakHeight * 1.65f
-                            if (y >= -streakHeight && y <= size.height) {
-                                val opacity = (0.34f * (1f - segment / 7f)).coerceAtLeast(0.045f)
-                                drawLine(
-                                    color = Color(0xFFBFDCE8).copy(alpha = opacity),
-                                    start = Offset(x, y),
-                                    end = Offset(x + (if (column % 2 == 0) 0.6f else -0.6f) * streakHeight, y + streakHeight),
-                                    strokeWidth = 1.35.dp.toPx()
-                                )
-                            }
+                    // Ordinary pale rain streaks: individual diagonal drops, not green Matrix trails.
+                    val spacing = 17.dp.toPx()
+                    val dropLength = 8.dp.toPx()
+                    val dropColumns = (size.width / spacing).toInt().coerceAtLeast(1)
+                    val dropCount = dropColumns * 2 + 12
+                    val horizontalSlant = 2.2.dp.toPx()
+                    for (drop in 0 until dropCount) {
+                        val lane = (drop * 53) % dropCount
+                        val x = (lane.toFloat() / dropCount) * size.width
+                        val speed = 0.65f + ((drop * 17) % 55) / 100f
+                        val phase = (rainOffset.value * speed + ((drop * 37) % 97) / 97f) % 1f
+                        val y = phase * (size.height + dropLength + 10.dp.toPx()) - dropLength
+                        if (y >= -dropLength && y <= size.height) {
+                            val opacity = 0.16f + ((drop * 13) % 12) / 100f
+                            val slant = horizontalSlant * (0.7f + (drop % 4) * 0.18f)
+                            drawLine(
+                                color = Color(0xFFD7E5EC).copy(alpha = opacity),
+                                start = Offset(x, y),
+                                end = Offset(x - slant, y + dropLength),
+                                strokeWidth = (0.8f + (drop % 3) * 0.15f).dp.toPx()
+                            )
                         }
                     }
                 }
@@ -2622,7 +2624,7 @@ fun KellvynApp() {
                         ) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text("Chuva digital", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Gotas claras de chuva no fundo do chat.", color = Muted, fontSize = 11.sp)
+                                Text("Chuva comum com gotas diagonais claras, sem efeito verde.", color = Muted, fontSize = 11.sp)
                             }
                             Switch(
                                 checked = rainEffectEnabled,
