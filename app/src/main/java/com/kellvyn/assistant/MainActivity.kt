@@ -922,8 +922,16 @@ fun KellvynApp() {
 
     fun submitDraft(alreadyQueued: Boolean = false, queuedRequest: PendingChatRequest? = null) {
         val rawText = queuedRequest?.text ?: draft.trim()
-        val requestImagePath = if (queuedRequest != null) queuedRequest.imagePath else pendingImagePath
-        val text = if (rawText.isBlank() && requestImagePath != null) "Analise a imagem anexada." else rawText
+        val manuallyAttachedImagePath = if (queuedRequest != null) queuedRequest.imagePath else pendingImagePath
+        // In Game Mode the latest local screen frame is attached to the user's next request automatically.
+        val automaticGameFramePath = if (manuallyAttachedImagePath == null && gameModeEnabled) {
+            KellvynScreenReaderAccessibilityService.latestGameScreenshotPath()
+        } else null
+        val requestImagePath = manuallyAttachedImagePath ?: automaticGameFramePath
+        val text = if (rawText.isBlank() && requestImagePath != null) {
+            if (automaticGameFramePath != null && manuallyAttachedImagePath == null) "Analise o quadro atual do jogo."
+            else "Analise a imagem anexada."
+        } else rawText
         if (text.isEmpty() && requestImagePath == null) return
         if (isGenerating && !alreadyQueued) {
             pendingChatRequests.add(PendingChatRequest(text, requestImagePath))
@@ -2654,7 +2662,7 @@ fun KellvynApp() {
                             TextButton(
                                 onClick = {
                                     showSettingsDialog = false
-                                    status = "Ative o serviço de leitura de tela do Kellvyn nas Configurações de Acessibilidade. Ele só captura texto quando você aciona a leitura."
+                                    status = "Ative o serviço de leitura de tela do Kellvyn nas Configurações de Acessibilidade. A captura de texto é sob demanda; capturas automáticas de imagem só ocorrem com o Modo de jogo ativado."
                                     try {
                                         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                                     } catch (e: Exception) {
@@ -2664,6 +2672,49 @@ fun KellvynApp() {
                                 modifier = Modifier.weight(1f),
                                 contentPadding = PaddingValues(horizontal = 2.dp, vertical = 3.dp)
                             ) { Text("Leitura de tela", color = accentColor, fontSize = 10.sp) }
+                        }
+                        Divider(color = Color(0xFF143D33))
+                        Text("MODO DE JOGO", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("Captura automática da tela", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Quando ativo, guarda um quadro local automaticamente para a IA analisar no próximo pedido. Não há botão de print separado.",
+                                    color = Muted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Switch(
+                                checked = gameModeEnabled,
+                                onCheckedChange = { enabled ->
+                                    gameModeEnabled = enabled
+                                    uiPreferences.edit().putBoolean("game_mode_enabled", enabled).apply()
+                                    KellvynScreenReaderAccessibilityService.onGameModePreferenceChanged()
+                                    if (enabled) {
+                                        status = if (KellvynScreenReaderAccessibilityService.isEnabledInProcess()) {
+                                            "Modo de jogo ativo: a captura de tela ocorre automaticamente neste aparelho."
+                                        } else {
+                                            "Ative a Acessibilidade do Kellvyn para permitir a captura automática no Modo de jogo."
+                                        }
+                                        if (!KellvynScreenReaderAccessibilityService.isEnabledInProcess()) {
+                                            runCatching {
+                                                context.startActivity(
+                                                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                )
+                                            }.onFailure {
+                                                status = "Não consegui abrir Acessibilidade: " + (it.message ?: it.javaClass.simpleName)
+                                            }
+                                        }
+                                    } else {
+                                        status = "Modo de jogo desativado; a captura automática foi interrompida."
+                                    }
+                                }
+                            )
                         }
                         Divider(color = Color(0xFF143D33))
                         Text("SEGURANÇA", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
