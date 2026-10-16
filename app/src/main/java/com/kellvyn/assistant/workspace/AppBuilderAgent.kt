@@ -114,7 +114,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
                 appendLine("TAREFA: criar um projeto Android nativo funcional em Java usando uma Activity principal e configuração local.")
                 appendLine("Retorne SOMENTE o código-fonte Java de MainActivity.java. Sem JSON, markdown, cercas de código ou explicações.")
                 appendLine("O arquivo deve usar package com.example.app; declarar public class MainActivity extends Activity; implementar onCreate e chamar setContentView com uma interface nativa funcional.")
-                appendLine("Use Java 8 e APIs públicas de android.app, android.os, android.content, android.view e android.widget. Importe as classes utilizadas.")
+                appendLine("Use Java 8 e APIs nativas públicas disponíveis no android.jar do compilador local, incluindo android.app, android.os, android.content, android.view, android.widget, android.media, android.net, android.provider e android.graphics. Importe as classes utilizadas.")
                 appendLine("Não use Kotlin, Compose, bibliotecas externas, WebView, resources R, imagens binárias, lambdas, method references, TODOs, placeholders ou funções vazias.")
                 appendLine("Implemente o comportamento real pedido, com estados e listeners reais. Não descreva o que faria.")
                 projectSpecificGuidance(idea).forEach { appendLine(it) }
@@ -309,7 +309,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
             appendLine("TAREFA: corrigir uma falha real da compilação Android local.")
             appendLine("Responda SOMENTE com JSON válido, sem markdown: {\"files\":[{\"path\":\"app/src/main/java/com/example/app/MainActivity.java\",\"content\":\"código Java completo\"}]}")
             appendLine("Retorne somente os arquivos Java existentes que precisam ser corrigidos. Não crie arquivos, não altere scripts Gradle nem permissões.")
-            appendLine("Use exclusivamente APIs públicas de android.app, android.os, android.view e android.widget. Sem dependências externas, Kotlin, Compose, lambdas ou method references; listeners usam classes anônimas.")
+            appendLine("Use exclusivamente APIs nativas públicas disponíveis no android.jar do compilador local, incluindo android.app, android.os, android.content, android.view, android.widget, android.media, android.net, android.provider e android.graphics quando necessárias. Sem dependências externas, Kotlin, Compose, WebView, lambdas ou method references; listeners usam classes anônimas.")
             appendLine("Mantenha a classe MainActivity, o pacote com.example.app e as funções solicitadas. Não deixe TODO, pseudocódigo nem funções vazias.")
             appendLine("Pedido original: " + originalBrief.take(1800))
             appendLine("ERRO REAL DA COMPILAÇÃO (não invente diagnósticos):")
@@ -781,7 +781,7 @@ class AppBuilderAgent(private val workspace: ProjectWorkspaceStore) {
         const val MAX_FILES = 12
         const val MAX_PROJECT_CHARS = 18_000
         const val MAX_REPAIR_FILES = 8
-        const val MAX_REPAIR_FILE_CHARS = 12_000
+        const val MAX_REPAIR_FILE_CHARS = 16_000
         const val MAX_REPAIR_CONTEXT_CHARS = 14_000
         const val MAX_REPAIR_ERROR_CHARS = 6_000
     }
