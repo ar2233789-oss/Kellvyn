@@ -163,7 +163,7 @@ internal object KellvynIdentity {
 
         // Catch natural variants that might otherwise make the local model guess its identity.
         val mentionsAssistant = Regex("\\b(kellvyn|ia|inteligencia artificial|assistente|modelo|voce|te|teu|tua|teus|tuas|me|meu|minha|seu|sua|mim)\\b").containsMatchIn(normalized)
-        val mentionsAttribution = Regex("\\b(quem|pessoa|criador|criadora|criou|criar|criada|criado|desenvolveu|desenvolvida|desenvolvido|empresa|companhia|mind|fez|feito|feita|fabricou|produziu|construiu|dono|dona|proprietario|proprietaria|pertence|responsavel|manda|lidera|controla|decide|autor|fundador|fundadora)\\b").containsMatchIn(normalized)
+        val mentionsAttribution = Regex("\\b(quem|pessoa|criador|criadora|criou|criar|criada|criado|desenvolveu|desenvolvida|desenvolvido|empresa|companhia|mind|fez|feito|feita|fabricou|produziu|construiu|dono|dona|proprietario|proprietaria|pertence|responsavel|manda|lidera|controla|decide|autor|fundou|fundar|fundador|fundadora)\\b").containsMatchIn(normalized)
         val asksAboutAttribution = Regex("\\b(quem|qual empresa|qual pessoa|por quem|a quem|de quem|quem manda|quem lidera|quem controla|quem decide|quem e responsavel|quem responde pela|desenvolvida por|desenvolvido por|criada por|criado por|feita por|feito por|quem fez|quem construiu|quem fabricou)\\b").containsMatchIn(normalized)
         return mentionsAssistant && mentionsAttribution && asksAboutAttribution
     }
