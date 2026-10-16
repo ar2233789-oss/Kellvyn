@@ -32,7 +32,7 @@ class KellvynIdentityTest {
 
         val answer = KellvynIdentity.answer().lowercase()
         assertTrue(answer.contains("kellvyn é meu criador"))
-        assertTrue(answer.contains("deus da ritalina é meu desenvolvedor, tutor e superior"))
+        assertFalse(answer.contains("deus da ritalina é meu desenvolvedor, tutor e superior"))
     }
 
     @Test
