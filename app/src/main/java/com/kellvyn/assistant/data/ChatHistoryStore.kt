@@ -3,15 +3,26 @@ package com.kellvyn.assistant.data
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 /**
  * Stores bounded chat history only in this app's private preferences.
  * The manifest disables Android backup for the app.
  */
 class ChatHistoryStore(context: Context) {
-    private val prefs = context.getSharedPreferences("kellvyn_chat_history", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("kellvyn_chat_history", Context.MODE_PRIVATE)
 
-    data class SavedMessage(val text: String, val fromUser: Boolean)
+    data class SavedMessage(val text: String, val fromUser: Boolean, val imagePath: String? = null)
+
+    private fun validImagePath(path: String?): String? {
+        if (path.isNullOrBlank()) return null
+        return runCatching {
+            val root = File(appContext.filesDir, "kellvyn_attachments").canonicalFile
+            val image = File(path).canonicalFile
+            image.path.takeIf { image.isFile && image.length() > 0L && image.path.startsWith(root.path + File.separator) }
+        }.getOrNull()
+    }
 
     fun load(): List<SavedMessage> {
         val raw = prefs.getString(KEY, null) ?: return emptyList()
@@ -23,7 +34,11 @@ class ChatHistoryStore(context: Context) {
                     val item = array.getJSONObject(i)
                     val text = item.optString("text")
                     if (text.isNotBlank()) {
-                        add(SavedMessage(text.take(MAX_MESSAGE_CHARS), item.optBoolean("fromUser")))
+                        add(SavedMessage(
+                            text.take(MAX_MESSAGE_CHARS),
+                            item.optBoolean("fromUser"),
+                            validImagePath(item.optString("imagePath").takeIf { it.isNotBlank() })
+                        ))
                     }
                 }
             }
@@ -39,6 +54,7 @@ class ChatHistoryStore(context: Context) {
                 JSONObject()
                     .put("text", message.text.take(MAX_MESSAGE_CHARS))
                     .put("fromUser", message.fromUser)
+                    .put("imagePath", validImagePath(message.imagePath))
             )
         }
         prefs.edit().putString(KEY, array.toString()).apply()
