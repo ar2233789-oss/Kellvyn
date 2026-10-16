@@ -35,6 +35,20 @@ class AppBuilderAgentGuidanceTest {
     }
 
     @Test
+    fun visibleBrainPlanReflectsFeaturesInTheUsersBrief() {
+        val plan = visibleBuilderPlan(
+            "Crie um app com login, cadastro, busca, histórico e salvamento de dados.",
+            botProject = false
+        )
+        assertTrue(plan.contains("login"))
+        assertTrue(plan.contains("cadastro"))
+        assertTrue(plan.contains("busca/filtragem"))
+        assertTrue(plan.contains("histórico"))
+        assertTrue(plan.contains("salvamento de dados"))
+        assertTrue(plan.contains("compilar"))
+    }
+
+    @Test
     fun ordinaryAppsDoNotReceiveUnrelatedGameOrMusicRules() {
         val rules = AppBuilderAgent.projectSpecificGuidance(
             "Crie uma calculadora simples com histórico de operações."
