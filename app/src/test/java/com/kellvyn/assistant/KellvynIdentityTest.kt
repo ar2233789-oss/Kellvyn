@@ -43,7 +43,10 @@ class KellvynIdentityTest {
             "Quem construiu você?",
             "De quem é essa IA?",
             "Quem é responsável por criar o Kellvyn?",
-            "Qual pessoa está por trás do assistente?"
+            "Qual pessoa está por trás do assistente?",
+            "Quem é teu criador?",
+            "Qual é a tua empresa?",
+            "Quem fundou essa IA?"
         )
         questions.forEach { question ->
             assertTrue("Question not recognized: $question", KellvynIdentity.isIdentityQuestion(question))
