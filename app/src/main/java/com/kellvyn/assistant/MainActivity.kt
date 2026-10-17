@@ -1926,7 +1926,7 @@ fun KellvynApp() {
                                     fontSize = 15.sp,
                                     lineHeight = 22.sp
                                 )
-                                val generatedImageFile =                                val generatedImageFile = imageMarker?.let { name ->
+                                val generatedImageFile = imageMarker?.let { name ->
                                     File(File(context.filesDir, "kellvyn_images"), name)
                                         .takeIf { it.isFile && it.length() > 0L }
                                 }
