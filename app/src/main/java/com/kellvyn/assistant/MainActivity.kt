@@ -445,8 +445,8 @@ fun KellvynApp() {
         mutableStateOf(uiPreferences.getBoolean("game_mode_enabled", false))
     }
     val securityPreferences = remember(context) { context.getSharedPreferences("kellvyn_security", Context.MODE_PRIVATE) }
-    var rainEffectEnabled by remember(uiPreferences) {
-        mutableStateOf(uiPreferences.getBoolean("rain_effect_enabled", false))
+    var visualEffect by remember(uiPreferences) {
+        mutableStateOf(uiPreferences.getString("visual_effect", "chuva") ?: "chuva")
     }
     // Frame-clock animation keeps the drops moving continuously instead of jumping at each loop reset.
     var rainElapsedNanos by remember { mutableStateOf(0L) }
@@ -469,8 +469,8 @@ fun KellvynApp() {
         while (brainSteps.size > 5) brainSteps.removeAt(0)
     }
 
-    LaunchedEffect(rainEffectEnabled) {
-        if (rainEffectEnabled) {
+    LaunchedEffect(visualEffect) {
+        if (visualEffect != "nenhum") {
             var startNanos: Long? = null
             while (true) {
                 withFrameNanos { frameTimeNanos ->
@@ -1738,30 +1738,75 @@ fun KellvynApp() {
     ) {
         Column(
             modifier = Modifier.fillMaxSize().background(Night).drawBehind {
-                if (rainEffectEnabled) {
-                    // Ordinary pale rain streaks: individual diagonal drops, not green Matrix trails.
-                    val spacing = 13.dp.toPx()
-                    val dropLength = 11.dp.toPx()
-                    val dropColumns = (size.width / spacing).toInt().coerceAtLeast(1)
-                    val dropCount = dropColumns * 2 + 12
-                    val horizontalSlant = 3.6.dp.toPx()
-                    for (drop in 0 until dropCount) {
-                        val lane = (drop * 53) % dropCount
-                        val x = (lane.toFloat() / dropCount) * size.width
-                        val speed = 0.65f + ((drop * 17) % 55) / 100f
-                        val phase = ((rainElapsedNanos.toDouble() / 2_200_000_000.0 * speed.toDouble() +
-                            ((drop * 37) % 97) / 97.0) % 1.0).toFloat()
-                        val y = phase * (size.height + dropLength + 10.dp.toPx()) - dropLength
-                        if (y >= -dropLength && y <= size.height) {
-                            val opacity = 0.28f + ((drop * 13) % 20) / 100f
-                            val slant = horizontalSlant * (0.7f + (drop % 4) * 0.18f)
-                            drawLine(
-                                color = Color(0xFFD7E5EC).copy(alpha = opacity),
-                                start = Offset(x, y),
-                                end = Offset(x - slant, y + dropLength),
-                                strokeWidth = (0.8f + (drop % 3) * 0.15f).dp.toPx()
-                            )
+                if (visualEffect != "nenhum") {
+                    val elapsed = rainElapsedNanos / 1_000_000_000.0
+                    when (visualEffect) {
+                        "chuva" -> {
+                            val spacing = 13.dp.toPx()
+                            val dropLength = 11.dp.toPx()
+                            val dropColumns = (size.width / spacing).toInt().coerceAtLeast(1)
+                            val dropCount = dropColumns * 2 + 12
+                            val horizontalSlant = 3.6.dp.toPx()
+                            for (drop in 0 until dropCount) {
+                                val lane = (drop * 53) % dropCount
+                                val x = (lane.toFloat() / dropCount) * size.width
+                                val speed = 0.65 + ((drop * 17) % 55) / 100.0
+                                val phase = ((elapsed / 2.2 * speed + ((drop * 37) % 97) / 97.0) % 1.0).toFloat()
+                                val y = phase * (size.height + dropLength + 10.dp.toPx()) - dropLength
+                                if (y >= -dropLength && y <= size.height) {
+                                    val opacity = 0.28f + ((drop * 13) % 20) / 100f
+                                    val slant = horizontalSlant * (0.7f + (drop % 4) * 0.18f)
+                                    drawLine(
+                                        color = Color(0xFFD7E5EC).copy(alpha = opacity),
+                                        start = Offset(x, y),
+                                        end = Offset(x - slant, y + dropLength),
+                                        strokeWidth = (0.8f + (drop % 3) * 0.15f).dp.toPx()
+                                    )
+                                }
+                            }
                         }
+                        "neve" -> {
+                            for (flake in 0 until 72) {
+                                val phase = ((elapsed * (0.035 + (flake % 7) * 0.009) + ((flake * 37) % 101) / 101.0) % 1.0).toFloat()
+                                val xBase = ((flake * 73) % 997) / 997f * size.width
+                                val x = xBase + kotlin.math.sin(elapsed * 0.8 + flake * 0.7).toFloat() * 18.dp.toPx()
+                                val y = phase * size.height
+                                val radius = (1.0f + (flake % 4) * 0.35f).dp.toPx()
+                                drawCircle(Color.White.copy(alpha = 0.45f + (flake % 5) * 0.1f), radius, Offset(x, y))
+                            }
+                        }
+                        "folhas" -> {
+                            val leafColors = listOf(Color(0xFFC9682B), Color(0xFFD9A441), Color(0xFF8E3B1F), Color(0xFFA8B04A))
+                            for (leaf in 0 until 32) {
+                                val phase = ((elapsed * (0.025 + (leaf % 6) * 0.007) + ((leaf * 29) % 89) / 89.0) % 1.0).toFloat()
+                                val xBase = ((leaf * 61) % 991) / 991f * size.width
+                                val x = xBase + kotlin.math.sin(elapsed * 1.2 + leaf * 0.9).toFloat() * 40.dp.toPx()
+                                val y = phase * (size.height + 24.dp.toPx()) - 12.dp.toPx()
+                                val leafSize = (4.5f + (leaf % 5) * 1.2f).dp.toPx()
+                                drawOval(
+                                    color = leafColors[leaf % leafColors.size].copy(alpha = 0.55f + (leaf % 3) * 0.12f),
+                                    topLeft = Offset(x, y),
+                                    size = Size(leafSize, leafSize * 0.45f)
+                                )
+                            }
+                        }
+                        "raios" -> {
+                            val cycle = (elapsed % 6.0).toFloat()
+                            if (cycle < 0.18f) {
+                                val alpha = (1f - cycle / 0.18f) * 0.09f
+                                drawRect(Color(0xFFDDE8FF).copy(alpha = alpha))
+                                val path = Path()
+                                val anchor = size.width * (0.2f + ((elapsed.toInt() * 17) % 53) / 100f)
+                                path.moveTo(anchor, 0f)
+                                for (segment in 1..10) {
+                                    val offsetX = (((segment * 17 + elapsed.toInt() * 11) % 31) - 15).dp.toPx()
+                                    val y = size.height * 0.62f * segment / 10f
+                                    path.lineTo(anchor + offsetX, y)
+                                }
+                                drawPath(path, Color(0xFFEAF1FF).copy(alpha = 0.85f - cycle), style = Stroke(width = 1.5.dp.toPx()))
+                            }
+                        }
+                        else -> Unit
                     }
                 }
             }.windowInsetsPadding(WindowInsets.safeDrawing).imePadding().padding(horizontal = 10.dp, vertical = 4.dp)
@@ -1776,40 +1821,19 @@ fun KellvynApp() {
                 ) {
                     KellvynLineIcon("menu", accentColor, Modifier.size(26.dp))
                 }
-                Spacer(Modifier.width(2.dp))
-                KellvynMark(34.dp, accentColor)
-                Spacer(Modifier.width(8.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Kellvyn Assistente", color = accentColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    Text(
-                        when {
-                            modelReady -> "KELLVYN IA • LOCAL"
-                            isLoadingModel || !modelInitializationAttempted -> "KELLVYN IA • INICIALIZANDO"
-                            else -> "KELLVYN IA • INDISPONÍVEL"
-                        },
-                        color = Muted,
-                        fontSize = 9.sp,
-                        letterSpacing = 1.sp,
-                        maxLines = 1
-                    )
-                }
-                IconButton(
-                    onClick = {
-                        existingProjects.clear()
-                        existingProjects.addAll(workspaceStore.listProjects())
-                        botsOnlyFilter = false
-                        activeBottomTab = "Apps"
-                        showAppsDialog = true
-                    },
-                    modifier = Modifier.size(44.dp).semantics { contentDescription = "Apps e APKs" }
-                ) {
-                    KellvynLineIcon("apps", accentColor, Modifier.size(26.dp))
-                }
+                Text(
+                    "Kellvyn IA",
+                    color = accentColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
+                )
                 IconButton(
                     onClick = { showSettingsDialog = true },
                     modifier = Modifier.size(44.dp).semantics { contentDescription = "Configurações" }
                 ) {
-                    KellvynLineIcon("more", accentColor, Modifier.size(26.dp))
+                    KellvynLineIcon("more", accentColor, Modifier.size(23.dp))
                 }
             }
 
@@ -1821,6 +1845,24 @@ fun KellvynApp() {
                 contentPadding = PaddingValues(top = 8.dp, bottom = 6.dp, start = 2.dp, end = 2.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (messages.isEmpty() && streamingReply.isBlank()) {
+                    item(key = "kellvyn_empty_state") {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(top = 76.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            KellvynMark(56.dp, accentColor)
+                            Text(
+                                "Converse com a Kellvyn IA ou peça para criar um aplicativo.",
+                                color = Muted,
+                                fontSize = 13.sp,
+                                lineHeight = 19.sp,
+                                modifier = Modifier.widthIn(max = 270.dp)
+                            )
+                        }
+                    }
+                }
                 items(messages) { message ->
                     if (message.fromUser) {
                         Row(
@@ -1831,7 +1873,7 @@ fun KellvynApp() {
                                 color = Color(0xFF0A2D24),
                                 shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 5.dp, bottomStart = 18.dp),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF14634D)),
-                                modifier = Modifier.fillMaxWidth(0.88f)
+                                modifier = Modifier.fillMaxWidth(0.82f)
                             ) {
                                 Column(
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
@@ -1864,28 +1906,27 @@ fun KellvynApp() {
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.Top
                         ) {
-                            KellvynMark(30.dp, accentColor)
-                            Spacer(Modifier.width(7.dp))
                             Column(Modifier.weight(1f)) {
                                 val imageMarker = Regex("""IMAGEM_LOCAL_GERADA:([A-Za-z0-9._-]+)""")
                                     .find(message.text)?.groupValues?.getOrNull(1)
                                 val visibleAssistantText = if (imageMarker == null) message.text
                                     else message.text.replace("IMAGEM_LOCAL_GERADA:" + imageMarker, "").trim()
-                                Surface(
-                                    color = Night,
-                                    shape = RoundedCornerShape(topStart = 5.dp, topEnd = 17.dp, bottomEnd = 17.dp, bottomStart = 17.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0B3329)),
-                                    modifier = Modifier.fillMaxWidth()
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                                 ) {
-                                    Text(
-                                        visibleAssistantText,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                                        color = Color(0xFF9ED7C8),
-                                        fontSize = 14.sp,
-                                        lineHeight = 20.sp
-                                    )
+                                    KellvynLineIcon("globe", accentColor, Modifier.size(13.dp))
+                                    Text("Thinking", color = Muted, fontSize = 12.sp)
+                                    Text("›", color = Muted, fontSize = 15.sp)
                                 }
-                                val generatedImageFile = imageMarker?.let { name ->
+                                Text(
+                                    visibleAssistantText,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = Color(0xFFE3EEEC),
+                                    fontSize = 15.sp,
+                                    lineHeight = 22.sp
+                                )
+                                val generatedImageFile =                                val generatedImageFile = imageMarker?.let { name ->
                                     File(File(context.filesDir, "kellvyn_images"), name)
                                         .takeIf { it.isFile && it.length() > 0L }
                                 }
@@ -1981,8 +2022,8 @@ fun KellvynApp() {
                                 }
                                 val clipboard = LocalClipboardManager.current
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().padding(start = 3.dp, end = 3.dp),
-                                    horizontalArrangement = Arrangement.End,
+                                    modifier = Modifier.fillMaxWidth().padding(start = 0.dp, end = 3.dp),
+                                    horizontalArrangement = Arrangement.Start,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     TextButton(
@@ -2043,129 +2084,40 @@ fun KellvynApp() {
                 }
                 if (streamingReply.isNotBlank()) {
                     item(key = "kellvyn_streaming_reply") {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            KellvynMark(28.dp, accentColor)
-                            Spacer(Modifier.width(7.dp))
-                            Surface(
-                                color = Night,
-                                shape = RoundedCornerShape(topStart = 5.dp, topEnd = 17.dp, bottomEnd = 17.dp, bottomStart = 17.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0B3329)),
-                                modifier = Modifier.weight(1f).fillMaxWidth()
+                        Column(Modifier.fillMaxWidth()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
-                                Text(
-                                    streamingReply + " ▍",
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                                    color = Color(0xFF9ED7C8),
-                                    fontSize = 14.sp,
-                                    lineHeight = 20.sp
-                                )
+                                KellvynLineIcon("globe", accentColor, Modifier.size(13.dp))
+                                Text("Thinking", color = Muted, fontSize = 12.sp)
+                                Text("›", color = Muted, fontSize = 15.sp)
                             }
+                            Text(
+                                streamingReply + " ▍",
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFFE3EEEC),
+                                fontSize = 15.sp,
+                                lineHeight = 22.sp
+                            )
                         }
                     }
                 }
                 if (isGenerating) {
                     item(key = "kellvyn_thinking_indicator") {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().padding(start = 36.dp, bottom = 6.dp),
-                            color = Panel,
-                            shape = RoundedCornerShape(10.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF164638))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 4.dp, bottom = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(7.dp)
-                                ) {
-                                    Text("🧠", fontSize = 16.sp)
-                                    Text("Cérebrozinho pensando…", color = accentColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    Spacer(Modifier.weight(1f))
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(14.dp),
-                                        strokeWidth = 1.8.dp,
-                                        color = accentColor
-                                    )
-                                }
-                                if (brainPlan.isNotBlank()) {
-                                    Text(
-                                        "PLANO DE TRABALHO",
-                                        color = accentColor,
-                                        fontSize = 9.sp,
-                                        letterSpacing = 0.8.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        brainPlan,
-                                        color = Color(0xFFC9F6E8),
-                                        fontSize = 10.sp,
-                                        lineHeight = 14.sp
-                                    )
-                                }
-                                Text(
-                                    "O QUE ESTÁ FAZENDO AGORA",
-                                    color = accentColor,
-                                    fontSize = 9.sp,
-                                    letterSpacing = 0.8.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    brainActivity,
-                                    color = Color(0xFFC9F6E8),
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp
-                                )
-                                if (brainOutputPreview.isNotBlank()) {
-                                    Text(
-                                        "SAÍDA PARCIAL DA GERAÇÃO",
-                                        color = accentColor,
-                                        fontSize = 9.sp,
-                                        letterSpacing = 0.8.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Surface(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        color = Color(0xFF03100D),
-                                        shape = RoundedCornerShape(6.dp)
-                                    ) {
-                                        Text(
-                                            brainOutputPreview,
-                                            modifier = Modifier.fillMaxWidth().padding(6.dp),
-                                            color = Color(0xFFC9F6E8),
-                                            fontSize = 9.sp,
-                                            lineHeight = 12.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            maxLines = 7
-                                        )
-                                    }
-                                }
-                                if (brainSteps.size > 1) {
-                                    Text(
-                                        "ETAPAS OBSERVÁVEIS",
-                                        color = Muted,
-                                        fontSize = 9.sp,
-                                        letterSpacing = 0.8.sp
-                                    )
-                                }
-                                brainSteps.dropLast(1).takeLast(3).forEach { step ->
-                                    Row(
-                                        verticalAlignment = Alignment.Top,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text("✓", color = Muted, fontSize = 11.sp)
-                                        Text(
-                                            step,
-                                            color = Muted,
-                                            fontSize = 10.sp,
-                                            lineHeight = 13.sp
-                                        )
-                                    }
-                                }
-                            }
+                            Text("🧠", fontSize = 14.sp)
+                            Text("Kellvyn pensando…", color = Muted, fontSize = 12.sp)
+                            Spacer(Modifier.weight(1f))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 1.8.dp,
+                                color = accentColor
+                            )
                         }
                     }
                 }
@@ -2203,7 +2155,7 @@ fun KellvynApp() {
                 }
             }
 
-            if (status.isNotBlank()) {
+            if (!modelReady && !isLoadingModel && status.isNotBlank()) {
                 Text(
                     status,
                     color = Muted,
@@ -2274,7 +2226,7 @@ fun KellvynApp() {
                         modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp, max = 88.dp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = { submitDraft() }),
-                        placeholder = { Text("Converse ou peça para criar um aplicativo…", color = Muted, fontSize = 13.sp) },
+                        placeholder = { Text("Pergunte qualquer coisa...", color = Muted, fontSize = 13.sp) },
                         shape = RoundedCornerShape(12.dp),
                         minLines = 1,
                         maxLines = 3,
@@ -2290,33 +2242,14 @@ fun KellvynApp() {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
-                            modifier = Modifier.padding(end = 2.dp)
-                        ) {
-                            KellvynMark(24.dp, accentColor)
-                            Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                                Text("Kellvyn IA", color = accentColor, fontSize = 10.sp, maxLines = 1, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    when {
-                                        modelReady -> "LOCAL • PRONTA"
-                                        isLoadingModel || !modelInitializationAttempted -> "INICIALIZANDO"
-                                        else -> "INDISPONÍVEL"
-                                    },
-                                    color = Muted, fontSize = 7.sp, maxLines = 1
-                                )
-                            }
-                        }
-
-                        Box(modifier = Modifier.size(38.dp)) {
+                        Box(modifier = Modifier.size(34.dp)) {
                             Box(
                                 modifier = Modifier.fillMaxSize().clickable { showAttachmentMenu = true },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("+", color = accentColor, fontSize = 30.sp, lineHeight = 32.sp, fontWeight = FontWeight.Normal)
+                                Text("+", color = accentColor, fontSize = 28.sp, lineHeight = 32.sp)
                             }
                             DropdownMenu(
                                 expanded = showAttachmentMenu,
@@ -2362,7 +2295,22 @@ fun KellvynApp() {
                                 )
                             }
                         }
-
+                        Row(
+                            modifier = Modifier.border(1.dp, Color(0xFF1A7660), RoundedCornerShape(9.dp))
+                                .padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.size(6.dp).background(
+                                    if (modelReady) accentColor else Warning,
+                                    CircleShape
+                                )
+                            )
+                            Text("Kellvyn", color = Color.White, fontSize = 12.sp, maxLines = 1)
+                            Text("⌄", color = Muted, fontSize = 13.sp)
+                        }
+                        Spacer(Modifier.weight(1f))
                         Box(
                             modifier = Modifier.size(34.dp).clickable {
                                 if (!SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -2382,18 +2330,23 @@ fun KellvynApp() {
                                 }
                             },
                             contentAlignment = Alignment.Center
-                        ) { KellvynLineIcon("mic", accentColor, Modifier.size(20.dp)) }
-
-                        Spacer(Modifier.weight(1f))
-
-                        Button(
-                            enabled = draft.isNotBlank() || pendingImagePath != null,
-                            onClick = { submitDraft() },
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.height(34.dp),
-                            contentPadding = PaddingValues(horizontal = 11.dp, vertical = 3.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Night)
-                        ) { if (isGenerating) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Night) else KellvynLineIcon("send", Night, Modifier.size(17.dp)) }
+                        ) {
+                            KellvynLineIcon("mic", accentColor, Modifier.size(20.dp))
+                        }
+                        Box(
+                            modifier = Modifier.size(34.dp)
+                                .border(1.dp, accentColor.copy(alpha = 0.8f), CircleShape)
+                                .clickable(enabled = (draft.isNotBlank() || pendingImagePath != null) && !isGenerating) {
+                                    submitDraft()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isGenerating) {
+                                CircularProgressIndicator(Modifier.size(15.dp), strokeWidth = 1.7.dp, color = accentColor)
+                            } else {
+                                KellvynLineIcon("send", accentColor, Modifier.size(17.dp))
+                            }
+                        }
                     }
                 }
             }
@@ -3152,24 +3105,51 @@ fun KellvynApp() {
                         }
                         Divider(color = Color(0xFF143D33))
                         Text("EFEITO VISUAL", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text("Chuva digital", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Chuva comum com gotas diagonais claras, sem efeito verde.", color = Muted, fontSize = 11.sp)
-                            }
-                            Switch(
-                                checked = rainEffectEnabled,
-                                onCheckedChange = { enabled ->
-                                    rainEffectEnabled = enabled
-                                    uiPreferences.edit().putBoolean("rain_effect_enabled", enabled).apply()
+                        Text("Chuva, neve, folhas e raios", color = Muted, fontSize = 11.sp)
+                        val effectChoices = listOf(
+                            "chuva" to "Chuva",
+                            "neve" to "Neve",
+                            "folhas" to "Folhas",
+                            "raios" to "Raios",
+                            "nenhum" to "Nenhum"
+                        )
+                        effectChoices.chunked(3).forEach { group ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                group.forEach { (effectId, label) ->
+                                    val selected = visualEffect == effectId
+                                    Surface(
+                                        modifier = Modifier.weight(1f).height(38.dp).clickable {
+                                            visualEffect = effectId
+                                            uiPreferences.edit()
+                                                .putString("visual_effect", effectId)
+                                                .putBoolean("rain_effect_enabled", effectId != "nenhum")
+                                                .apply()
+                                        },
+                                        color = if (selected) accentColor.copy(alpha = 0.18f) else Panel,
+                                        shape = RoundedCornerShape(9.dp),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            if (selected) 1.6.dp else 1.dp,
+                                            if (selected) accentColor else Color(0xFF164638)
+                                        )
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                label,
+                                                color = if (selected) accentColor else Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                                            )
+                                        }
+                                    }
                                 }
-                            )
-                        }
-                        Divider(color = Color(0xFF143D33))
+                                if (group.size < 3) repeat(3 - group.size) {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }                        Divider(color = Color(0xFF143D33))
                         Text("ATALHOS", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
