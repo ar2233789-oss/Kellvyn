@@ -3149,7 +3149,8 @@ fun KellvynApp() {
                                     Spacer(Modifier.weight(1f))
                                 }
                             }
-                        }                        Divider(color = Color(0xFF143D33))
+                        }
+                        Divider(color = Color(0xFF143D33))
                         Text("ATALHOS", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
