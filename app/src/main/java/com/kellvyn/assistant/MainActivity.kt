@@ -17,6 +17,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
+import androidx.compose.animation.core.animateFloat
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -108,10 +109,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import java.util.UUID
 
-private val Night = Color(0xFF020806)
-private val Panel = Color(0xFF071713)
+private val Night = Color(0xFF0B1413)
+private val Panel = Color(0xE0131C1A)
 private val Neon = Color(0xFF38E6BC)
-private val Muted = Color(0xFF91B8AD)
+private val Muted = Color(0xFF929B99)
 private val Warning = Color(0xFFFFC857)
 private const val MAX_CONTEXT_MESSAGES = 12
 private const val MAX_HISTORY_MESSAGE_CHARS = 800
@@ -270,6 +271,53 @@ private fun KellvynLineIcon(
                 }
                 drawPath(path, tint, style = stroke)
             }
+            "plus" -> { line(.5f,.19f,.5f,.81f); line(.19f,.5f,.81f,.5f) }
+            "copy" -> {
+                rect(.29f,.10f,.78f,.73f,.06f)
+                rect(.16f,.28f,.65f,.90f,.06f)
+            }
+            "volume" -> {
+                val speaker = Path().apply {
+                    moveTo(w*.13f,h*.42f); lineTo(w*.32f,h*.42f)
+                    lineTo(w*.49f,h*.27f); lineTo(w*.49f,h*.73f)
+                    lineTo(w*.32f,h*.58f); lineTo(w*.13f,h*.58f); close()
+                }
+                drawPath(speaker,tint)
+                val wave1 = Path().apply { moveTo(w*.60f,h*.38f); cubicTo(w*.74f,h*.44f,w*.74f,h*.56f,w*.60f,h*.62f) }
+                val wave2 = Path().apply { moveTo(w*.68f,h*.25f); cubicTo(w*.91f,h*.36f,w*.91f,h*.64f,w*.68f,h*.75f) }
+                drawPath(wave1,tint,style=stroke); drawPath(wave2,tint,style=stroke)
+            }
+            "download" -> {
+                line(.5f,.12f,.5f,.60f)
+                line(.29f,.42f,.5f,.63f); line(.5f,.63f,.71f,.42f)
+                line(.18f,.70f,.18f,.86f); line(.18f,.86f,.82f,.86f); line(.82f,.86f,.82f,.70f)
+            }
+            "share" -> {
+                line(.31f,.50f,.68f,.28f); line(.31f,.50f,.68f,.72f)
+                drawCircle(tint,w*.10f,Offset(w*.24f,h*.50f),style=stroke)
+                drawCircle(tint,w*.10f,Offset(w*.75f,h*.22f),style=stroke)
+                drawCircle(tint,w*.10f,Offset(w*.75f,h*.78f),style=stroke)
+            }
+            "brain" -> {
+                val outline = Path().apply {
+                    moveTo(w*.50f,h*.17f)
+                    cubicTo(w*.42f,h*.08f,w*.31f,h*.11f,w*.29f,h*.21f)
+                    cubicTo(w*.17f,h*.16f,w*.10f,h*.27f,w*.15f,h*.38f)
+                    cubicTo(w*.06f,h*.45f,w*.11f,h*.56f,w*.20f,h*.60f)
+                    cubicTo(w*.16f,h*.70f,w*.25f,h*.79f,w*.36f,h*.75f)
+                    cubicTo(w*.41f,h*.84f,w*.47f,h*.82f,w*.50f,h*.77f)
+                    cubicTo(w*.53f,h*.82f,w*.59f,h*.84f,w*.64f,h*.75f)
+                    cubicTo(w*.75f,h*.79f,w*.84f,h*.70f,w*.80f,h*.60f)
+                    cubicTo(w*.89f,h*.56f,w*.94f,h*.45f,w*.85f,h*.38f)
+                    cubicTo(w*.90f,h*.27f,w*.83f,h*.16f,w*.71f,h*.21f)
+                    cubicTo(w*.69f,h*.11f,w*.58f,h*.08f,w*.50f,h*.17f)
+                    close()
+                }
+                drawPath(outline,tint,style=stroke)
+                line(.50f,.19f,.50f,.78f)
+                line(.30f,.33f,.42f,.39f); line(.32f,.58f,.43f,.54f)
+                line(.70f,.33f,.58f,.39f); line(.68f,.58f,.57f,.54f)
+            }
             "mic" -> {
                 rect(.36f,.12f,.64f,.60f,.15f)
                 line(.23f,.47f,.23f,.53f); line(.23f,.53f,.32f,.66f); line(.32f,.66f,.50f,.72f)
@@ -367,37 +415,112 @@ private fun KellvynLineIcon(
 }
 
 @Composable
+private fun NativeMessageAction(
+    label: String,
+    iconKind: String,
+    tint: Color,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier.size(36.dp).clickable(onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center
+    ) {
+        KellvynLineIcon(iconKind, tint, Modifier.size(16.dp))
+    }
+}
+
+@Composable
 private fun KellvynMark(diameter: androidx.compose.ui.unit.Dp = 28.dp, accent: Color = Neon) {
     Canvas(modifier = Modifier.size(diameter)) {
-        val d = this.size.minDimension
-        val r = d * 0.46f
-        val center = Offset(this.size.width / 2f, this.size.height / 2f)
-        drawCircle(color = accent.copy(alpha = 0.22f), radius = r * 1.08f, center = center)
-        drawCircle(color = accent.copy(alpha = 0.34f), radius = r * 0.99f, center = center)
-        drawCircle(color = Color(0xFF03110C), radius = r * 0.93f, center = center)
-        drawCircle(color = accent.copy(alpha = 1.0f), radius = r * 0.89f, center = center, style = Stroke(width = 2.0.dp.toPx()))
+        val w = size.width
+        val h = size.height
+        val lineWidth = (size.minDimension * 0.065f).coerceAtLeast(1.2.dp.toPx())
+        val hexagon = Path().apply {
+            moveTo(w * 0.5f, h * 0.0625f)
+            lineTo(w * 0.875f, h * 0.28125f)
+            lineTo(w * 0.875f, h * 0.71875f)
+            lineTo(w * 0.5f, h * 0.9375f)
+            lineTo(w * 0.125f, h * 0.71875f)
+            lineTo(w * 0.125f, h * 0.28125f)
+            close()
+        }
+        val k = Path().apply {
+            moveTo(w * 0.375f, h * 0.28125f)
+            lineTo(w * 0.375f, h * 0.71875f)
+            moveTo(w * 0.375f, h * 0.5f)
+            lineTo(w * 0.59375f, h * 0.28125f)
+            moveTo(w * 0.375f, h * 0.5f)
+            lineTo(w * 0.59375f, h * 0.71875f)
+        }
+        drawPath(hexagon, accent.copy(alpha = 0.18f), style = Stroke(width = lineWidth * 3.6f))
+        drawPath(hexagon, accent, style = Stroke(width = lineWidth))
+        drawPath(
+            k,
+            accent,
+            style = Stroke(width = lineWidth * 1.15f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        )
+        drawCircle(accent, radius = size.minDimension * 0.04375f, center = Offset(w * 0.5f, h * 0.5f))
+    }
+}
 
-        val hood = Path().apply {
-            moveTo(center.x, center.y - r * 0.78f)
-            cubicTo(center.x - r * 0.67f, center.y - r * 0.45f, center.x - r * 0.58f, center.y + r * 0.33f, center.x - r * 0.25f, center.y + r * 0.58f)
-            quadraticTo(center.x, center.y + r * 0.76f, center.x + r * 0.25f, center.y + r * 0.58f)
-            cubicTo(center.x + r * 0.58f, center.y + r * 0.33f, center.x + r * 0.67f, center.y - r * 0.45f, center.x, center.y - r * 0.78f)
-            close()
+@Composable
+private fun LovableThinkingBrain(accent: Color, muted: Color) {
+    val labels = listOf("Analisando", "Pensando", "Organizando a resposta")
+    var index by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(900)
+            index = (index + 1) % labels.size
         }
-        drawPath(path = hood, color = accent.copy(alpha = 0.82f))
-        drawPath(path = hood, color = accent.copy(alpha = 1.0f), style = Stroke(width = 1.25.dp.toPx()))
-        val face = Path().apply {
-            moveTo(center.x, center.y - r * 0.37f)
-            lineTo(center.x - r * 0.28f, center.y - r * 0.03f)
-            lineTo(center.x - r * 0.19f, center.y + r * 0.28f)
-            quadraticTo(center.x, center.y + r * 0.40f, center.x + r * 0.19f, center.y + r * 0.28f)
-            lineTo(center.x + r * 0.28f, center.y - r * 0.03f)
-            close()
+    }
+    val motion = androidx.compose.animation.core.rememberInfiniteTransition()
+    val pulse by motion.animateFloat(
+        initialValue = 0.10f,
+        targetValue = 0.28f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(700),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+        )
+    )
+    val shimmer by motion.animateFloat(
+        initialValue = 100f,
+        targetValue = -120f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(
+                durationMillis = 1600,
+                easing = androidx.compose.animation.core.LinearEasing
+            ),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Restart
+        )
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 4.dp, bottom = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Box(modifier = Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawCircle(accent.copy(alpha = pulse), radius = size.minDimension * 0.48f)
+                drawCircle(
+                    accent.copy(alpha = pulse * 0.72f),
+                    radius = size.minDimension * 0.36f,
+                    style = Stroke(width = 1.dp.toPx())
+                )
+            }
+            KellvynLineIcon("brain", accent, Modifier.size(18.dp))
         }
-        drawPath(path = face, color = Night)
-        drawLine(color = Color(0xFFBFFFF1), start = Offset(center.x - r * 0.19f, center.y + r * 0.02f), end = Offset(center.x - r * 0.055f, center.y + r * 0.06f), strokeWidth = 1.8.dp.toPx())
-        drawLine(color = Color(0xFFBFFFF1), start = Offset(center.x + r * 0.055f, center.y + r * 0.06f), end = Offset(center.x + r * 0.19f, center.y + r * 0.02f), strokeWidth = 1.8.dp.toPx())
-        drawCircle(color = accent.copy(alpha = 0.62f), radius = r * 0.14f, center = Offset(center.x, center.y + r * 0.30f))
+        Text(
+            text = "${labels[index]}…",
+            style = androidx.compose.ui.text.TextStyle(
+                brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                    colors = listOf(muted, accent, muted),
+                    start = Offset(shimmer, 0f),
+                    end = Offset(shimmer + 180f, 0f)
+                ),
+                fontSize = 13.sp
+            )
+        )
     }
 }
 
@@ -1809,10 +1932,10 @@ fun KellvynApp() {
                         else -> Unit
                     }
                 }
-            }.windowInsetsPadding(WindowInsets.safeDrawing).imePadding().padding(horizontal = 10.dp, vertical = 4.dp)
+            }.windowInsetsPadding(WindowInsets.safeDrawing).imePadding()
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(44.dp),
+                modifier = Modifier.fillMaxWidth().background(Panel).height(44.dp).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
@@ -1838,11 +1961,11 @@ fun KellvynApp() {
             }
 
             // Preserve the visible separator between the header and conversation.
-            Divider(color = Color(0xFF236B56), thickness = 1.2.dp)
+            Divider(color = Color(0x3338E6BC), thickness = 1.dp)
             LazyColumn(
                 state = chatListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 6.dp, start = 2.dp, end = 2.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp, start = 12.dp, end = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (messages.isEmpty() && streamingReply.isBlank()) {
@@ -1870,9 +1993,9 @@ fun KellvynApp() {
                             horizontalArrangement = Arrangement.End
                         ) {
                             Surface(
-                                color = Color(0xFF0A2D24),
+                                color = Color(0xFF12302A),
                                 shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 5.dp, bottomStart = 18.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF14634D)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x5938E6BC)),
                                 modifier = Modifier.fillMaxWidth(0.82f)
                             ) {
                                 Column(
@@ -1894,8 +2017,8 @@ fun KellvynApp() {
                                     }
                                     Text(
                                         message.text,
-                                        color = Color(0xFFE1FFF5),
-                                        fontSize = 14.sp,
+                                        color = Color(0xFFE3EEEC),
+                                        fontSize = 15.sp,
                                         lineHeight = 20.sp
                                     )
                                 }
@@ -2026,57 +2149,27 @@ fun KellvynApp() {
                                     horizontalArrangement = Arrangement.Start,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    TextButton(
-                                        onClick = {
-                                            clipboard.setText(AnnotatedString(message.text))
-                                            status = "Resposta copiada para a área de transferência."
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-                                    ) {
-                                        Canvas(modifier = Modifier.size(14.dp)) {
-                                            val stroke = Stroke(width = 1.3.dp.toPx())
-                                            drawRoundRect(
-                                                color = accentColor.copy(alpha = 0.65f),
-                                                topLeft = Offset(size.width * 0.27f, size.height * 0.08f),
-                                                size = Size(size.width * 0.58f, size.height * 0.68f),
-                                                cornerRadius = CornerRadius(2.dp.toPx()),
-                                                style = stroke
-                                            )
-                                            drawRoundRect(
-                                                color = accentColor,
-                                                topLeft = Offset(size.width * 0.12f, size.height * 0.27f),
-                                                size = Size(size.width * 0.58f, size.height * 0.65f),
-                                                cornerRadius = CornerRadius(2.dp.toPx()),
-                                                style = stroke
-                                            )
-                                        }
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Copiar", color = accentColor, fontSize = 10.sp)
+                                    NativeMessageAction("Copiar", "copy", accentColor) {
+                                        clipboard.setText(AnnotatedString(message.text))
+                                        status = "Resposta copiada para a área de transferência."
                                     }
-                                    TextButton(
-                                        onClick = {
-                                            val engine = ttsEngine
-                                            if (engine != null && ttsReady) {
-                                                engine.speak(message.text.take(3500), TextToSpeech.QUEUE_FLUSH, null, "kellvyn-answer")
-                                                status = "Lendo resposta em voz alta."
-                                            } else {
-                                                status = "A leitura em voz alta não está disponível neste aparelho."
-                                            }
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                    ) { Text("Ouvir", color = accentColor, fontSize = 10.sp) }
-                                    TextButton(
-                                        onClick = {
-                                            pendingFileExportName = "resposta-kellvyn.txt"
-                                            pendingFileExportContent = message.text
-                                            fileExportPicker.launch(pendingFileExportName)
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                    ) { Text("Baixar", color = Muted, fontSize = 10.sp) }
-                                    TextButton(
-                                        onClick = { shareAssistantDocument(message.text) },
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                    ) { Text("Enviar", color = accentColor, fontSize = 10.sp) }
+                                    NativeMessageAction("Ouvir", "volume", accentColor) {
+                                        val engine = ttsEngine
+                                        if (engine != null && ttsReady) {
+                                            engine.speak(message.text.take(3500), TextToSpeech.QUEUE_FLUSH, null, "kellvyn-answer")
+                                            status = "Lendo resposta em voz alta."
+                                        } else {
+                                            status = "A leitura em voz alta não está disponível neste aparelho."
+                                        }
+                                    }
+                                    NativeMessageAction("Baixar", "download", Muted) {
+                                        pendingFileExportName = "resposta-kellvyn.txt"
+                                        pendingFileExportContent = message.text
+                                        fileExportPicker.launch(pendingFileExportName)
+                                    }
+                                    NativeMessageAction("Compartilhar", "share", accentColor) {
+                                        shareAssistantDocument(message.text)
+                                    }
                                 }
                             }
                         }
@@ -2105,20 +2198,7 @@ fun KellvynApp() {
                 }
                 if (isGenerating) {
                     item(key = "kellvyn_thinking_indicator") {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 4.dp, bottom = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)
-                        ) {
-                            Text("🧠", fontSize = 14.sp)
-                            Text("Kellvyn pensando…", color = Muted, fontSize = 12.sp)
-                            Spacer(Modifier.weight(1f))
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 1.8.dp,
-                                color = accentColor
-                            )
-                        }
+                        LovableThinkingBrain(accent = accentColor, muted = Muted)
                     }
                 }
 
@@ -2176,10 +2256,10 @@ fun KellvynApp() {
             }
 
             Surface(
-                color = Color(0xFF030D0A),
+                color = Color(0xE8131C1A),
                 shape = RoundedCornerShape(17.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1A7660)),
-                modifier = Modifier.fillMaxWidth()
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x5938E6BC)),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(start = 8.dp, end = 6.dp, top = 3.dp, bottom = 3.dp),
@@ -2249,7 +2329,7 @@ fun KellvynApp() {
                                 modifier = Modifier.fillMaxSize().clickable { showAttachmentMenu = true },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("+", color = accentColor, fontSize = 28.sp, lineHeight = 32.sp)
+                                KellvynLineIcon("plus", accentColor, Modifier.size(19.dp))
                             }
                             DropdownMenu(
                                 expanded = showAttachmentMenu,
@@ -2351,7 +2431,7 @@ fun KellvynApp() {
                 }
             }
 
-            Divider(color = Color(0xFF236B56), thickness = 0.8.dp)
+            Divider(color = Color(0x3338E6BC), thickness = 1.dp)
             Row(
                 modifier = Modifier.fillMaxWidth().background(Panel).height(48.dp),
                 verticalAlignment = Alignment.CenterVertically
