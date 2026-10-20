@@ -37,7 +37,7 @@
 
 Sirva o diretório `studio/` em um servidor estático HTTPS. Como os módulos são ES modules e o renderizador importa Three.js de uma CDN com versão fixa, abrir o arquivo HTML diretamente por `file://` pode ser bloqueado pelo navegador. A primeira carga do renderizador precisa de conexão para buscar Three.js; depois de carregado, as operações de cena ocorrem localmente na sessão.
 
-Se GitHub Pages estiver habilitado para este repositório, configure a origem em **Settings → Pages → GitHub Actions** para que o workflow dedicado da oficina publique o conteúdo estático. A publicação é independente do pipeline do APK.
+A primeira tentativa automática de ativar GitHub Pages foi bloqueada porque a conexão de automação não tem permissão administrativa para criar essa configuração. Para abrir o estúdio como site interativo, o proprietário precisa habilitar **Settings → Pages → Build and deployment → GitHub Actions** uma vez. Depois, abra **Actions → Publish isolated production studio → Run workflow** na branch `studio-production-suite`. O workflow de publicação é manual para não deixar builds de publicação falhando a cada commit enquanto Pages estiver desativado. A publicação é independente do pipeline do APK.
 
 ## Verificações automatizadas
 
