@@ -78,7 +78,7 @@ test("additional geometry, material, light and easing APIs are connected to scen
   assert.match(engine, /applySelectedColor, applyPalette, applyMaterialPreset, applyLightingPreset, addGeometry, setEasing/);
   assert.match(engine, /case "bounce-out"/);
   assert.match(engine, /case "elastic-out"/);
-  assert.match(engine, /THREE\\.VSMShadowMap/);
+  assert.match(engine, /THREE\.VSMShadowMap/);
   assert.match(resources, /StudioScene\\?\\.applyMaterialPreset/);
   assert.match(resources, /StudioScene\\?\\.applyLightingPreset/);
   assert.match(resources, /StudioScene\\?\\.addGeometry/);
