@@ -1,0 +1,115 @@
+name: Studio — Virtual Poco F6 smoke test
+
+on:
+  push:
+    branches:
+      - studio-production-suite
+    paths:
+      - "studio/**"
+      - ".github/workflows/studio-poco-f6-lab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-poco-f6-lab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  virtual-device-smoke:
+    name: Inspect published APK on virtual Android 15
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Studio memory and test metadata
+        uses: actions/checkout@v4
+
+      - name: Prepare evidence directory
+        run: mkdir -p studio-artifacts input-apk
+
+      - name: Download an existing release APK — do not build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download --repo "$GITHUB_REPOSITORY" --pattern "app-debug.apk" --dir input-apk
+          test -s input-apk/app-debug.apk
+          sha256sum input-apk/app-debug.apk | tee studio-artifacts/apk-sha256.txt
+          echo "This workflow downloaded an existing release asset; it did not compile an APK." > studio-artifacts/test-scope.txt
+
+      - name: Boot Android 15 virtual device and collect UI evidence
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          cores: 4
+          ram-size: 8192M
+          heap-size: 512M
+          disk-size: 8G
+          avd-name: studio-poco-f6-virtual
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: false
+          emulator-boot-timeout: 600
+          script: |
+            set -euo pipefail
+            mkdir -p studio-artifacts
+
+            capture_diagnostics() {
+              mkdir -p studio-artifacts
+              adb logcat -d -t 12000 > studio-artifacts/logcat.txt 2>&1 || true
+              adb shell dumpsys meminfo com.kellvyn.assistant > studio-artifacts/memory.txt 2>&1 || true
+              adb shell dumpsys activity activities > studio-artifacts/activities.txt 2>&1 || true
+              adb shell uiautomator dump /sdcard/studio-ui-hierarchy.xml >/dev/null 2>&1 || true
+              adb pull /sdcard/studio-ui-hierarchy.xml studio-artifacts/ui-hierarchy.xml >/dev/null 2>&1 || true
+              adb shell screencap -p /sdcard/studio-poco-f6-virtual.png >/dev/null 2>&1 || true
+              adb pull /sdcard/studio-poco-f6-virtual.png studio-artifacts/poco-f6-virtual.png >/dev/null 2>&1 || true
+              adb shell wm size > studio-artifacts/display-size.txt 2>&1 || true
+              adb shell wm density > studio-artifacts/display-density.txt 2>&1 || true
+            }
+            trap capture_diagnostics EXIT
+
+            # Match portrait pixel dimensions. 440 logical dpi is provisional:
+            # the physical panel's 446 PPI is not the same as Android density.
+            adb shell wm size 1220x2712
+            adb shell wm density 440
+            adb shell settings put system font_scale 1.0
+            adb shell settings put system animator_duration_scale 1.0
+            adb shell settings put system transition_animation_scale 1.0
+            adb shell settings put system window_animation_scale 1.0
+
+            # The app may download a multi-GB local model on first start. Disable
+            # network for this visual smoke test so the runner does not download it.
+            adb shell settings put global airplane_mode_on 1
+            adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null 2>&1 || true
+
+            adb install -r input-apk/app-debug.apk
+            adb shell monkey -p com.kellvyn.assistant 1 > studio-artifacts/launch.txt 2>&1 || true
+
+            app_pid=""
+            for attempt in $(seq 1 30); do
+              app_pid="$(adb shell pidof com.kellvyn.assistant 2>/dev/null | tr -d '\r' || true)"
+              if [ -n "$app_pid" ]; then break; fi
+              sleep 1
+            done
+
+            if [ -z "$app_pid" ]; then
+              echo "FAIL: the Kellvyn package did not remain running in the virtual device." | tee studio-artifacts/result.txt
+              exit 1
+            fi
+
+            sleep 8
+            capture_diagnostics
+            echo "PASS: package installed and remained running in the virtual Android device." | tee studio-artifacts/result.txt
+            echo "LIMIT: conversation model readiness and internet features were not tested; network was disabled to prevent first-run multi-GB model download." >> studio-artifacts/result.txt
+            echo "LIMIT: this is Android AOSP in an emulator, not physical HyperOS or Poco F6 hardware." >> studio-artifacts/result.txt
+
+      - name: Upload screenshot, hierarchy, logs and APK identity
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-poco-f6-virtual-evidence-${{ github.run_number }}
+          path: studio-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
