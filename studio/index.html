@@ -25,6 +25,7 @@
 
     <nav class="module-tabs" aria-label="Módulos da oficina">
       <button class="module-tab active" data-module="design"><span class="tab-icon">◈</span><span><b>Estúdio visual</b><small>2D / 3D / 4D</small></span></button>
+      <button class="module-tab" data-module="resources"><span class="tab-icon">✺</span><span><b>Biblioteca</b><small>Paletas, materiais e efeitos</small></span></button>
       <button class="module-tab" data-module="engineering"><span class="tab-icon">⌘</span><span><b>Engenharia</b><small>Código e dependências</small></span></button>
       <button class="module-tab" data-module="testing"><span class="tab-icon">✓</span><span><b>Laboratório QA</b><small>Testes e relatório</small></span></button>
       <div class="tabs-spacer"></div>
@@ -116,6 +117,91 @@
         <div class="dimension-strip"><div><span class="strip-icon">⌗</span><span><b>2D</b><small>Vista ortográfica / planta</small></span></div><div><span class="strip-icon">◈</span><span><b>3D</b><small>Geometria, materiais e luz</small></span></div><div><span class="strip-icon">⏱</span><span><b>4D experimental</b><small>Dimensão W representada por tempo/cor/escala; não é um motor científico de geometria 4D.</small></span></div><div class="strip-status"><span class="status-dot"></span><span id="render-status">Renderizador aguardando inicialização</span></div></div>
       </section>
 
+      <section class="module-panel" id="module-resources">
+        <div class="section-heading">
+          <div><p class="eyebrow">02 / RESOURCE LAB</p><h1>Biblioteca de recursos</h1><p class="subheading">Coleções reutilizáveis para modelar cenas, testar luz e materiais, criar curvas de animação e prototipar efeitos climáticos. Esta oficina continua separada do app Kellvyn.</p></div>
+          <div class="resource-inventory" id="resource-inventory">Carregando biblioteca…</div>
+        </div>
+
+        <section class="card resource-section" id="resource-palette-panel">
+          <div class="card-heading"><div><span class="card-kicker">01 · COLOR DESIGN</span><h2>Paletas e amostras de cor</h2><p class="resource-description">Explore coleções completas, selecione uma cor ou aplique toda a paleta aos objetos da cena 3D.</p></div><span class="card-icon">◉</span></div>
+          <div class="resource-toolbar">
+            <input class="text-input" id="palette-search" type="search" placeholder="Buscar paleta, estilo ou código HEX…" aria-label="Buscar paleta">
+            <select class="text-input" id="palette-group" aria-label="Filtrar grupo de paletas"><option value="all">Todas as famílias</option></select>
+            <span class="resource-count" id="palette-count">Carregando cores…</span>
+          </div>
+          <div class="palette-tools">
+            <div class="palette-current"><label for="palette-active-color">Cor selecionada</label><input id="palette-active-color" type="color" value="#20D69A" aria-label="Cor atual"><b id="palette-active-hex">#20D69A</b></div>
+            <button class="secondary-button" id="palette-apply-color">Aplicar cor ao objeto selecionado</button>
+            <button class="secondary-button" id="palette-custom-add">＋ Guardar na paleta pessoal</button>
+            <button class="secondary-button" id="palette-export">↓ Exportar biblioteca JSON</button>
+          </div>
+          <div class="resource-palette-grid" id="palette-library"></div>
+        </section>
+
+        <div class="resource-columns">
+          <section class="card resource-section">
+            <div class="card-heading"><div><span class="card-kicker">02 · PBR MATERIALS</span><h2>Materiais prontos</h2><p class="resource-description">Aplicam cor, metal, rugosidade, opacidade e emissão ao objeto selecionado.</p></div><span class="card-icon">◈</span></div>
+            <div class="resource-count" id="material-count">Materiais</div>
+            <div class="resource-material-grid" id="material-library"></div>
+          </section>
+          <section class="card resource-section">
+            <div class="card-heading"><div><span class="card-kicker">03 · SHAPE LIBRARY</span><h2>Formas 3D adicionais</h2><p class="resource-description">Primitivas extras para protótipos de objetos, detalhes e composições.</p></div><span class="card-icon">⬡</span></div>
+            <div class="resource-count" id="geometry-count">Geometrias</div>
+            <div class="geometry-resource-grid" id="geometry-library"></div>
+          </section>
+        </div>
+
+        <section class="card resource-section">
+          <div class="card-heading"><div><span class="card-kicker">04 · LIGHTING & SHADOWS</span><h2>Ambientes de iluminação e sombras</h2><p class="resource-description">Presets de clima de luz, cor, intensidade, mapa de sombra e tipo de sombra — configurados no motor de cena.</p></div><span class="card-icon">☼</span></div>
+          <div class="resource-count" id="lighting-count">Ambientes de luz</div>
+          <div class="resource-light-grid" id="lighting-library"></div>
+        </section>
+
+        <div class="resource-columns">
+          <section class="card resource-section">
+            <div class="card-heading"><div><span class="card-kicker">05 · MOTION CURVES</span><h2>Curvas de animação</h2><p class="resource-description">A curva selecionada altera a interpolação real das poses ao mover o controle da linha do tempo no Estúdio Visual.</p></div><span class="card-icon">⌁</span></div>
+            <label class="field-label" for="easing-select">Curva usada na linha do tempo</label>
+            <select class="text-input" id="easing-select" aria-label="Curva de animação"></select>
+            <p id="easing-description" class="muted-copy">Escolha uma curva para alterar a sensação do movimento entre poses.</p>
+            <div class="easing-guide"><span>Poses e keyframes</span><b>12 curvas</b><span>Linear · suave · cúbica · elástica · quique · degrau</span></div>
+          </section>
+          <section class="card resource-section">
+            <div class="card-heading"><div><span class="card-kicker">06 · WORKSPACE STATUS</span><h2>Estado e exportação</h2><p class="resource-description">As alterações desta biblioteca atuam na sessão local do estúdio. Os JSON exportados são configurações de referência, não código nativo pronto.</p></div><span class="card-icon">✓</span></div>
+            <p class="resource-status" id="resource-status" role="status">Biblioteca pronta.</p>
+            <p class="muted-copy">As paletas podem ser exportadas juntas com presets de material e iluminação. Para usar os efeitos no APK, ainda será necessário convertê-los para a implementação Android e comparar com a interface original Lovable.</p>
+          </section>
+        </div>
+
+        <section class="card resource-section weather-section">
+          <div class="card-heading"><div><span class="card-kicker">07 · WEATHER / PARTICLE LAB</span><h2>Modelador de chuva, neve, neblina e raios</h2><p class="resource-description">Editor procedural independente para testar densidade, velocidade, vento, tamanho, transparência, brilho e cores antes de transportar a ideia para o renderizador nativo.</p></div><span class="card-icon">⌁</span></div>
+          <div class="weather-layout">
+            <div class="weather-preview-column">
+              <canvas id="weather-preview" aria-label="Prévia animada de partículas meteorológicas"></canvas>
+              <div class="weather-preview-footer"><span id="weather-state">Prévia local</span><span>Protótipo visual da oficina</span></div>
+              <div class="weather-actions"><button class="secondary-button" id="weather-pause">Ⅱ Pausar prévia</button><button class="secondary-button" id="weather-reset">↻ Restaurar</button><button class="primary-button" id="weather-export">↓ Exportar configuração JSON</button><button class="secondary-button" id="weather-import-trigger">↑ Importar JSON</button><input id="weather-file" type="file" accept=".json,application/json" hidden></div>
+            </div>
+            <div class="weather-controls">
+              <label class="field-label" for="weather-type">Efeito climático</label>
+              <select class="text-input" id="weather-type"><option value="rain">Chuva</option><option value="snow">Neve</option><option value="mist">Neblina</option><option value="lightning">Chuva com relâmpagos</option></select>
+              <label class="field-label" for="weather-preset">Ponto de partida</label>
+              <select class="text-input" id="weather-preset">
+                <option value="fine">Chuva fina</option><option value="storm">Temporal inclinado</option><option value="downpour">Chuva intensa</option><option value="snow">Neve leve</option><option value="blizzard">Nevasca</option><option value="mist">Neblina baixa</option><option value="lightning">Tempestade elétrica</option>
+              </select>
+              <button class="secondary-button full-width" id="weather-apply-preset">Aplicar preset climático</button>
+              <label class="field-label" for="weather-density">Densidade <output id="weather-density-value">200</output><input id="weather-density" type="range" min="10" max="650" step="10" value="200"></label>
+              <label class="field-label" for="weather-speed">Velocidade <output id="weather-speed-value">6</output><input id="weather-speed" type="range" min="0.2" max="12" step="0.1" value="6"></label>
+              <label class="field-label" for="weather-wind">Vento / inclinação <output id="weather-wind-value">0.6</output><input id="weather-wind" type="range" min="-5" max="5" step="0.1" value="0.6"></label>
+              <label class="field-label" for="weather-length">Comprimento da gota / tamanho <output id="weather-length-value">20</output><input id="weather-length" type="range" min="2" max="60" step="1" value="20"></label>
+              <label class="field-label" for="weather-opacity">Opacidade <output id="weather-opacity-value">0.72</output><input id="weather-opacity" type="range" min="0.05" max="1" step="0.01" value="0.72"></label>
+              <label class="field-label" for="weather-glow">Brilho / halo <output id="weather-glow-value">0.42</output><input id="weather-glow" type="range" min="0" max="1" step="0.01" value="0.42"></label>
+              <div class="weather-color-grid"><label class="field-label">Cor das partículas<input id="weather-color" type="color" value="#BCEEFF"></label><label class="field-label">Cor de fundo<input id="weather-background" type="color" value="#071722"></label></div>
+              <p class="muted-copy">O preview é desenhado em canvas 2D nesta oficina. Não prova desempenho Android, não altera a chuva do APK e não substitui a reprodução do visual Lovable no aparelho.</p>
+            </div>
+          </div>
+        </section>
+      </section>
+
       <section class="module-panel" id="module-engineering">
         <div class="section-heading"><div><p class="eyebrow">02 / ENGINEERING BENCH</p><h1>Engenharia de software</h1><p class="subheading">Inspecione uma pasta de projeto, mapeie dependências e prepare patches sem editar a IA principal.</p></div><div class="safe-chip">◉ ISOLADO DA IA KELLVYN</div></div>
         <div class="engineering-grid">
@@ -160,7 +246,7 @@
         <section class="card matrix-card"><div class="card-heading"><div><span class="card-kicker">ALTERNATIVE PATHS</span><h2>Matriz de alternativas de validação</h2></div><span class="card-icon">⇥</span></div><div class="table-scroll"><table><thead><tr><th>Área</th><th>Alternativa A</th><th>Alternativa B</th><th>Alternativa C</th><th>Critério de saída</th></tr></thead><tbody><tr><td>Renderização</td><td>WebGL / GPU ativo</td><td>WebGL com sombras desligadas</td><td>Fallback sem renderizador</td><td>Erro reportado; sem tela branca silenciosa</td></tr><tr><td>Projeto Android</td><td>Gradle Wrapper + SDK</td><td>Configuração incompleta</td><td>Projeto não Android</td><td>Diagnóstico correspondente à estrutura real</td></tr><tr><td>Patch</td><td>Correspondência única</td><td>Trecho ausente/duplicado</td><td>Texto vazio</td><td>Sem gravar sobre o original por engano</td></tr><tr><td>Interface</td><td>Componentes presentes</td><td>Handlers ausentes</td><td>UI incompatível com spec</td><td>Relatório aponta arquivo e evidência textual</td></tr><tr><td>Dependências</td><td>Versão fixa declarada</td><td>Versão dinâmica</td><td>Referência não resolvida</td><td>Sem alegar CVE sem uma base de vulnerabilidade</td></tr></tbody></table></div><p class="table-note">A, B e C são cenários definidos para cobertura. Testes em aparelho, compilação real e testes de GPU requerem execução num ambiente compatível; esta oficina não os simula como aprovados.</p></section>
       </section>
     </main>
-    <footer class="footer"><span>STUDIO BUILD 0.1.0 · BRANCH ISOLADA</span><span>Sem alteração automática do app Kellvyn · Relatórios baseados em evidências</span><a href="https://github.com/ar2233789-oss/Kellvyn/tree/studio-production-suite" target="_blank" rel="noreferrer">Código da oficina ↗</a></footer>
+    <footer class="footer"><span>STUDIO BUILD 0.3.0 · BIBLIOTECA EXPANDIDA</span><span>Sem alteração automática do app Kellvyn · Relatórios baseados em evidências</span><a href="https://github.com/ar2233789-oss/Kellvyn/tree/studio-production-suite" target="_blank" rel="noreferrer">Código da oficina ↗</a></footer>
   </div>
   <input type="file" id="scene-file" accept=".json,application/json" hidden>
   <script type="module" src="./studio.js"></script>
