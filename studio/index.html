@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07120f">
+  <meta name="description" content="Oficina de produção: modelagem 2D/3D, engenharia de projetos e laboratório de validação.">
+  <title>Oficina de Produção • Kellvyn</title>
+  <link rel="stylesheet" href="./studio.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="Oficina de Produção">
+        <span class="brand-mark">K</span>
+        <span><strong>OFICINA</strong><small>PRODUCTION STUDIO</small></span>
+      </a>
+      <div class="top-status"><span class="status-dot"></span><span id="workspace-status">Estúdio isolado · pronto para iniciar</span></div>
+      <div class="top-actions">
+        <button class="icon-button" id="open-project" title="Abrir projeto local" aria-label="Abrir projeto local">↥</button>
+        <button class="icon-button" id="save-project" title="Salvar cena" aria-label="Salvar cena">↓</button>
+        <button class="primary-button" id="run-all">▶ Executar diagnóstico</button>
+      </div>
+    </header>
+
+    <nav class="module-tabs" aria-label="Módulos da oficina">
+      <button class="module-tab active" data-module="design"><span class="tab-icon">◈</span><span><b>Estúdio visual</b><small>2D / 3D / 4D</small></span></button>
+      <button class="module-tab" data-module="engineering"><span class="tab-icon">⌘</span><span><b>Engenharia</b><small>Código e dependências</small></span></button>
+      <button class="module-tab" data-module="testing"><span class="tab-icon">✓</span><span><b>Laboratório QA</b><small>Testes e relatório</small></span></button>
+      <div class="tabs-spacer"></div>
+      <div class="build-chip"><span></span> PROJETO: <b id="project-label">Cena sem título</b></div>
+    </nav>
+
+    <main>
+      <section class="module-panel active" id="module-design">
+        <div class="section-heading">
+          <div><p class="eyebrow">01 / VISUAL ENGINE</p><h1>Modelagem e animação</h1><p class="subheading">Crie uma cena, ajuste materiais e luzes, registre poses e inspecione cada mudança.</p></div>
+          <div class="view-switch" role="group" aria-label="Modo de visualização">
+            <button data-view="2d">2D</button><button class="selected" data-view="3d">3D</button><button data-view="4d">4D experimental</button>
+          </div>
+        </div>
+
+        <div class="design-layout">
+          <aside class="tool-rail">
+            <div class="rail-label">CRIAR</div>
+            <button class="tool-button" data-add="box" title="Adicionar cubo"><span>▧</span><small>Cubo</small></button>
+            <button class="tool-button" data-add="sphere" title="Adicionar esfera"><span>◉</span><small>Esfera</small></button>
+            <button class="tool-button" data-add="torus" title="Adicionar toro"><span>◎</span><small>Toro</small></button>
+            <button class="tool-button" data-add="plane" title="Adicionar plano"><span>▱</span><small>Plano</small></button>
+            <div class="rail-divider"></div>
+            <div class="rail-label">CENA</div>
+            <button class="tool-button" id="add-light" title="Adicionar luz"><span>☼</span><small>Luz</small></button>
+            <button class="tool-button" id="frame-selected" title="Enquadrar selecionado"><span>⌖</span><small>Enquadrar</small></button>
+            <button class="tool-button danger-text" id="delete-selected" title="Remover selecionado"><span>×</span><small>Remover</small></button>
+          </aside>
+
+          <section class="viewport-panel">
+            <div class="viewport-toolbar">
+              <div class="viewport-title"><span class="live-dot"></span><span id="viewport-label">Viewport · perspectiva</span></div>
+              <div class="toolbar-group"><button id="toggle-grid" class="mini-button selected">▦ Grade</button><button id="toggle-shadows" class="mini-button selected">◐ Sombras</button><button id="reset-camera" class="mini-button">↻ Câmera</button></div>
+            </div>
+            <div id="viewport" class="viewport">
+              <canvas id="scene-canvas" aria-label="Viewport interativo de modelagem 3D"></canvas>
+              <div class="viewport-hint" id="viewport-hint">Arraste para orbitar · rolagem para zoom · toque em um objeto para selecionar</div>
+              <div class="view-axis"><span>X</span><span>Y</span><span>Z</span></div>
+              <div class="overlay-badge" id="scene-badge">SCENE 01 · LOCAL</div>
+              <div class="render-fallback" id="render-fallback" hidden>Renderizador 3D indisponível. Confira a conexão com o módulo Three.js e consulte o diagnóstico.</div>
+            </div>
+            <div class="timeline">
+              <div class="timeline-header"><span class="timeline-label">LINHA DO TEMPO</span><span class="timeline-time" id="timeline-time">00:00.00</span><div class="timeline-actions"><button class="mini-button" id="add-keyframe">＋ Registrar pose</button><button class="mini-button" id="play-timeline">▶ Reproduzir</button></div></div>
+              <div class="timeline-track-wrap"><div class="timeline-ruler"><span>0s</span><span>1s</span><span>2s</span><span>3s</span><span>4s</span><span>5s</span></div><input id="timeline-slider" type="range" min="0" max="5" value="0" step=".01" aria-label="Posição na linha do tempo"><div class="keyframe-track" id="keyframe-track"></div></div>
+              <div class="timeline-footer"><span id="keyframe-count">0 poses registradas</span><span>Interpolação linear · 5 s</span></div>
+            </div>
+          </section>
+
+          <aside class="inspector">
+            <div class="inspector-tabs"><button class="selected" data-inspector="object">Objeto</button><button data-inspector="material">Material</button><button data-inspector="lighting">Luz</button></div>
+            <div id="inspector-object" class="inspector-content active">
+              <div class="panel-title"><span>Objeto selecionado</span><span class="tiny-dot"></span></div>
+              <label class="field-label">Nome</label><input class="text-input" id="object-name" value="Cubo 01" aria-label="Nome do objeto">
+              <div class="field-grid">
+                <label>Posição X<input class="number-input" id="pos-x" type="number" step=".1" value="0"></label>
+                <label>Posição Y<input class="number-input" id="pos-y" type="number" step=".1" value="0.5"></label>
+                <label>Posição Z<input class="number-input" id="pos-z" type="number" step=".1" value="0"></label>
+                <label>Rotação Y°<input class="number-input" id="rot-y" type="number" step="5" value="0"></label>
+                <label>Escala X<input class="number-input" id="scale-x" type="number" min=".05" step=".1" value="1"></label>
+                <label>Escala Y<input class="number-input" id="scale-y" type="number" min=".05" step=".1" value="1"></label>
+              </div>
+              <label class="field-label">Cor do objeto</label><div class="color-row"><input id="object-color" type="color" value="#20d69a" aria-label="Cor do objeto"><span id="color-hex">#20D69A</span><button class="mini-button" id="apply-color">Aplicar</button></div>
+              <div class="inspector-note" id="selection-note">Objeto selecionado aparece com contorno ciano. Transformações ficam registradas na cena local.</div>
+            </div>
+            <div id="inspector-material" class="inspector-content">
+              <div class="panel-title">Material físico (PBR)</div>
+              <label class="field-label">Metallic <output id="metallic-value">0.25</output><input type="range" min="0" max="1" step=".01" value=".25" id="metallic"></label>
+              <label class="field-label">Roughness <output id="roughness-value">0.42</output><input type="range" min="0" max="1" step=".01" value=".42" id="roughness"></label>
+              <label class="field-label">Opacidade <output id="opacity-value">1.00</output><input type="range" min=".1" max="1" step=".05" value="1" id="opacity"></label>
+              <label class="toggle-row"><span>Transparência</span><input type="checkbox" id="transparent"></label>
+              <label class="toggle-row"><span>Receber sombra</span><input type="checkbox" id="receive-shadow" checked></label>
+              <p class="muted-copy">Material MeshStandard (PBR). Os parâmetros afetam o objeto selecionado, não todo o projeto.</p>
+            </div>
+            <div id="inspector-lighting" class="inspector-content">
+              <div class="panel-title">Iluminação da cena</div>
+              <label class="field-label">Luz ambiente <output id="ambient-value">0.65</output><input type="range" min="0" max="2" step=".05" value=".65" id="ambient-power"></label>
+              <label class="field-label">Luz direcional <output id="directional-value">2.20</output><input type="range" min="0" max="5" step=".1" value="2.2" id="directional-power"></label>
+              <label class="field-label">Temperatura / cor</label><input class="color-wide" id="light-color" type="color" value="#effff8" aria-label="Cor da luz">
+              <label class="toggle-row"><span>Sombras em tempo real</span><input type="checkbox" id="lighting-shadows" checked></label>
+              <div class="lighting-readout"><span>Shadow map</span><b>1024 × 1024</b><span>Tipo</span><b>PCF Soft</b><span>Estado</span><b id="shadow-state">Ativo</b></div>
+              <p class="muted-copy">Sombras dependem do suporte WebGL/GPU do dispositivo. O diagnóstico informa quando o renderizador falhar.</p>
+            </div>
+            <div class="scene-tree">
+              <div class="tree-heading"><span>HIERARQUIA DA CENA</span><span id="scene-object-count">1 objeto</span></div>
+              <div id="scene-tree-list"></div>
+            </div>
+          </aside>
+        </div>
+        <div class="dimension-strip"><div><span class="strip-icon">⌗</span><span><b>2D</b><small>Vista ortográfica / planta</small></span></div><div><span class="strip-icon">◈</span><span><b>3D</b><small>Geometria, materiais e luz</small></span></div><div><span class="strip-icon">⏱</span><span><b>4D experimental</b><small>Dimensão W representada por tempo/cor/escala; não é um motor científico de geometria 4D.</small></span></div><div class="strip-status"><span class="status-dot"></span><span id="render-status">Renderizador aguardando inicialização</span></div></div>
+      </section>
+
+      <section class="module-panel" id="module-engineering">
+        <div class="section-heading"><div><p class="eyebrow">02 / ENGINEERING BENCH</p><h1>Engenharia de software</h1><p class="subheading">Inspecione uma pasta de projeto, mapeie dependências e prepare patches sem editar a IA principal.</p></div><div class="safe-chip">◉ ISOLADO DA IA KELLVYN</div></div>
+        <div class="engineering-grid">
+          <section class="card project-card"><div class="card-heading"><div><span class="card-kicker">01 · ENTRADA</span><h2>Projeto sob inspeção</h2></div><span class="card-icon">⌘</span></div>
+            <p class="muted-copy">Escolha uma pasta do aparelho/ambiente suportado ou carregue arquivos de código. A leitura ocorre nesta sessão do navegador; nenhum arquivo é enviado automaticamente.</p>
+            <label class="drop-zone" for="project-files"><span class="drop-icon">⇧</span><b>Selecionar arquivos do projeto</b><small>Gradle · Kotlin · XML · JSON · JS · TS · CSS · Markdown</small><span class="outline-cta">Escolher arquivos</span></label>
+            <input type="file" id="project-files" multiple webkitdirectory directory>
+            <div class="import-summary" id="import-summary">Nenhum projeto carregado</div>
+            <div class="project-meta"><span>Formato de leitura</span><b>Somente leitura até aprovar patch</b><span>Destino de alterações</span><b>Exportação local separada</b><span>Compilador Android local</span><b class="pending">Não conectado nesta oficina web</b></div>
+          </section>
+          <section class="card architecture-card"><div class="card-heading"><div><span class="card-kicker">02 · MAPA</span><h2>Arquitetura e dependências</h2></div><span class="card-icon">⤴</span></div>
+            <div id="architecture-summary" class="architecture-summary"><div class="empty-state">Carregue o projeto para detectar módulos, arquivos principais e referências de dependências.</div></div>
+            <div class="dependency-list" id="dependency-list"><div class="empty-state compact">O grafo de dependências aparecerá após a inspeção.</div></div>
+            <button class="secondary-button full-width" id="audit-dependencies">⌕ Analisar dependências</button>
+          </section>
+          <section class="card patch-card"><div class="card-heading"><div><span class="card-kicker">03 · PATCH CONTROL</span><h2>Preparar uma alteração</h2></div><span class="card-icon">⇄</span></div>
+            <label class="field-label">Arquivo-alvo</label><select class="text-input" id="patch-file" disabled><option>Carregue um projeto primeiro</option></select>
+            <label class="field-label">Texto exato a localizar</label><textarea id="patch-find" class="code-input" rows="3" placeholder="Cole o trecho atual exato"></textarea>
+            <label class="field-label">Substituição proposta</label><textarea id="patch-replace" class="code-input" rows="3" placeholder="Cole o novo trecho"></textarea>
+            <label class="toggle-row"><span>Exigir ocorrência única</span><input type="checkbox" id="patch-unique" checked></label>
+            <button class="primary-button full-width" id="prepare-patch">Validar e preparar patch</button>
+            <div id="patch-result" class="patch-result">Patch não preparado. O arquivo original permanece intocado.</div>
+            <button class="secondary-button full-width" id="export-patch" disabled>↓ Exportar arquivo alterado</button>
+          </section>
+          <section class="card findings-card"><div class="card-heading"><div><span class="card-kicker">04 · FINDINGS</span><h2>Achados de engenharia</h2></div><span class="card-icon">⌁</span></div><div id="engineering-findings" class="findings-list"><div class="empty-state">Os achados ficam registrados aqui, com severidade e arquivo de origem.</div></div></section>
+        </div>
+      </section>
+
+      <section class="module-panel" id="module-testing">
+        <div class="section-heading"><div><p class="eyebrow">03 / QUALITY LAB</p><h1>Laboratório de testes</h1><p class="subheading">Execute verificações estruturais, procure incompatibilidades e gere um relatório com falhas, alertas e dependências.</p></div><button class="primary-button" id="run-tests">▶ Executar bateria de testes</button></div>
+        <div class="qa-overview"><div class="qa-stat"><span>PASSOU</span><b id="passed-count">—</b><small>checagens aprovadas</small></div><div class="qa-stat warning"><span>ALERTA</span><b id="warning-count">—</b><small>itens para revisar</small></div><div class="qa-stat failure"><span>FALHOU</span><b id="failed-count">—</b><small>falhas detectadas</small></div><div class="qa-stat"><span>COBERTURA</span><b id="coverage-count">—</b><small>regras executadas</small></div></div>
+        <div class="qa-grid">
+          <section class="card"><div class="card-heading"><div><span class="card-kicker">TEST PLAN</span><h2>Plano de validação</h2></div><span class="card-icon">☑</span></div>
+            <div class="check-plan" id="check-plan"><label><input type="checkbox" checked data-check="structure">Estrutura e arquivos obrigatórios</label><label><input type="checkbox" checked data-check="android">Manifesto Android e configuração Gradle</label><label><input type="checkbox" checked data-check="dependencies">Referências de dependências e versões</label><label><input type="checkbox" checked data-check="ui">Sinais de interface e handlers pendentes</label><label><input type="checkbox" checked data-check="security">Segredos, permissões e superfícies de rede</label><label><input type="checkbox" checked data-check="tests">Existência de testes automatizados</label><label><input type="checkbox" checked data-check="parity">Regras de preservação da interface</label><label><input type="checkbox" checked data-check="studio">Autotestes da oficina</label></div>
+            <div class="test-actions"><button class="primary-button full-width" id="run-selected-tests">Executar selecionados</button><button class="secondary-button full-width" id="export-report" disabled>↓ Exportar relatório JSON</button><button class="secondary-button full-width" id="export-report-md" disabled>↓ Exportar relatório legível</button></div>
+          </section>
+          <section class="card results-card"><div class="card-heading"><div><span class="card-kicker">EXECUTION LOG</span><h2>Resultado das verificações</h2></div><span id="qa-run-state" class="neutral-pill">Ainda não executado</span></div>
+            <div class="results-filter"><button class="selected" data-filter="all">Todos</button><button data-filter="fail">Falhas</button><button data-filter="warn">Alertas</button><button data-filter="pass">Aprovados</button></div>
+            <div id="test-results" class="test-results"><div class="empty-state">O laboratório não assume que o código compila. Execute a bateria para gerar resultados concretos a partir dos arquivos carregados.</div></div>
+          </section>
+        </div>
+        <section class="card matrix-card"><div class="card-heading"><div><span class="card-kicker">ALTERNATIVE PATHS</span><h2>Matriz de alternativas de validação</h2></div><span class="card-icon">⇥</span></div><div class="table-scroll"><table><thead><tr><th>Área</th><th>Alternativa A</th><th>Alternativa B</th><th>Alternativa C</th><th>Critério de saída</th></tr></thead><tbody><tr><td>Renderização</td><td>WebGL / GPU ativo</td><td>WebGL com sombras desligadas</td><td>Fallback sem renderizador</td><td>Erro reportado; sem tela branca silenciosa</td></tr><tr><td>Projeto Android</td><td>Gradle Wrapper + SDK</td><td>Configuração incompleta</td><td>Projeto não Android</td><td>Diagnóstico correspondente à estrutura real</td></tr><tr><td>Patch</td><td>Correspondência única</td><td>Trecho ausente/duplicado</td><td>Texto vazio</td><td>Sem gravar sobre o original por engano</td></tr><tr><td>Interface</td><td>Componentes presentes</td><td>Handlers ausentes</td><td>UI incompatível com spec</td><td>Relatório aponta arquivo e evidência textual</td></tr><tr><td>Dependências</td><td>Versão fixa declarada</td><td>Versão dinâmica</td><td>Referência não resolvida</td><td>Sem alegar CVE sem uma base de vulnerabilidade</td></tr></tbody></table></div><p class="table-note">A, B e C são cenários definidos para cobertura. Testes em aparelho, compilação real e testes de GPU requerem execução num ambiente compatível; esta oficina não os simula como aprovados.</p></section>
+      </section>
+    </main>
+    <footer class="footer"><span>STUDIO BUILD 0.1.0 · BRANCH ISOLADA</span><span>Sem alteração automática do app Kellvyn · Relatórios baseados em evidências</span><a href="https://github.com/ar2233789-oss/Kellvyn/tree/studio-production-suite" target="_blank" rel="noreferrer">Código da oficina ↗</a></footer>
+  </div>
+  <input type="file" id="scene-file" accept=".json,application/json" hidden>
+  <script type="module" src="./studio.js"></script>
+</body>
+</html>
