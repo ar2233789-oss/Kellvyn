@@ -1,0 +1,48 @@
+name: Workshop layout and rain audit
+on:
+  push:
+    branches: [native-lovable-replica]
+    paths:
+      - "workshop/**"
+      - ".github/workflows/workshop-layout-audit.yml"
+      - "app/src/main/java/com/kellvyn/assistant/MainActivity.kt"
+permissions:
+  contents: read
+jobs:
+  workshop-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: workshop/requirements.txt
+      - name: Install visual audit dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad graphviz ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install -r workshop/requirements.txt
+      - name: Test rain motion model
+        run: python -m unittest discover -s workshop/tests -v
+      - name: Audit native screen and source lock
+        run: |
+          mkdir -p workshop/reports
+          python workshop/scripts/audit_native_layout.py --repo-root . --report workshop/reports/native-layout-audit.json
+      - name: Render rain diagnostic
+        run: bash workshop/scripts/render_rain_animation.sh workshop/reports/rain-preview 24 12
+      - name: Export 3D geometry and pipeline diagram
+        run: |
+          openscad -o workshop/reports/rain-calibration.stl workshop/model/rain_calibration.scad
+          dot -Tsvg workshop/diagrams/parity-pipeline.dot -o workshop/reports/parity-pipeline.svg
+      - name: Upload workshop results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workshop-layout-and-rain-audit
+          path: workshop/reports/**
+          if-no-files-found: warn
