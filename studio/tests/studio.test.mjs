@@ -10,6 +10,7 @@ const read = (name) => readFileSync(path.join(root, name), "utf8");
 const html = read("index.html");
 const css = read("studio.css");
 const engine = read("scene-engine.js");
+const resources = read("resource-lab.js");
 const lab = read("studio.js");
 const docs = read("README.md");
 const profile = JSON.parse(read("memory/POCO_F6_PROFILE.json"));
@@ -17,9 +18,11 @@ const memory = read("memory/OPERATOR_MEMORY.md");
 const deviceLab = read("device-lab/README.md");
 const emulatorWorkflow = read("../.github/workflows/studio-poco-f6-lab.yml");
 
-test("interface is divided into exactly three independent studio modules", () => {
-  assert.equal((html.match(/data-module="/g) || []).length, 3);
+test("interface is divided into four independent studio modules", () => {
+  assert.equal((html.match(/data-module="/g) || []).length, 4);
   assert.match(html, /id="module-design"/);
+  assert.match(html, /id="module-resources"/);
+  assert.match(html, /data-module="resources"/);
   assert.match(html, /id="module-engineering"/);
   assert.match(html, /id="module-testing"/);
 });
@@ -34,6 +37,7 @@ test("UI contract references both stylesheet and main ES module", () => {
   assert.match(html, /href="\.\/studio\.css"/);
   assert.match(html, /src="\.\/studio\.js"/);
   assert.match(lab, /import "\.\/scene-engine\.js"/);
+  assert.match(lab, /import "\.\/resource-lab\.js"/);
 });
 
 test("visual engine contains 2D/3D controls, materials, shadows and keyframes", () => {
@@ -45,7 +49,39 @@ test("visual engine contains 2D/3D controls, materials, shadows and keyframes", 
   assert.match(engine, /MeshStandardMaterial/);
   assert.match(engine, /PCFSoftShadowMap/);
   assert.match(engine, /snapshotSelected/);
+  assert.match(engine, /function easeProgress/);
+  assert.match(engine, /applyLightingPreset/);
+  assert.match(engine, /TetrahedronGeometry/);
   assert.match(engine, /kellvyn-studio-scene\/v1/);
+});
+
+
+test("resource library is extensive and exposes real interactive tools", () => {
+  const paletteBlock = resources.match(/const palettes = \[([\s\S]*?)\n\];/);
+  assert.ok(paletteBlock, "palette library declaration exists");
+  assert.ok((paletteBlock[1].match(/\{name:/g) || []).length >= 30, "at least 30 curated palettes");
+  assert.ok((resources.match(/\{name:"/g) || []).length >= 60, "palette and material catalogues are populated");
+  assert.match(resources, /function renderPaletteLibrary/);
+  assert.match(resources, /function renderMaterials/);
+  assert.match(resources, /function renderLights/);
+  assert.match(resources, /function drawWeather/);
+  assert.match(resources, /kellvyn-weather-studio\/v1/);
+  assert.match(resources, /weather-apply-preset/);
+  assert.match(resources, /function renderEasingOptions/);
+  assert.match(html, /id="weather-preview"/);
+  assert.match(html, /id="palette-library"/);
+  assert.match(html, /id="material-library"/);
+  assert.match(html, /id="lighting-library"/);
+});
+
+test("additional geometry, material, light and easing APIs are connected to scene engine", () => {
+  assert.match(engine, /applySelectedColor, applyPalette, applyMaterialPreset, applyLightingPreset, addGeometry, setEasing/);
+  assert.match(engine, /case "bounce-out"/);
+  assert.match(engine, /case "elastic-out"/);
+  assert.match(engine, /THREE\\.VSMShadowMap/);
+  assert.match(resources, /StudioScene\\?\\.applyMaterialPreset/);
+  assert.match(resources, /StudioScene\\?\\.applyLightingPreset/);
+  assert.match(resources, /StudioScene\\?\\.addGeometry/);
 });
 
 test("visual engine exposes meaningful startup diagnostics", () => {
@@ -85,6 +121,8 @@ test("no forbidden Replit reference in the production studio source", () => {
 
 test("documentation records limitations instead of claiming full native conversion", () => {
   assert.match(docs, /não compila projetos Android/i);
+  assert.match(docs, /paletas/i);
+  assert.match(docs, /chuva/i);
   assert.match(docs, /motor completo de geometria 4D/i);
   assert.match(docs, /interface Lovable em interface Android nativa ainda precisa/i);
 });
