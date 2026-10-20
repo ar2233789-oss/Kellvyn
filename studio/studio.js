@@ -1,4 +1,5 @@
 import "./scene-engine.js";
+import "./resource-lab.js";
 
 const $ = (id) => document.getElementById(id);
 const q = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -311,7 +312,7 @@ function selfCheckHarness(){
     ["validador de patch não aceita busca vazia",()=>$("patch-find")!==null],
     ["exportação JSON presente",()=>$("export-report")!==null],
     ["filtros de resultado presentes",()=>q("[data-filter]").length===4],
-    ["três módulos declarados",()=>q("[data-module]").length===3],
+    ["quatro módulos declarados",()=>q("[data-module]").length===4],
     ["sem URLs HTTP para lógica de projeto",()=>!Array.from(document.scripts).some(s=>s.src.startsWith("http:"))]
   ];
   return cases.map(([label,fn])=>({label,pass:Boolean(fn())}));
@@ -321,7 +322,7 @@ function startup(){
   const cases=selfCheckHarness();
   const failures=cases.filter(c=>!c.pass);
   if(failures.length){console.error("Autoteste de interface falhou",failures);$("workspace-status").textContent="Aviso: autoteste de interface";} 
-  else $("workspace-status").textContent="Oficina pronta · 3 módulos independentes";
+  else $("workspace-status").textContent="Oficina pronta · 4 módulos independentes";
   const navRepo=document.querySelector(".footer a");
   if(navRepo)navRepo.href="https://github.com/ar2233789-oss/Kellvyn/tree/studio-production-suite";
 }
