@@ -34,6 +34,8 @@ jobs:
         run: node --check studio/scene-engine.js
       - name: Check engineering and QA module syntax
         run: node --check studio/studio.js
+      - name: Check resource library and weather module syntax
+        run: node --check studio/resource-lab.js
       - name: Run studio contract tests
         working-directory: studio
         run: npm test
