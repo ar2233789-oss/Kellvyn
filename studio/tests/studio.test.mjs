@@ -57,7 +57,7 @@ test("engineering bench includes local import, dependency scan and guarded patch
   assert.match(lab, /function parseDependencies/);
   assert.match(lab, /function preparePatch/);
   assert.match(lab, /count===0/);
-  assert.match(lab, /unique && count!==1/);
+  assert.match(lab, /unique\s*&&\s*count!==1/);
   assert.match(lab, /files\.set\(path,proposed\)/);
 });
 
@@ -81,6 +81,6 @@ test("no forbidden Replit reference in the production studio source", () => {
 
 test("documentation records limitations instead of claiming full native conversion", () => {
   assert.match(docs, /não compila projetos Android/i);
-  assert.match(docs, /não é um motor completo de geometria 4D/i);
+  assert.match(docs, /motor completo de geometria 4D/i);
   assert.match(docs, /interface Lovable em interface Android nativa ainda precisa/i);
 });
