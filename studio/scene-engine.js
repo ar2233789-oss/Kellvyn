@@ -113,6 +113,8 @@ function makeObject(type, name, position = {x:0,y:0.5,z:0}, properties = {}) {
     color:properties.color || "#20d69a",
     metalness:Number(properties.metalness ?? 0.25),
     roughness:Number(properties.roughness ?? 0.42),
+    emissive:properties.emissive || "#000000",
+    emissiveIntensity:Number(properties.emissiveIntensity ?? 0),
     transparent:Boolean(properties.transparent),
     opacity:Number(properties.opacity ?? 1),
     side:(type === "plane" || type === "ring") ? THREE.DoubleSide : THREE.FrontSide
@@ -396,14 +398,14 @@ function sceneDocument() {
   return {
     schema:"kellvyn-studio-scene/v1", exportedAt:stamp(), sceneName:sceneName,
     note:"4D é uma representação experimental de W associado a tempo/cor/escala, não uma geometria 4D física.",
-    settings:{view:currentView,showGrid:showGrid,showShadows:showShadows,ambientIntensity:ambientLight?ambientLight.intensity:.65,directionalIntensity:directionalLight?directionalLight.intensity:2.2,easing:currentEasing},
+    settings:{view:currentView,showGrid:showGrid,showShadows:showShadows,ambientIntensity:ambientLight?ambientLight.intensity:.65,directionalIntensity:directionalLight?directionalLight.intensity:2.2,easing:currentEasing,ambientColor:ambientLight?"#"+ambientLight.color.getHexString():"#d2ffe9",groundColor:ambientLight?.groundColor?"#"+ambientLight.groundColor.getHexString():"#203e31",directionalColor:directionalLight?"#"+directionalLight.color.getHexString():"#effff8",shadowType:renderer&&THREE?(renderer.shadowMap.type===THREE.PCFShadowMap?"hard":renderer.shadowMap.type===THREE.VSMShadowMap?"variance":"soft"):"soft",shadowMapSize:directionalLight?directionalLight.shadow.mapSize.x:1024,shadowRadius:directionalLight?directionalLight.shadow.radius:4,shadowBias:directionalLight?directionalLight.shadow.bias:-0.00015},
     objects:sceneObjects.map(o=>({
       name:o.name,type:o.userData.kind||"box",
       position:{x:o.position.x,y:o.position.y,z:o.position.z},
       rotation:{x:o.rotation.x,y:o.rotation.y,z:o.rotation.z},
       scale:{x:o.scale.x,y:o.scale.y,z:o.scale.z},
       color:"#"+o.material.color.getHexString(),metalness:o.material.metalness,roughness:o.material.roughness,
-      opacity:o.material.opacity,transparent:o.material.transparent,receiveShadow:o.receiveShadow,castShadow:o.castShadow,w:o.userData.w||0
+      opacity:o.material.opacity,transparent:o.material.transparent,emissive:o.material.emissive?"#"+o.material.emissive.getHexString():"#000000",emissiveIntensity:Number(o.material.emissiveIntensity)||0,receiveShadow:o.receiveShadow,castShadow:o.castShadow,w:o.userData.w||0
     })),
     keyframes:keyframes.map(k=>JSON.parse(JSON.stringify(k)))
   };
@@ -422,7 +424,7 @@ function loadSceneDocument(doc) {
   doc.objects.forEach((o,i)=>makeObject(supportedTypes.includes(o.type)?o.type:"box",String(o.name||("Objeto "+(i+1))),o.position||{x:0,y:.5,z:0},o));
   const savedFrames=Array.isArray(doc.keyframes)?doc.keyframes.filter(k=>Number.isFinite(Number(k.t))):[];
   keyframes=savedFrames.map(frame=>{const match=sceneObjects.find(o=>o.name===frame.objectName);return {...frame,objectId:match?match.uuid:frame.objectId};});
-  if(doc.settings){showGrid=doc.settings.showGrid!==false;gridHelper.visible=showGrid;showShadows=doc.settings.showShadows!==false;renderer.shadowMap.enabled=showShadows;directionalLight.castShadow=showShadows;if(Number.isFinite(doc.settings.ambientIntensity))ambientLight.intensity=doc.settings.ambientIntensity;if(Number.isFinite(doc.settings.directionalIntensity))directionalLight.intensity=doc.settings.directionalIntensity;if(doc.settings.easing)setEasing(doc.settings.easing);}
+  if(doc.settings){showGrid=doc.settings.showGrid!==false;gridHelper.visible=showGrid;showShadows=doc.settings.showShadows!==false;renderer.shadowMap.enabled=showShadows;directionalLight.castShadow=showShadows;if(Number.isFinite(doc.settings.ambientIntensity))ambientLight.intensity=doc.settings.ambientIntensity;if(Number.isFinite(doc.settings.directionalIntensity))directionalLight.intensity=doc.settings.directionalIntensity;if(doc.settings.ambientColor)ambientLight.color.set(doc.settings.ambientColor);if(doc.settings.groundColor&&ambientLight.groundColor)ambientLight.groundColor.set(doc.settings.groundColor);if(doc.settings.directionalColor)directionalLight.color.set(doc.settings.directionalColor);if(["soft","hard","variance"].includes(doc.settings.shadowType))renderer.shadowMap.type=doc.settings.shadowType==="hard"?THREE.PCFShadowMap:doc.settings.shadowType==="variance"?THREE.VSMShadowMap:THREE.PCFSoftShadowMap;if([512,1024,2048,4096].includes(Number(doc.settings.shadowMapSize)))directionalLight.shadow.mapSize.set(Number(doc.settings.shadowMapSize),Number(doc.settings.shadowMapSize));if(Number.isFinite(doc.settings.shadowRadius))directionalLight.shadow.radius=doc.settings.shadowRadius;if(Number.isFinite(doc.settings.shadowBias))directionalLight.shadow.bias=doc.settings.shadowBias;if(doc.settings.easing)setEasing(doc.settings.easing);}
   updateKeyframes();updateSceneTree();setView(["2d","3d","4d"].includes(doc.settings?.view)?doc.settings.view:"3d");say("workspace-status","Cena importada · "+sceneObjects.length+" objetos");
 }
 function bindDesignEvents() {
