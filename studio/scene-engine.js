@@ -108,6 +108,7 @@ function makeObject(type, name, position = {x:0,y:0.5,z:0}, properties = {}) {
     side:type === "plane" ? THREE.DoubleSide : THREE.FrontSide
   });
   const mesh = new THREE.Mesh(geometry, material);
+  mesh.userData.baseColor = material.color.clone();
   mesh.name = name || type + " " + (sceneObjects.length + 1);
   mesh.position.set(Number(position.x)||0, Number(position.y)||0, Number(position.z)||0);
   if (properties.rotation) mesh.rotation.set(Number(properties.rotation.x)||0,Number(properties.rotation.y)||0,Number(properties.rotation.z)||0);
@@ -163,6 +164,8 @@ function pickObject(event) {
   if (intersections.length) selectObject(intersections[0].object);
 }
 function setView(view) {
+  const previousView=currentView;
+  if(previousView==="4d" && view!=="4d") resetFourthDimension();
   currentView=view;
   all("[data-view]").forEach(b=>b.classList.toggle("selected",b.dataset.view===view));
   say("viewport-label",view==="2d"?"Viewport · ortográfica / planta":view==="4d"?"Viewport · dimensão W experimental":"Viewport · perspectiva");
@@ -290,7 +293,8 @@ function loadSceneDocument(doc) {
   if(!doc||doc.schema!=="kellvyn-studio-scene/v1"||!Array.isArray(doc.objects))throw new Error("Arquivo não é uma cena válida da Oficina v1.");
   clearSceneObjects();sceneName=String(doc.sceneName||"Cena importada");say("project-label",sceneName);
   doc.objects.forEach((o,i)=>makeObject(["box","sphere","torus","plane"].includes(o.type)?o.type:"box",String(o.name||("Objeto "+(i+1))),o.position||{x:0,y:.5,z:0},o));
-  keyframes=Array.isArray(doc.keyframes)?doc.keyframes.filter(k=>Number.isFinite(Number(k.t))):[];
+  const savedFrames=Array.isArray(doc.keyframes)?doc.keyframes.filter(k=>Number.isFinite(Number(k.t))):[];
+  keyframes=savedFrames.map(frame=>{const match=sceneObjects.find(o=>o.name===frame.objectName);return {...frame,objectId:match?match.uuid:frame.objectId};});
   if(doc.settings){showGrid=doc.settings.showGrid!==false;gridHelper.visible=showGrid;showShadows=doc.settings.showShadows!==false;renderer.shadowMap.enabled=showShadows;directionalLight.castShadow=showShadows;if(Number.isFinite(doc.settings.ambientIntensity))ambientLight.intensity=doc.settings.ambientIntensity;if(Number.isFinite(doc.settings.directionalIntensity))directionalLight.intensity=doc.settings.directionalIntensity;}
   updateKeyframes();updateSceneTree();setView(["2d","3d","4d"].includes(doc.settings?.view)?doc.settings.view:"3d");say("workspace-status","Cena importada · "+sceneObjects.length+" objetos");
 }
