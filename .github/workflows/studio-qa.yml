@@ -1,0 +1,39 @@
+name: Studio production QA
+
+on:
+  push:
+    branches:
+      - studio-production-suite
+  pull_request:
+    branches:
+      - studio-production-suite
+    paths:
+      - "studio/**"
+      - ".github/workflows/studio-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-and-contract-tests:
+    name: JavaScript syntax and studio contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout studio branch
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check visual engine syntax
+        run: node --check studio/scene-engine.js
+      - name: Check engineering and QA module syntax
+        run: node --check studio/studio.js
+      - name: Run studio contract tests
+        working-directory: studio
+        run: npm test
