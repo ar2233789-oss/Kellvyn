@@ -14,6 +14,7 @@ let THREE = null, OrbitControls = null, scene = null, renderer = null, camera = 
 let ambientLight = null, directionalLight = null, gridHelper = null, ground = null, selected = null, selectionBox = null;
 let sceneObjects = [], keyframes = [], playing = false, playStarted = 0, playOffset = 0, lastReport = null;
 let showGrid = true, showShadows = true, currentView = "3d", sceneLoaded = false;
+let currentEasing = "linear";
 const defaultSceneName = "Cena sem título";
 let sceneName = defaultSceneName;
 const localProject = new Map();
@@ -96,8 +97,17 @@ function makeObject(type, name, position = {x:0,y:0.5,z:0}, properties = {}) {
   if (!THREE || !scene) return null;
   let geometry;
   if (type === "sphere") geometry = new THREE.SphereGeometry(0.58, 40, 28);
-  else if (type === "torus") geometry = new THREE.TorusKnotGeometry(0.42, 0.16, 100, 12);
+  else if (type === "torus") geometry = new THREE.TorusGeometry(0.45, 0.16, 18, 48);
+  else if (type === "torus-knot") geometry = new THREE.TorusKnotGeometry(0.42, 0.16, 100, 12);
   else if (type === "plane") geometry = new THREE.PlaneGeometry(1.8, 1.8, 1, 1);
+  else if (type === "cylinder") geometry = new THREE.CylinderGeometry(0.5, 0.5, 1.2, 32);
+  else if (type === "cone") geometry = new THREE.ConeGeometry(0.62, 1.25, 32);
+  else if (type === "capsule") geometry = new THREE.CapsuleGeometry(0.38, 0.55, 6, 12);
+  else if (type === "ring") geometry = new THREE.RingGeometry(0.3, 0.62, 48);
+  else if (type === "octahedron") geometry = new THREE.OctahedronGeometry(0.68, 0);
+  else if (type === "icosahedron") geometry = new THREE.IcosahedronGeometry(0.68, 0);
+  else if (type === "dodecahedron") geometry = new THREE.DodecahedronGeometry(0.68, 0);
+  else if (type === "tetrahedron") geometry = new THREE.TetrahedronGeometry(0.72, 0);
   else geometry = new THREE.BoxGeometry(1, 1, 1);
   const material = new THREE.MeshStandardMaterial({
     color:properties.color || "#20d69a",
@@ -105,7 +115,7 @@ function makeObject(type, name, position = {x:0,y:0.5,z:0}, properties = {}) {
     roughness:Number(properties.roughness ?? 0.42),
     transparent:Boolean(properties.transparent),
     opacity:Number(properties.opacity ?? 1),
-    side:type === "plane" ? THREE.DoubleSide : THREE.FrontSide
+    side:(type === "plane" || type === "ring") ? THREE.DoubleSide : THREE.FrontSide
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.userData.baseColor = material.color.clone();
@@ -231,7 +241,8 @@ function applyTimeline(t) {
   if (!targetFrames.length) return;
   const left=targetFrames.filter(k=>k.t<=t).slice(-1)[0] || targetFrames[0];
   const right=targetFrames.find(k=>k.t>=t) || targetFrames[targetFrames.length-1];
-  const factor=right.t===left.t?0:Math.max(0,Math.min(1,(t-left.t)/(right.t-left.t)));
+  const rawFactor=right.t===left.t?0:Math.max(0,Math.min(1,(t-left.t)/(right.t-left.t)));
+  const factor=easeProgress(rawFactor);
   const object=sceneObjects.find(o=>o.uuid===left.objectId) || selected;
   if (!object || !left.position || !right.position) return;
   ["x","y","z"].forEach(axis=>{
@@ -241,6 +252,120 @@ function applyTimeline(t) {
   });
   if(object===selected)syncInspectorTransform();
 }
+
+function easeProgress(t) {
+  t=Math.max(0,Math.min(1,t));
+  switch(currentEasing) {
+    case "ease-in": return t*t;
+    case "ease-out": return 1-Math.pow(1-t,2);
+    case "ease-in-out": return t*t*(3-2*t);
+    case "cubic-in": return t*t*t;
+    case "cubic-out": return 1-Math.pow(1-t,3);
+    case "cubic-in-out": return t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+    case "sine-in-out": return -(Math.cos(Math.PI*t)-1)/2;
+    case "back-out": {const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2);}
+    case "bounce-out": {
+      const n1=7.5625,d1=2.75;
+      if(t<1/d1)return n1*t*t;
+      if(t<2/d1){t-=1.5/d1;return n1*t*t+0.75;}
+      if(t<2.5/d1){t-=2.25/d1;return n1*t*t+0.9375;}
+      t-=2.625/d1;return n1*t*t+0.984375;
+    }
+    case "elastic-out":
+      if(t===0||t===1)return t;
+      return Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1;
+    case "step": return t<1?0:1;
+    default: return t;
+  }
+}
+function setEasing(name) {
+  const supported=["linear","ease-in","ease-out","ease-in-out","cubic-in","cubic-out","cubic-in-out","sine-in-out","back-out","bounce-out","elastic-out","step"];
+  if(!supported.includes(name))return false;
+  currentEasing=name;
+  return true;
+}
+function applySelectedColor(color) {
+  if(!selected||!selected.material?.color||!/^#[0-9a-f]{6}$/i.test(String(color)))return false;
+  selected.material.color.set(color);
+  selected.userData.baseColor=selected.material.color.clone();
+  if(el("object-color"))el("object-color").value=color;
+  say("color-hex",String(color).toUpperCase());
+  return true;
+}
+function applyPalette(colors) {
+  if(!Array.isArray(colors)||!colors.length||!sceneObjects.length)return false;
+  const valid=colors.filter(color=>/^#[0-9a-f]{6}$/i.test(String(color)));
+  if(!valid.length)return false;
+  let index=0,applied=0;
+  sceneObjects.forEach(object=>{
+    if(!object.material?.color)return;
+    const color=valid[index%valid.length];index++;
+    object.material.color.set(color);object.userData.baseColor=object.material.color.clone();applied++;
+  });
+  if(selected?.material?.color){el("object-color").value="#"+selected.material.color.getHexString();say("color-hex",el("object-color").value.toUpperCase());}
+  return applied>0;
+}
+function applyMaterialPreset(preset) {
+  if(!selected||!selected.material||!preset||!/^#[0-9a-f]{6}$/i.test(String(preset.color||"")))return false;
+  const material=selected.material;
+  material.color.set(preset.color);
+  if("metalness" in material)material.metalness=Math.max(0,Math.min(1,Number(preset.metalness)||0));
+  if("roughness" in material)material.roughness=Math.max(0,Math.min(1,Number(preset.roughness)||0));
+  material.opacity=Math.max(0.05,Math.min(1,Number(preset.opacity??1)));
+  material.transparent=Boolean(preset.transparent)||material.opacity<0.999;
+  if(material.emissive?.set)material.emissive.set(preset.emissive||"#000000");
+  if("emissiveIntensity" in material)material.emissiveIntensity=Math.max(0,Math.min(5,Number(preset.emissiveIntensity)||0));
+  material.needsUpdate=true;
+  selected.userData.baseColor=material.color.clone();
+  if(el("object-color"))el("object-color").value="#"+material.color.getHexString();
+  if(el("metallic"))el("metallic").value=String(material.metalness??0);
+  if(el("roughness"))el("roughness").value=String(material.roughness??1);
+  if(el("opacity"))el("opacity").value=String(material.opacity);
+  if(el("transparent"))el("transparent").checked=material.transparent;
+  say("color-hex","#"+material.color.getHexString().toUpperCase());
+  say("metallic-value",Number(material.metalness||0).toFixed(2));
+  say("roughness-value",Number(material.roughness||0).toFixed(2));
+  say("opacity-value",Number(material.opacity).toFixed(2));
+  say("selection-note","Preset de material aplicado: "+String(preset.name||"Material")+" · somente sessão local.");
+  return true;
+}
+function applyLightingPreset(preset) {
+  if(!ambientLight||!directionalLight||!renderer||!preset)return false;
+  const ambient=Math.max(0,Math.min(2,Number(preset.ambient)));
+  const directional=Math.max(0,Math.min(5,Number(preset.directional)));
+  ambientLight.intensity=Number.isFinite(ambient)?ambient:0.65;
+  directionalLight.intensity=Number.isFinite(directional)?directional:2.2;
+  if(preset.ambientColor)ambientLight.color.set(preset.ambientColor);
+  if(preset.groundColor&&ambientLight.groundColor)ambientLight.groundColor.set(preset.groundColor);
+  if(preset.color)directionalLight.color.set(preset.color);
+  const shadowType=preset.shadow==="hard"?"hard":preset.shadow==="variance"?"variance":"soft";
+  renderer.shadowMap.type=shadowType==="hard"?THREE.PCFShadowMap:shadowType==="variance"?THREE.VSMShadowMap:THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled=shadowType!=="off";
+  showShadows=renderer.shadowMap.enabled;
+  directionalLight.castShadow=showShadows;
+  const mapSize=[512,1024,2048,4096].includes(Number(preset.map))?Number(preset.map):1024;
+  directionalLight.shadow.mapSize.set(mapSize,mapSize);
+  directionalLight.shadow.radius=Math.max(0,Math.min(12,Number(preset.radius)||0));
+  directionalLight.shadow.bias=Math.max(-0.01,Math.min(0.01,Number(preset.bias)||-0.00015));
+  directionalLight.shadow.needsUpdate=true;renderer.shadowMap.needsUpdate=true;
+  if(el("ambient-power"))el("ambient-power").value=String(ambientLight.intensity);
+  if(el("directional-power"))el("directional-power").value=String(directionalLight.intensity);
+  if(el("light-color"))el("light-color").value=preset.color||"#effff8";
+  if(el("lighting-shadows"))el("lighting-shadows").checked=showShadows;
+  say("ambient-value",ambientLight.intensity.toFixed(2));say("directional-value",directionalLight.intensity.toFixed(2));
+  say("shadow-state",showShadows?"Ativo · "+shadowType:"Desativado");
+  if(el("toggle-shadows"))el("toggle-shadows").classList.toggle("selected",showShadows);
+  sceneObjects.forEach(object=>{object.castShadow=showShadows;object.receiveShadow=el("receive-shadow")?.checked!==false;});
+  return true;
+}
+function addGeometry(type) {
+  const types=["cylinder","cone","capsule","ring","octahedron","icosahedron","dodecahedron","tetrahedron","torus-knot"];
+  if(!types.includes(type)||!sceneLoaded)return false;
+  const labels={cylinder:"Cilindro",cone:"Cone",capsule:"Cápsula",ring:"Anel",octahedron:"Octaedro",icosahedron:"Icosaedro",dodecahedron:"Dodecaedro",tetrahedron:"Tetraedro","torus-knot":"Nó toroidal"};
+  const offset=(sceneObjects.length%5)*0.32;
+  return Boolean(makeObject(type,labels[type]+" "+(sceneObjects.length+1),{x:offset,y:0.65,z:0.4}));
+}
+
 function syncInspectorTransform() {
   if(!selected)return;
   ["x","y","z"].forEach(axis=>{el("pos-"+axis).value=String(round(selected.position[axis]));});
@@ -270,7 +395,7 @@ function sceneDocument() {
   return {
     schema:"kellvyn-studio-scene/v1", exportedAt:stamp(), sceneName:sceneName,
     note:"4D é uma representação experimental de W associado a tempo/cor/escala, não uma geometria 4D física.",
-    settings:{view:currentView,showGrid:showGrid,showShadows:showShadows,ambientIntensity:ambientLight?ambientLight.intensity:.65,directionalIntensity:directionalLight?directionalLight.intensity:2.2},
+    settings:{view:currentView,showGrid:showGrid,showShadows:showShadows,ambientIntensity:ambientLight?ambientLight.intensity:.65,directionalIntensity:directionalLight?directionalLight.intensity:2.2,easing:currentEasing},
     objects:sceneObjects.map(o=>({
       name:o.name,type:o.userData.kind||"box",
       position:{x:o.position.x,y:o.position.y,z:o.position.z},
@@ -292,10 +417,11 @@ function clearSceneObjects() {
 function loadSceneDocument(doc) {
   if(!doc||doc.schema!=="kellvyn-studio-scene/v1"||!Array.isArray(doc.objects))throw new Error("Arquivo não é uma cena válida da Oficina v1.");
   clearSceneObjects();sceneName=String(doc.sceneName||"Cena importada");say("project-label",sceneName);
-  doc.objects.forEach((o,i)=>makeObject(["box","sphere","torus","plane"].includes(o.type)?o.type:"box",String(o.name||("Objeto "+(i+1))),o.position||{x:0,y:.5,z:0},o));
+  const supportedTypes=["box","sphere","torus","torus-knot","plane","cylinder","cone","capsule","ring","octahedron","icosahedron","dodecahedron","tetrahedron"];
+  doc.objects.forEach((o,i)=>makeObject(supportedTypes.includes(o.type)?o.type:"box",String(o.name||("Objeto "+(i+1))),o.position||{x:0,y:.5,z:0},o));
   const savedFrames=Array.isArray(doc.keyframes)?doc.keyframes.filter(k=>Number.isFinite(Number(k.t))):[];
   keyframes=savedFrames.map(frame=>{const match=sceneObjects.find(o=>o.name===frame.objectName);return {...frame,objectId:match?match.uuid:frame.objectId};});
-  if(doc.settings){showGrid=doc.settings.showGrid!==false;gridHelper.visible=showGrid;showShadows=doc.settings.showShadows!==false;renderer.shadowMap.enabled=showShadows;directionalLight.castShadow=showShadows;if(Number.isFinite(doc.settings.ambientIntensity))ambientLight.intensity=doc.settings.ambientIntensity;if(Number.isFinite(doc.settings.directionalIntensity))directionalLight.intensity=doc.settings.directionalIntensity;}
+  if(doc.settings){showGrid=doc.settings.showGrid!==false;gridHelper.visible=showGrid;showShadows=doc.settings.showShadows!==false;renderer.shadowMap.enabled=showShadows;directionalLight.castShadow=showShadows;if(Number.isFinite(doc.settings.ambientIntensity))ambientLight.intensity=doc.settings.ambientIntensity;if(Number.isFinite(doc.settings.directionalIntensity))directionalLight.intensity=doc.settings.directionalIntensity;if(doc.settings.easing)setEasing(doc.settings.easing);}
   updateKeyframes();updateSceneTree();setView(["2d","3d","4d"].includes(doc.settings?.view)?doc.settings.view:"3d");say("workspace-status","Cena importada · "+sceneObjects.length+" objetos");
 }
 function bindDesignEvents() {
@@ -344,6 +470,8 @@ all("[data-module]").forEach(button=>button.addEventListener("click",()=>switchM
 
 globalThis.StudioScene = {
   initializeRenderer, bindDesignEvents, sceneDocument, loadSceneDocument, saveScene,
+  applySelectedColor, applyPalette, applyMaterialPreset, applyLightingPreset, addGeometry, setEasing,
+  get easing(){return currentEasing;},
   get objects(){return sceneObjects;},
   get selected(){return selected;},
   get keyframes(){return keyframes;},
