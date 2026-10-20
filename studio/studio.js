@@ -308,6 +308,8 @@ function selfCheckHarness(){
   const cases=[
     ["módulo de cena publicado",()=>Boolean(globalThis.StudioScene)],
     ["engine expõe autotestes",()=>typeof globalThis.StudioScene?.selfTest==="function"],
+    ["biblioteca de recursos carregada",()=>Boolean(globalThis.StudioResourceLab?.selfTest?.().paletteCount>=30)],
+    ["prévia climática disponível",()=>Boolean(globalThis.StudioResourceLab?.selfTest?.().weatherCanvasAvailable)],
     ["entrada de arquivos presente",()=>$("project-files")?.type==="file"],
     ["validador de patch não aceita busca vazia",()=>$("patch-find")!==null],
     ["exportação JSON presente",()=>$("export-report")!==null],
