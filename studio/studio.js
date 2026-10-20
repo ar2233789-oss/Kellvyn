@@ -121,7 +121,7 @@ function runStudioChecks(){
   addResult(check.hasGroundAndGrid?"pass":"warn","studio","Grade e plano receptor",check.hasGroundAndGrid?"Grade e plano de sombras presentes.":"Grade/plano indisponível ou renderizador em fallback.","gridHelper/ground");
   addResult(check.sceneObjectCount>0?"pass":"warn","studio","Geometria inicial",check.sceneObjectCount>0?"A cena contém "+check.sceneObjectCount+" objeto(s).":"A cena não tem objetos para inspecionar.","objectCount="+check.sceneObjectCount);
   addResult(check.keyframeStoreAvailable?"pass":"fail","studio","Armazenamento de keyframes",check.keyframeStoreAvailable?"O armazenamento de poses está disponível.":"A estrutura de keyframes não foi inicializada.","keyframeStoreAvailable="+check.keyframeStoreAvailable);
-  addResult(check.shadowControlAvailable?"pass":"warn","studio","Controle de sombras",check.shadowControlAvailable?"Há controle de shadow map disponível; a qualidade depende da GPU.","":"shadowControl="+check.shadowControlAvailable);
+  addResult(check.shadowControlAvailable?"pass":"warn","studio","Controle de sombras",check.shadowControlAvailable?"Há controle de shadow map disponível; a qualidade depende da GPU.":"Controle de shadow map indisponível.","shadowControl="+check.shadowControlAvailable);
   const duplicateIds=new Set(),ids=new Set();let duplicates=0;
   q("[id]").forEach(node=>{if(ids.has(node.id)){duplicates++;duplicateIds.add(node.id);}ids.add(node.id);});
   addResult(duplicates===0?"pass":"fail","studio","IDs únicos na interface",duplicates===0?"Nenhum ID duplicado encontrado no documento.":"IDs duplicados: "+Array.from(duplicateIds).join(", "),"count="+duplicates);
