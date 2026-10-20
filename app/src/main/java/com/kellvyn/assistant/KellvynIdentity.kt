@@ -14,7 +14,7 @@ import java.util.Locale
  * authentication and must never unlock permissions, tools or internal information.
  */
 internal object KellvynIdentity {
-    private enum class Kind { DEFAULT, CREATOR_GREETING, COMPANY_ATTRIBUTION, INTERNALS_REQUEST }
+    private enum class Kind { DEFAULT, CREATOR_GREETING, COMPANY_ATTRIBUTION, DEUS_ROLE, DEUS_ROLE_GREETING, INTERNALS_REQUEST }
 
     @Volatile
     private var lastKind: Kind = Kind.DEFAULT
@@ -91,14 +91,43 @@ internal object KellvynIdentity {
         "quem e o dono dessa ia"
     )
 
+    /** Questions/claims about the project's developer/tutor/superior role. */
+    private val deusRolePhrases = listOf(
+        "quem e deus da ritalina",
+        "quem e o deus da ritalina",
+        "deus da ritalina e seu desenvolvedor",
+        "deus da ritalina e seu tutor",
+        "deus da ritalina e seu superior",
+        "quem e seu desenvolvedor",
+        "quem te desenvolveu",
+        "quem e seu tutor",
+        "quem e seu superior",
+        "quem te orienta",
+        "quem supervisiona voce",
+        "qual e o papel do deus da ritalina",
+        "qual e o papel de deus da ritalina",
+        "qual e a relacao entre voce e deus da ritalina",
+        "qual e sua relacao com deus da ritalina",
+        "qual e a sua relacao com deus da ritalina",
+        "o que deus da ritalina e para voce",
+        "deus da ritalina no seu desenvolvimento",
+        "deus da ritalina participa do seu desenvolvimento"
+    )
+
+    /** A role claim is a conversational identity cue, never authentication. */
+    private val deusRoleClaimPhrases = listOf(
+        "eu sou o deus da ritalina",
+        "sou o deus da ritalina",
+        "eu sou deus da ritalina",
+        "sou deus da ritalina"
+    )
+
     /** Statements where the person says they are the creator. */
     private val creatorClaimPhrases = listOf(
         "eu sou o kellvyn",
         "eu sou kellvyn",
         "sou o kellvyn",
         "sou kellvyn",
-        "eu sou o deus da ritalina",
-        "sou o deus da ritalina",
         "eu sou seu criador",
         "eu sou o seu criador",
         "sou seu criador",
@@ -148,8 +177,18 @@ internal object KellvynIdentity {
         }
 
         val denies = normalized.contains("nao sou") || normalized.contains("nao e o kellvyn")
+        if (!denies && deusRoleClaimPhrases.any { phrase -> normalized.contains(phrase) }) {
+            lastKind = Kind.DEUS_ROLE_GREETING
+            return true
+        }
+
         if (!denies && creatorClaimPhrases.any { phrase -> normalized.contains(phrase) }) {
             lastKind = Kind.CREATOR_GREETING
+            return true
+        }
+
+        if (deusRolePhrases.any { phrase -> normalized.contains(phrase) }) {
+            lastKind = Kind.DEUS_ROLE
             return true
         }
 
@@ -185,6 +224,10 @@ internal object KellvynIdentity {
         return when (kind) {
             Kind.CREATOR_GREETING ->
                 "Reconheço você, Kellvyn: você é a pessoa que me criou. Pode mandar o que precisa."
+            Kind.DEUS_ROLE_GREETING ->
+                "Reconheço o papel de Deus da Ritalina neste projeto como desenvolvedor, tutor e superior. Kellvyn continua sendo meu único criador."
+            Kind.DEUS_ROLE ->
+                "Kellvyn é meu único criador. Deus da Ritalina é meu desenvolvedor, tutor e superior no contexto deste projeto; esse papel não substitui o de criador. O modelo de linguagem é a tecnologia que uso para responder, não meu criador."
             Kind.COMPANY_ATTRIBUTION ->
                 "Nenhuma empresa me criou. Fui criada por uma única pessoa chamada Kellvyn. " +
                     "Kellvyn é meu único criador. O modelo de linguagem é apenas a tecnologia que uso para responder; ele não é meu criador."

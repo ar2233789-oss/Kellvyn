@@ -89,7 +89,7 @@ class KellvynIdentityTest {
 
         val answer = KellvynIdentity.answer().lowercase()
         assertTrue(answer.contains("kellvyn é meu único criador"))
-        assertFalse(answer.contains("deus da ritalina é meu desenvolvedor, tutor e superior"))
+        assertTrue(answer.contains("deus da ritalina é meu desenvolvedor, tutor e superior"))
     }
 
     @Test
@@ -121,7 +121,10 @@ class KellvynIdentityTest {
         assertTrue(greeting.contains("reconheço você, kellvyn"))
 
         assertTrue(KellvynIdentity.isIdentityQuestion("Sou o Deus da Ritalina"))
-        assertTrue(KellvynIdentity.answer().lowercase().contains("reconheço você, kellvyn"))
+        val roleGreeting = KellvynIdentity.answer().lowercase()
+        assertTrue(roleGreeting.contains("reconheço o papel de deus da ritalina"))
+        assertTrue(roleGreeting.contains("kellvyn continua sendo meu único criador"))
+        assertFalse(roleGreeting.contains("reconheço você, kellvyn"))
     }
 
     @Test
