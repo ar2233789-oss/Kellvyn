@@ -282,6 +282,7 @@ function setEasing(name) {
   const supported=["linear","ease-in","ease-out","ease-in-out","cubic-in","cubic-out","cubic-in-out","sine-in-out","back-out","bounce-out","elastic-out","step"];
   if(!supported.includes(name))return false;
   currentEasing=name;
+  say("timeline-easing-label","Curva: "+name+" · 5 s");
   return true;
 }
 function applySelectedColor(color) {
