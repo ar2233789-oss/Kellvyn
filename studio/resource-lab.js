@@ -211,9 +211,9 @@ function renderEasingOptions() {
     $("easing-description").textContent = descriptions[$("easing-select").value];
     status(ok ? "Curva de animação alterada para " + $("easing-select").value + "." : "Curva será aplicada quando o motor estiver pronto.");
   });
-  $("easing-select").value = "ease-in-out";
-  globalThis.StudioScene?.setEasing?.("ease-in-out");
-  $("easing-description").textContent = descriptions["ease-in-out"];
+  $("easing-select").value = "linear";
+  globalThis.StudioScene?.setEasing?.("linear");
+  $("easing-description").textContent = descriptions.linear;
 }
 
 let weather = {
