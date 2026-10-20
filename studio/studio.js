@@ -164,7 +164,7 @@ function runProjectChecks(selectedChecks){
   }
   if(selectedChecks.has("dependencies")){
     const deps=parseDependencies(),dynamic=deps.filter(d=>/\+|latest\.|SNAPSHOT|\[|\]/i.test(d.version));
-    addResult(deps.length?"pass":"warn","dependencies","Referências Maven/Gradle",deps.length+" declarações de dependência extraídas.": "Nenhuma dependência Maven explícita foi extraída; aliases podem exigir resolução adicional.", "count="+deps.length);
+    addResult(deps.length?"pass":"warn","dependencies","Referências Maven/Gradle",deps.length ? deps.length+" declarações de dependência extraídas." : "Nenhuma dependência Maven explícita foi extraída; aliases podem exigir resolução adicional.", "count="+deps.length);
     addResult(dynamic.length?"warn":"pass","dependencies","Versões dinâmicas",dynamic.length?"Encontradas "+dynamic.length+" referências dinâmicas ou SNAPSHOT: "+dynamic.slice(0,5).map(d=>d.group+":"+d.artifact+":"+d.version).join("; "):"Nenhuma versão dinâmica/SNAPSHOT reconhecida no padrão textual.","dynamic="+dynamic.length);
     const catalogs=findPaths(/libs\.versions\.toml$/);
     addResult(catalogs.length?"pass":"warn","dependencies","Version catalogs",catalogs.length?"Catálogos identificados: "+catalogs.join(", "):"Não há libs.versions.toml conhecido; dependências ainda podem ser gerenciadas por outro mecanismo.",catalogs.join(", ")||"none");
