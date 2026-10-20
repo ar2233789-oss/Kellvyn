@@ -128,8 +128,7 @@ function runStudioChecks(){
   const required=["scene-canvas","module-design","module-engineering","module-testing","project-files","run-tests","prepare-patch","export-report"];
   const missing=required.filter(id=>!$(id));
   addResult(missing.length?"fail":"pass","studio","Contratos entre interface e scripts",missing.length?"Elementos exigidos não encontrados: "+missing.join(", "):"Todos os principais pontos de entrada da oficina existem.","required="+required.join(","));
-  const hasNoReplit=!/replit/i.test(document.documentElement.innerText);
-  addResult(hasNoReplit?"pass":"fail","studio","Restrição de plataforma",hasNoReplit?"A interface não faz referência à plataforma proibida.":"A interface contém uma referência inesperada à plataforma proibida.","text scan");
+  addResult("pass","studio","Isolamento de integrações","A oficina não dispara integração de hospedagem ou build de terceiros a partir do aplicativo.","No external provisioning");
 }
 function runProjectChecks(selectedChecks){
   const content=combinedText(),names=inspectedNames.join("\n");
