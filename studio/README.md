@@ -2,7 +2,7 @@
 
 **Branch isolada:** studio-production-suite  
 **Aplicativo Kellvyn:** não é modificado por esta oficina.  
-**Versão da oficina:** 0.2.0 — memória persistente e laboratório virtual configurado; ainda não certificada como ferramenta de produção completa.
+**Versão da oficina:** 0.3.0 — biblioteca expandida de recursos, modelador de partículas e ferramentas reais de aplicação à cena; ainda não certificada como ferramenta de produção completa.
 
 ## Módulos
 
@@ -15,6 +15,17 @@
 - Linha do tempo de 0 a 5 segundos, keyframes de transformação, reprodução e interpolação linear.
 - Exportação/importação de uma cena JSON.
 - A dimensão chamada **4D experimental** relaciona um parâmetro W ao tempo, cor e escala para exploração visual. Não é um solucionador matemático nem um motor completo de geometria 4D.
+
+### 1B. Biblioteca expandida de recursos
+
+- **36 paletas categorizadas** com mais de 280 amostras de cor em grupos como natureza, verdes Kellvyn, clima, cinema, metálicos, neon, pastel, contraste, sci-fi e tons quentes/frios; filtro por família, busca, seleção HEX, aplicação de paleta em objetos e paleta pessoal temporária.
+- Exportação JSON conjunta das paletas, presets de material e presets de iluminação. A paleta pessoal permanece na sessão até ser exportada; não promete sincronização em nuvem.
+- **24 presets de materiais** cobrindo plástico, cerâmica, metais, borracha, pedra, madeira, vidro/translúcido, obsidiana e superfícies emissivas. O preset atualiza propriedades do material selecionado no motor Three.js.
+- **14 ambientes de iluminação** com cores/intensidades de luz hemisférica e direcional, métodos de sombra PCF suave/PCF rígida/VSM, resolução de shadow map e parâmetros de viés/raio. Compatibilidade e resultado variam conforme o navegador e a GPU.
+- **9 primitivas adicionais**: cilindro, cone, cápsula, anel, octaedro, icosaedro, dodecaedro, tetraedro e nó toroidal, além das geometrias iniciais.
+- **12 curvas de animação**: linear, ease-in/out/in-out, cúbicas, seno, back, bounce, elastic e degrau. A escolha modifica a interpolação efetiva da linha do tempo entre keyframes e é incluída nas configurações de cena.
+- **Modelador de partículas climáticas** com prévia animada de chuva, neve, neblina e chuva com relâmpagos; controles de densidade, velocidade, vento, comprimento/tamanho, opacidade, brilho e cores; presets climáticos e importação/exportação JSON.
+- O modelador climático desenha a prévia em Canvas 2D. Não é simulador físico de gotas, não é sistema de partículas Android nativo e não modifica nem substitui a chuva aprovada do Lovable. O JSON exportado é um contrato de parâmetros para adaptação futura, não um efeito integrado ao APK.
 
 ### 2. Bancada de engenharia de software
 
