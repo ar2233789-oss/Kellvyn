@@ -336,3 +336,27 @@ function switchModule(name) {
   if(name==="design") resizeRenderer();
 }
 all("[data-module]").forEach(button=>button.addEventListener("click",()=>switchModule(button.dataset.module)));
+
+
+globalThis.StudioScene = {
+  initializeRenderer, bindDesignEvents, sceneDocument, loadSceneDocument, saveScene,
+  get objects(){return sceneObjects;},
+  get selected(){return selected;},
+  get keyframes(){return keyframes;},
+  get renderer(){return renderer;},
+  get scene(){return scene;},
+  get currentView(){return currentView;},
+  get initialized(){return sceneLoaded;},
+  switchModule,
+  selfTest: () => ({
+    moduleLoaded: Boolean(THREE && OrbitControls),
+    rendererReady: Boolean(renderer && scene && camera),
+    hasLights: Boolean(ambientLight && directionalLight),
+    hasGroundAndGrid: Boolean(ground && gridHelper),
+    sceneObjectCount: sceneObjects.length,
+    keyframeStoreAvailable: Array.isArray(keyframes),
+    shadowControlAvailable: Boolean(renderer && renderer.shadowMap)
+  })
+};
+await initializeRenderer();
+bindDesignEvents();
