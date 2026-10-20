@@ -1,0 +1,55 @@
+{
+  "profile_id": "poco-f6-hyperos-reference",
+  "profile_kind": "virtual-android-test-profile",
+  "physical_device_target": "POCO F6",
+  "user_reported": {
+    "android_version": 15,
+    "system_skin": "HyperOS",
+    "ram_gb": 8,
+    "storage_gb": 512
+  },
+  "public_hardware_reference": {
+    "soc": "Qualcomm Snapdragon 8s Gen 3",
+    "display_inches": 6.67,
+    "display_resolution_portrait_px": {
+      "width": 1220,
+      "height": 2712
+    },
+    "physical_pixel_density_ppi": 446,
+    "refresh_rate_max_hz": 120,
+    "official_specs_url": "https://www.po.co/global/product/poco-f6/specs/"
+  },
+  "virtual_emulator": {
+    "android_api_level": 35,
+    "android_version": 15,
+    "system_image_target": "google_apis",
+    "abi": "x86_64",
+    "guest_ram_mb": 8192,
+    "guest_heap_mb": 512,
+    "screen_override_portrait_px": {
+      "width": 1220,
+      "height": 2712
+    },
+    "logical_density_dpi": 440,
+    "logical_density_status": "provisional",
+    "density_note": "446 PPI is physical panel density, not Android logical density. 440 dpi is an initial emulator approximation; replace it only after measuring the actual device.",
+    "refresh_rate_emulation": "not equivalent to the physical 120 Hz panel",
+    "gpu_cpu_emulation": "host emulator graphics/CPU, not Snapdragon 8s Gen 3 or Adreno hardware",
+    "system_skin": "AOSP/Google APIs; HyperOS is not emulated"
+  },
+  "validation_policy": {
+    "label_virtual_results": "emulator",
+    "never_claim_physical_validation_from_emulator": true,
+    "capture_screenshot": true,
+    "capture_ui_hierarchy": true,
+    "capture_logcat": true,
+    "capture_memory_info": true,
+    "apk_must_be_prebuilt": true,
+    "cloud_build_for_generated_user_projects": false
+  },
+  "last_physical_device_measurement": null,
+  "notes": [
+    "This profile is a repeatable visual and Android API test target, not a bit-for-bit Poco F6 or HyperOS simulation.",
+    "A physical-device pass remains necessary for thermal behavior, battery drain, sustained frame rate, real touch, OEM permissions and HyperOS-specific compatibility."
+  ]
+}
