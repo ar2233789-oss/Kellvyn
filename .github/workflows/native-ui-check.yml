@@ -1,0 +1,35 @@
+name: Validate native Lovable UI port
+
+on:
+  push:
+    branches: [native-lovable-replica]
+    paths:
+      - "app/src/main/java/com/kellvyn/assistant/MainActivity.kt"
+      - ".github/workflows/native-ui-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  android-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Run unit tests and compile native APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
+
+      - name: Verify native APK
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          file app/build/outputs/apk/debug/app-debug.apk

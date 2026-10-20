@@ -1,0 +1,18 @@
+digraph parity_pipeline {
+  rankdir=LR;
+  graph [fontname="Arial", bgcolor="transparent", pad="0.2", nodesep="0.35", ranksep="0.55"];
+  node [shape=box, style="rounded,filled", fontname="Arial", fontsize=10, color="#65727D", fillcolor="#F4F7F9", fontcolor="#17212B", margin="0.16,0.10"];
+  edge [fontname="Arial", fontsize=9, color="#65727D", arrowsize=0.7];
+  source [label="Lovable source\nExact project ID + commit"];
+  lock [label="Frozen source lock\nFiles + hashes + screenshot"];
+  native [label="Native Compose port\nNo WebView / no UI redesign"];
+  rain [label="Rain motion audit\nFrame clock + trajectories"];
+  capture [label="Matched captures\nSame state + viewport"];
+  diff [label="Visual metrics\nSSIM + pixel diff + overlay"];
+  gate [label="Acceptance gate\nParity proven or blocked", fillcolor="#FFF4D7"];
+  blocker [label="Current blocker\nRequested Lovable ID not accessible", fillcolor="#FCE6E6", color="#B54A4A"];
+  source -> lock -> native -> capture -> diff -> gate;
+  native -> rain -> gate;
+  source -> blocker [style=dashed, color="#B54A4A"];
+  blocker -> lock [style=dashed, color="#B54A4A", label="resume after access"];
+}
