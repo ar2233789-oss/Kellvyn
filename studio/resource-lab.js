@@ -321,7 +321,24 @@ function drawWeather(now) {
   }
 }
 function bindWeather() {
+  const weatherPresets = {
+    fine:{type:"rain",density:130,speed:4.8,wind:0.2,length:13,opacity:0.55,glow:0.18,color:"#D1F4FF",background:"#071722"},
+    storm:{type:"rain",density:320,speed:8.5,wind:2.6,length:27,opacity:0.82,glow:0.5,color:"#B9E7FF",background:"#07101D"},
+    downpour:{type:"rain",density:520,speed:10.2,wind:0.9,length:36,opacity:0.9,glow:0.25,color:"#D4F2FF",background:"#06101A"},
+    snow:{type:"snow",density:190,speed:3.2,wind:0.3,length:13,opacity:0.88,glow:0.25,color:"#F1FCFF",background:"#172C40"},
+    blizzard:{type:"snow",density:500,speed:8.4,wind:3.8,length:25,opacity:0.96,glow:0.16,color:"#FFFFFF",background:"#102333"},
+    mist:{type:"mist",density:180,speed:2.2,wind:0.4,length:25,opacity:0.58,glow:0.72,color:"#B8D0D7",background:"#0B2027"},
+    lightning:{type:"lightning",density:290,speed:7.4,wind:1.8,length:25,opacity:0.78,glow:0.9,color:"#B8C8FF",background:"#080B20"}
+  };
+  const applyWeatherPreset = () => {
+    const preset=weatherPresets[$("weather-preset").value];
+    if(!preset)return;
+    Object.assign(weather,preset);weather.paused=false;syncWeatherInputs();
+    status("Preset de clima aplicado à prévia: "+$("weather-preset").selectedOptions[0].textContent+".");
+  };
   $("weather-type").addEventListener("change",()=>{weather.type=$("weather-type").value;syncWeatherInputs();});
+  $("weather-preset").addEventListener("change",applyWeatherPreset);
+  $("weather-apply-preset").addEventListener("click",applyWeatherPreset);
   ["density","speed","wind","length","opacity","glow","color","background"].forEach(key=>{
     $("weather-"+key).addEventListener("input",()=>{
       const value = $("weather-"+key).value;
