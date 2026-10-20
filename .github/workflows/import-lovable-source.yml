@@ -1,0 +1,63 @@
+name: Import exact Lovable source into Studio
+
+on:
+  push:
+    branches:
+      - studio-production-suite
+    paths:
+      - .github/workflows/import-lovable-source.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-lovable-source
+  cancel-in-progress: false
+
+jobs:
+  import-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Studio branch
+        uses: actions/checkout@v4
+        with:
+          ref: studio-production-suite
+          fetch-depth: 0
+      - name: Fetch original Lovable project
+        env:
+          UPSTREAM_SHA: d64ddeef348ea5378e26e855bc3870b8f264e462
+        run: |
+          git clone --no-checkout https://github.com/ar2233789-oss/kellvyn-ai-assistant.git "$RUNNER_TEMP/lovable-source"
+          git -C "$RUNNER_TEMP/lovable-source" checkout --detach "$UPSTREAM_SHA"
+          test "$(git -C "$RUNNER_TEMP/lovable-source" rev-parse HEAD)" = "$UPSTREAM_SHA"
+      - name: Copy complete source snapshot into the Studio
+        run: |
+          mkdir -p studio/lovable-source
+          rsync -a --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='dist' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            "$RUNNER_TEMP/lovable-source/" studio/lovable-source/
+          cat > studio/lovable-source/SOURCE-ORIGIN.md <<'EOF'
+          # Original Lovable source snapshot
+
+          - Repository: https://github.com/ar2233789-oss/kellvyn-ai-assistant
+          - Pinned commit: d64ddeef348ea5378e26e855bc3870b8f264e462
+          - Purpose: immutable reference snapshot for inspecting the original interface and planning the native Android port.
+          - Rule: do not redesign the interface in this snapshot. Keep native port work separate and compare against this source.
+          - Note: this is source code for the web project, not an Android-native APK.
+          EOF
+      - name: Commit imported snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add studio/lovable-source
+          if git diff --cached --quiet; then
+            echo "The pinned Lovable snapshot is already current."
+            exit 0
+          fi
+          git commit -m "Import original Lovable source into Studio"
+          git push origin HEAD:studio-production-suite
