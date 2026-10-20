@@ -1,0 +1,14 @@
+{
+  "name": "kellvyn-production-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated 2D/3D visual design, software engineering and QA workbench for Kellvyn.",
+  "scripts": {
+    "test": "node --test tests/studio.test.mjs",
+    "check": "node --check scene-engine.js && node --check studio.js && node --test tests/studio.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
