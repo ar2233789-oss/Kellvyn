@@ -79,9 +79,9 @@ test("additional geometry, material, light and easing APIs are connected to scen
   assert.match(engine, /case "bounce-out"/);
   assert.match(engine, /case "elastic-out"/);
   assert.match(engine, /THREE\.VSMShadowMap/);
-  assert.match(resources, /StudioScene\\?\\.applyMaterialPreset/);
-  assert.match(resources, /StudioScene\\?\\.applyLightingPreset/);
-  assert.match(resources, /StudioScene\\?\\.addGeometry/);
+  assert.match(resources, /StudioScene\?\.applyMaterialPreset/);
+  assert.match(resources, /StudioScene\?\.applyLightingPreset/);
+  assert.match(resources, /StudioScene\?\.addGeometry/);
 });
 
 test("visual engine exposes meaningful startup diagnostics", () => {
@@ -116,7 +116,7 @@ test("mobile layout breakpoints and the hidden file picker exist", () => {
 });
 
 test("no forbidden Replit reference in the production studio source", () => {
-  assert.doesNotMatch(html + css + engine + lab, /replit/i);
+  assert.doesNotMatch(html + css + engine + resources + lab, /replit/i);
 });
 
 test("documentation records limitations instead of claiming full native conversion", () => {
