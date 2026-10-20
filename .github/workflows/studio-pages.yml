@@ -1,12 +1,6 @@
 name: Publish isolated production studio
 
 on:
-  push:
-    branches:
-      - studio-production-suite
-    paths:
-      - "studio/**"
-      - ".github/workflows/studio-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -28,10 +22,8 @@ jobs:
     steps:
       - name: Checkout studio branch
         uses: actions/checkout@v4
-      - name: Enable and configure GitHub Pages
+      - name: Configure existing GitHub Pages site
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - name: Package the studio directory
         uses: actions/upload-pages-artifact@v3
         with:
