@@ -1,0 +1,11 @@
+# Git blob object IDs for the approved Lovable interface and its native Android port.
+# Deliberately update a locked hash only after explicit approval of that interface change.
+799f46b8e431a5c374d4137b62205081b1f93c78 src/components/kellvyn/KellvynApp.tsx
+8e1b01d0f3e77a95f920e5a52048770f9b2aaf40 src/components/kellvyn/DigitalRain.tsx
+6d4a46b6b9462078a97efdf505bfc7e9f4c276b3 src/components/kellvyn/ColorStudio.tsx
+a04d2bffae951ffb221184a08c436af879d098d5 src/components/kellvyn/store.ts
+04ee72845e2ebda8543e874417aa87417ef14f74 src/styles.css
+5dc104ead73ba012b07192964b9f319bbb626469 src/routes/index.tsx
+1e07392be47f687b3c16a821105068936894e3d8 src/routes/__root.tsx
+20a48e518017c38f1c0973f6e6bb4bed9d8d49a5 src/routeTree.gen.ts
+87d6b8eed0d2a9d5ae9c6e21fce8ab21d85393d9 android/app/src/main/java/com/kellvyn/assistant/MainActivity.java
