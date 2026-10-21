@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: studio-native-port-qa
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-native:
