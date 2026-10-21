@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: studio-poco-f6-lab-${{ github.ref }}
@@ -132,6 +132,21 @@ jobs:
             echo "PASS: package installed and remained running in the virtual Android device." | tee studio-artifacts/result.txt
             echo "LIMIT: conversation model readiness and internet features were not tested; network was disabled to prevent first-run multi-GB model download." >> studio-artifacts/result.txt
             echo "LIMIT: this is Android AOSP in an emulator, not physical HyperOS or Poco F6 hardware." >> studio-artifacts/result.txt
+
+      - name: Publish a direct APK download after the virtual-device smoke test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="kellvyn-native-build-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          APK="input-apk/app-debug.apk"
+          test -s "$APK"
+          gh release create "$TAG" "$APK" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Kellvyn IA — APK nativa (build ${GITHUB_RUN_NUMBER})" \
+            --notes "APK Android nativo compilado do código Studio deste commit e publicado somente após iniciar no emulador Android 15. Assinatura de depuração do Gradle; não é uma build de loja. O teste virtual não equivale a um teste físico no Poco F6 e não valida o download do modelo nem conexões reais de bots." 
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/app-debug.apk" | tee studio-artifacts/apk-download-url.txt
 
       - name: Upload screenshot, hierarchy, logs and APK identity
         if: always()
