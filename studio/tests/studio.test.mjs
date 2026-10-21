@@ -160,6 +160,9 @@ test("virtual Poco F6 workflow builds the production native app and verifies UI 
   assert.match(smokeScript, /uiautomator dump/);
   assert.match(smokeScript, /screencap/);
   assert.match(smokeScript, /Anexos e Web/);
+  assert.match(smokeScript, /Pixel Launcher isn't responding/);
+  assert.match(smokeScript, /tap_label "Wait"/);
+  assert.match(smokeScript, /system Pixel Launcher ANR dialog remained/);
   assert.match(smokeScript, /Conectar à Web/);
   assert.match(smokeScript, /Desconectar da Web/);
   assert.match(smokeScript, /Copiar/);
