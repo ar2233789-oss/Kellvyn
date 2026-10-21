@@ -25,6 +25,8 @@ import android.provider.OpenableColumns;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.text.InputType;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -77,6 +79,7 @@ public class MainActivity extends Activity {
     private String selectedAttachment = null;
     private Uri selectedAttachmentUri = null;
     private TextView footerStatus;
+    private View sendButton;
     private TextView activeReplyBubble;
     private TextView thinkingIndicator;
     private ObjectAnimator thinkingAnimator;
@@ -192,6 +195,11 @@ public class MainActivity extends Activity {
         composer.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         composer.setBackgroundColor(Color.TRANSPARENT);
         composer.setPadding(dp(8), dp(10), dp(8), dp(10));
+        composer.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { updateSendButtonState(); }
+            @Override public void afterTextChanged(Editable s) {}
+        });
         entry.addView(composer, new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout controls = new LinearLayout(this);
@@ -216,9 +224,11 @@ public class MainActivity extends Activity {
         controls.addView(mic, new LinearLayout.LayoutParams(dp(38), dp(38)));
         mic.setOnClickListener(v -> startSpeech());
 
-        View send = vectorIconButton("send", "Enviar mensagem", accent);
-        controls.addView(send, new LinearLayout.LayoutParams(dp(38), dp(38)));
-        send.setOnClickListener(v -> sendMessage());
+        sendButton = vectorIconButton("send", "Enviar mensagem", accent);
+        sendButton.setBackground(roundRect(panelColor, dp(16), mixColors(backgroundColor, textColor, 0.18f), dp(1)));
+        controls.addView(sendButton, new LinearLayout.LayoutParams(dp(32), dp(32)));
+        sendButton.setOnClickListener(v -> sendMessage());
+        updateSendButtonState();
 
         View navDivider = new View(this);
         navDivider.setBackgroundColor(0x4433C995);
@@ -293,7 +303,7 @@ public class MainActivity extends Activity {
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float d = getResources().getDisplayMetrics().density;
-            float size = dp(20), ox = (getWidth() - size) / 2f, oy = (getHeight() - size) / 2f;
+            float size = dp(24), ox = (getWidth() - size) / 2f, oy = (getHeight() - size) / 2f;
             canvas.save();
             canvas.translate(ox, oy);
             canvas.scale(d, d);
@@ -487,6 +497,15 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void updateSendButtonState() {
+        if (sendButton == null || composer == null) return;
+        boolean enabled = !waitingForReply
+                && (!composer.getText().toString().trim().isEmpty() || selectedAttachment != null);
+        sendButton.setEnabled(enabled);
+        sendButton.setAlpha(enabled ? 1f : 0.38f);
+        sendButton.setContentDescription(enabled ? "Enviar mensagem" : "Enviar mensagem indisponível");
+    }
+
     private void sendMessage() {
         if (waitingForReply) {
             toast("A Kellvyn ainda está respondendo. Aguarde a resposta atual.");
@@ -527,6 +546,7 @@ public class MainActivity extends Activity {
     private void startBrainRequest(String displayText, String prompt, Uri attachmentUri, String attachmentName) {
         if (waitingForReply) return;
         waitingForReply = true;
+        updateSendButtonState();
 
         // After process death, the local transcript survives but the in-memory model conversation does not.
         // Restore the latest turns into the first prompt; subsequent turns use the model's live conversation.
@@ -537,6 +557,7 @@ public class MainActivity extends Activity {
         addMessageView(true, displayText);
         composer.setText("");
         selectedAttachment = null;
+        updateSendButtonState();
         selectedAttachmentUri = null;
         saveTranscript();
 
@@ -574,6 +595,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     hideThinkingIndicator();
                     waitingForReply = false;
+                    updateSendButtonState();
                     String finalAnswer = text;
                     int savedFiles = saveGeneratedProjectFiles(displayText, text);
                     if (savedFiles > 0) {
@@ -593,6 +615,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     hideThinkingIndicator();
                     waitingForReply = false;
+                    updateSendButtonState();
                     String errorText = "Não consegui concluir esta solicitação no motor local: " + message;
                     if (activeReplyBubble != null) activeReplyBubble.setText(errorText);
                     transcript.add("S|" + errorText);
@@ -645,6 +668,7 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {}
             selectedAttachment = name == null ? "arquivo selecionado" : name;
             selectedAttachmentUri = uri;
+            updateSendButtonState();
             toast("Anexo selecionado: " + selectedAttachment + ". O conteúdo será preparado pelo motor local ao enviar.");
             composer.requestFocus();
         } else if (requestCode == SAVE_TEXT && data.getData() != null) {
