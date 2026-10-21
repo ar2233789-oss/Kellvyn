@@ -495,7 +495,8 @@ private fun LovableThinkingBrain(accent: Color, muted: Color) {
         )
     )
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 4.dp, bottom = 5.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 4.dp, bottom = 5.dp)
+            .semantics { contentDescription = "Cérebro da Kellvyn pensando" },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp)
     ) {
@@ -2303,7 +2304,8 @@ fun KellvynApp() {
                     OutlinedTextField(
                         value = draft,
                         onValueChange = { if (it.length <= MAX_INPUT_CHARS) draft = it },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp, max = 88.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp, max = 88.dp)
+                            .semantics { contentDescription = "Campo de mensagem da Kellvyn IA" },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = { submitDraft() }),
                         placeholder = { Text("Pergunte qualquer coisa...", color = Muted, fontSize = 13.sp) },
@@ -2377,7 +2379,8 @@ fun KellvynApp() {
                         }
                         Row(
                             modifier = Modifier.border(1.dp, Color(0xFF1A7660), RoundedCornerShape(9.dp))
-                                .padding(horizontal = 8.dp, vertical = 5.dp),
+                                .padding(horizontal = 8.dp, vertical = 5.dp)
+                                .semantics { contentDescription = if (modelReady) "IA local pronta" else if (isLoadingModel) "IA local inicializando" else "IA local indisponível" },
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
@@ -2418,7 +2421,8 @@ fun KellvynApp() {
                                 .border(1.dp, accentColor.copy(alpha = 0.8f), CircleShape)
                                 .clickable(enabled = (draft.isNotBlank() || pendingImagePath != null) && !isGenerating) {
                                     submitDraft()
-                                },
+                                }
+                                .semantics { contentDescription = "Enviar mensagem" },
                             contentAlignment = Alignment.Center
                         ) {
                             if (isGenerating) {

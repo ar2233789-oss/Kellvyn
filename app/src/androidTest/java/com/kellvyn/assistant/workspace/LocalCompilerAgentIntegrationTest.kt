@@ -178,7 +178,7 @@ class LocalCompilerAgentIntegrationTest {
         )
         val context = ApplicationProvider.getApplicationContext<Context>()
         val workspace = ProjectWorkspaceStore(context)
-        val engine = LocalLiteRtAssistantEngine(context)
+        val engine = LocalLiteRtAssistantEngine.shared(context)
         val builder = AppBuilderAgent(workspace)
         val compiler = LocalAndroidCompiler(context, workspace)
         val buildRoot = File(context.filesDir, "kellvyn_builds")
@@ -338,11 +338,81 @@ class LocalCompilerAgentIntegrationTest {
         }
 
         try {
+            val pocoDisplay = shell("wm size 1220x2712 2>&1; wm density 480 2>&1")
+            section(
+                "Perfil de tela virtual do Poco F6",
+                "Resolução lógica configurada para 1220x2712 e densidade 480 dpi usando o emulador Android já existente. Isto aproxima o viewport do telefone; a CPU/SoC continua sendo a do emulador de CI, não um Snapdragon físico.\n\nSaída do Android:\n" + pocoDisplay
+            )
             section("Ambiente", "Modelo LiteRT integrado ou baixado uma vez e verificado; inferência no emulador Android; sem provedor de IA remoto. Este relatório registra as respostas e saídas reais recebidas.")
             engine.prepareLocalModel()
             val loaded = engine.loadSavedModel()
             section("Carregamento do modelo", loaded.reasonOrText())
             assertTrue("O modelo local real não carregou: " + loaded, loaded is AssistantResult.Success)
+
+            // Exercise the real main Activity against the same warmed local model instance.
+            // These semantics are invisible and do not change the existing visual layout.
+            val appLaunch = shell("am force-stop com.kellvyn.assistant >/dev/null 2>&1; am start -W -n com.kellvyn.assistant/.MainActivity 2>&1")
+            var kellvynUiTree = ""
+            val readyDeadline = SystemClock.elapsedRealtime() + 30_000L
+            while (SystemClock.elapsedRealtime() < readyDeadline) {
+                kellvynUiTree = uiTree()
+                if (boundsFor(kellvynUiTree, "IA local pronta") != null ||
+                    boundsFor(kellvynUiTree, "IA local indisponível") != null
+                ) break
+                SystemClock.sleep(500)
+            }
+            val mainChatReady = boundsFor(kellvynUiTree, "IA local pronta") != null
+            section(
+                "Inicialização da Kellvyn IA nativa",
+                "Saída de abertura da Activity:\n" + appLaunch +
+                    "\nEstado local pronto encontrado: " + mainChatReady +
+                    "\nÁrvore de acessibilidade:\n" + kellvynUiTree.take(10000)
+            )
+            if (!mainChatReady) {
+                failures.add("A tela principal não confirmou o estado de modelo local pronto no emulador.")
+            } else if (!tapControl(kellvynUiTree, "Campo de mensagem da Kellvyn IA")) {
+                failures.add("O campo de mensagem do chat principal não ficou acessível no emulador.")
+            } else {
+                shell("input text Responda%sexatamente%stest_KELLVYN_BRAIN_UI_7A91")
+                SystemClock.sleep(350)
+                kellvynUiTree = uiTree()
+                if (!tapControl(kellvynUiTree, "Enviar mensagem")) {
+                    failures.add("O botão de enviar do chat principal não ficou acessível no emulador.")
+                } else {
+                    var sawThinkingBrain = false
+                    var visibleMarkerNodes = 0
+                    val chatDeadline = SystemClock.elapsedRealtime() + 180_000L
+                    while (SystemClock.elapsedRealtime() < chatDeadline) {
+                        kellvynUiTree = uiTree()
+                        val brainVisible = boundsFor(kellvynUiTree, "Cérebro da Kellvyn pensando") != null
+                        if (brainVisible) sawThinkingBrain = true
+                        visibleMarkerNodes = Regex("<node\\b[^>]*>").findAll(kellvynUiTree)
+                            .count { it.value.contains("test_KELLVYN_BRAIN_UI_7A91", ignoreCase = true) }
+                        // The marker should appear once in the prompt and once in the model reply.
+                        if (sawThinkingBrain && visibleMarkerNodes >= 2 && !brainVisible) break
+                        SystemClock.sleep(500)
+                    }
+                    val brainStillVisible = boundsFor(kellvynUiTree, "Cérebro da Kellvyn pensando") != null
+                    section(
+                        "Chat real e ciclo da animação do cérebro",
+                        "Pedido enviado pela interface nativa ao modelo local compartilhado.\n" +
+                            "Animação detectada durante a geração: " + sawThinkingBrain +
+                            "\nNós visíveis com o marcador único (prompt + resposta): " + visibleMarkerNodes +
+                            "\nAnimação removida após concluir: " + !brainStillVisible +
+                            "\nÁrvore final de acessibilidade:\n" + kellvynUiTree.take(10000)
+                    )
+                    if (!sawThinkingBrain) {
+                        failures.add("O cérebro animado não apareceu enquanto o modelo local gerava a resposta no chat principal.")
+                    }
+                    if (visibleMarkerNodes < 2) {
+                        failures.add("O chat principal não mostrou a resposta do modelo com o marcador de teste dentro de 180 segundos.")
+                    }
+                    if (brainStillVisible) {
+                        failures.add("O cérebro animado continuou visível depois da resposta final do modelo.")
+                    }
+                    shell("screencap -p /sdcard/Android/data/com.kellvyn.assistant/files/kellvyn_qa/kellvyn-main-chat.png")
+                }
+            }
 
             val history = mutableListOf<AssistantTurn>()
             ask("identidade do projeto", "Quem criou o projeto Kellvyn IA e qual é o papel do modelo de linguagem usado dentro dele? Diferencie o criador do projeto da tecnologia.", history)
