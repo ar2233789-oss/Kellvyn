@@ -136,16 +136,30 @@ public class MainActivity extends Activity {
         TextView menu = iconButton("☰", "Histórico");
         header.addView(menu, new LinearLayout.LayoutParams(dp(38), dp(44)));
         menu.setOnClickListener(v -> showHistory());
+
+        // The Lovable header includes the glowing Kellvyn mark and an Apps/APKs
+        // shortcut between the title and settings. Keep both in the native port.
+        KellvynLogoView headerLogo = new KellvynLogoView();
+        header.addView(headerLogo, new LinearLayout.LayoutParams(dp(31), dp(31)));
+
         LinearLayout brand = new LinearLayout(this);
         brand.setOrientation(LinearLayout.VERTICAL);
         brand.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams brandLp = new LinearLayout.LayoutParams(0, -2, 1);
         brandLp.leftMargin = dp(5);
         header.addView(brand, brandLp);
-        brand.addView(text("Kellvyn Assistente", 18, accent, false));
+        brand.addView(text("Kellvyn Assistente", 16, accent, false));
+        TextView headerStatus = text("KELLVYN IA • LOCAL", 9, mutedColor, false);
+        headerStatus.setSingleLine(true);
+        brand.addView(headerStatus);
         status = null;
+
+        TextView apps = iconButton("▦", "Apps e APKs");
+        header.addView(apps, new LinearLayout.LayoutParams(dp(32), dp(44)));
+        apps.setOnClickListener(v -> showApps());
+
         TextView settings = iconButton("⋮", "Configurações");
-        header.addView(settings, new LinearLayout.LayoutParams(dp(34), dp(44)));
+        header.addView(settings, new LinearLayout.LayoutParams(dp(30), dp(44)));
         settings.setOnClickListener(v -> showSettings());
 
         View divider = new View(this);
@@ -1663,8 +1677,12 @@ public class MainActivity extends Activity {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint leafPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint flashPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        // Match the Lovable particle density per screen area instead of drawing
+        // the maximum number of particles on every phone size.
         private final int count = 160;
         private final int particleCount = 160;
+        private int activeRainCount = 0;
+        private int activeParticleCount = 0;
         private final float[] x = new float[count], y = new float[count], speed = new float[count], len = new float[count];
         private final float[] px = new float[particleCount], py = new float[particleCount];
         private final float[] pspeed = new float[particleCount], psize = new float[particleCount], prot = new float[particleCount], protSpeed = new float[particleCount];
@@ -1718,13 +1736,16 @@ public class MainActivity extends Activity {
 
         @Override protected void onSizeChanged(int w, int h, int oldw, int oldh) {
             super.onSizeChanged(w, h, oldw, oldh);
+            float area = Math.max(1f, (float) w * (float) h);
+            activeRainCount = Math.min(160, Math.max(1, Math.round(area / 6000f)));
+            activeParticleCount = Math.min(160, Math.max(1, Math.round(area / 5000f)));
             initialized = false;
             lastFrameNanos = 0L;
         }
 
         private void drawRain(Canvas c, float dt) {
             p.setStrokeWidth(dp(1));
-            for (int i = 0; i < count; i++) {
+            for (int i = 0; i < activeRainCount; i++) {
                 p.setColor(i % 5 == 0 ? 0x55DCEBF8 : 0x2AAAC6DC);
                 c.drawLine(x[i], y[i], x[i] - dp(1), y[i] + len[i], p);
                 if (running) {
@@ -1739,7 +1760,7 @@ public class MainActivity extends Activity {
 
         private void drawSnow(Canvas c, float dt, float timeSeconds) {
             p.setColor(0xBBDDEEFF);
-            for (int i = 0; i < particleCount; i++) {
+            for (int i = 0; i < activeParticleCount; i++) {
                 c.drawCircle(px[i], py[i], psize[i], p);
                 if (running) {
                     py[i] += pspeed[i] * dt;
@@ -1753,7 +1774,8 @@ public class MainActivity extends Activity {
         }
 
         private void drawLeaves(Canvas c, float dt, float timeSeconds) {
-            for (int i = 0; i < particleCount; i++) {
+            int leafCount = Math.min(particleCount, Math.max(1, Math.round((float) getWidth() * getHeight() / 22000f)));
+            for (int i = 0; i < leafCount; i++) {
                 c.save();
                 c.rotate(prot[i], px[i], py[i]);
                 leafPaint.setColor(new int[]{0xCCC9682B, 0xCCD9A441, 0xCC8E3B1F, 0xCCA8B04A}[i % 4]);
