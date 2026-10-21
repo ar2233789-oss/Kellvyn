@@ -25,6 +25,12 @@ jobs:
       - name: Checkout Studio memory and test metadata
         uses: actions/checkout@v4
 
+      - name: Checkout current native Android app from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: source-main
+
       - name: Prepare evidence directory
         run: mkdir -p studio-artifacts input-apk
 
@@ -52,19 +58,25 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Compile the exact native Android source from this commit
-        working-directory: studio/native-port/android
-        run: gradle testDebugUnitTest assembleDebug --no-daemon
-
-      - name: Record the freshly compiled APK
+      - name: Compile and unit-test the latest native app from main
+        working-directory: source-main
         shell: bash
         run: |
           set -euo pipefail
-          APK="studio/native-port/android/app/build/outputs/apk/debug/app-debug.apk"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
+
+      - name: Record the freshly compiled APK and source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="source-main/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           cp "$APK" input-apk/app-debug.apk
           sha256sum input-apk/app-debug.apk | tee studio-artifacts/apk-sha256.txt
-          echo "This run compiled and tested the native Android source at the checked-out commit before installing it in the virtual device." > studio-artifacts/test-scope.txt
+          SOURCE_COMMIT="$(git -C source-main rev-parse HEAD)"
+          printf "Native source commit: %s\n" "$SOURCE_COMMIT" > studio-artifacts/test-scope.txt
+          printf "Built source: main/app (Kotlin/Jetpack Compose)\n" >> studio-artifacts/test-scope.txt
 
       - name: Boot Android 15 virtual device and collect UI evidence
         uses: reactivecircus/android-emulator-runner@v2
@@ -80,60 +92,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: false
           emulator-boot-timeout: 600
-          script: |
-            # android-emulator-runner executes this script with /bin/sh, not Bash.
-            # Use POSIX-compatible flags so the emulator test reaches install/launch.
-            set -eu
-            mkdir -p studio-artifacts
-
-            capture_diagnostics() {
-              mkdir -p studio-artifacts
-              adb logcat -d -t 12000 > studio-artifacts/logcat.txt 2>&1 || true
-              adb shell dumpsys meminfo com.kellvyn.assistant > studio-artifacts/memory.txt 2>&1 || true
-              adb shell dumpsys activity activities > studio-artifacts/activities.txt 2>&1 || true
-              adb shell uiautomator dump /sdcard/studio-ui-hierarchy.xml >/dev/null 2>&1 || true
-              adb pull /sdcard/studio-ui-hierarchy.xml studio-artifacts/ui-hierarchy.xml >/dev/null 2>&1 || true
-              adb shell screencap -p /sdcard/studio-poco-f6-virtual.png >/dev/null 2>&1 || true
-              adb pull /sdcard/studio-poco-f6-virtual.png studio-artifacts/poco-f6-virtual.png >/dev/null 2>&1 || true
-              adb shell wm size > studio-artifacts/display-size.txt 2>&1 || true
-              adb shell wm density > studio-artifacts/display-density.txt 2>&1 || true
-            }
-            trap capture_diagnostics EXIT
-
-            # Match portrait pixel dimensions. 440 logical dpi is provisional:
-            # the physical panel's 446 PPI is not the same as Android density.
-            adb shell wm size 1220x2712
-            adb shell wm density 440
-            adb shell settings put system font_scale 1.0
-            adb shell settings put system animator_duration_scale 1.0
-            adb shell settings put system transition_animation_scale 1.0
-            adb shell settings put system window_animation_scale 1.0
-
-            # The app may download a multi-GB local model on first start. Disable
-            # network for this visual smoke test so the runner does not download it.
-            adb shell settings put global airplane_mode_on 1
-            adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null 2>&1 || true
-
-            adb install -r input-apk/app-debug.apk
-            adb shell monkey -p com.kellvyn.assistant 1 > studio-artifacts/launch.txt 2>&1 || true
-
-            app_pid=""
-            for attempt in $(seq 1 30); do
-              app_pid="$(adb shell pidof com.kellvyn.assistant 2>/dev/null | tr -d '\r' || true)"
-              if [ -n "$app_pid" ]; then break; fi
-              sleep 1
-            done
-
-            if [ -z "$app_pid" ]; then
-              echo "FAIL: the Kellvyn package did not remain running in the virtual device." | tee studio-artifacts/result.txt
-              exit 1
-            fi
-
-            sleep 8
-            capture_diagnostics
-            echo "PASS: package installed and remained running in the virtual Android device." | tee studio-artifacts/result.txt
-            echo "LIMIT: conversation model readiness and internet features were not tested; network was disabled to prevent first-run multi-GB model download." >> studio-artifacts/result.txt
-            echo "LIMIT: this is Android AOSP in an emulator, not physical HyperOS or Poco F6 hardware." >> studio-artifacts/result.txt
+          script: bash studio/run-poco-f6-smoke.sh
 
       - name: Publish a direct APK download after the virtual-device smoke test
         env:
@@ -147,7 +106,7 @@ jobs:
           gh release create "$TAG" "$APK" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Kellvyn IA — APK nativa (build ${GITHUB_RUN_NUMBER})" \
-            --notes "APK Android nativo compilado do código Studio deste commit e publicado somente após iniciar no emulador Android 15. Assinatura de depuração do Gradle; não é uma build de loja. O teste virtual não equivale a um teste físico no Poco F6 e não valida o download do modelo nem conexões reais de bots." 
+            --notes "APK Android nativo compilado da branch main (ver SHA do código em test-scope.txt) e publicado somente após passar as verificações automatizadas e a instalação/inicialização no Android 15 virtual. Assinatura de depuração do Gradle; não é uma build de loja. O teste virtual não equivale a um teste físico no Poco F6 e o smoke test mantém a inferência de modelo offline." 
           echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/app-debug.apk" | tee studio-artifacts/apk-download-url.txt
 
       - name: Upload screenshot, hierarchy, logs and APK identity
