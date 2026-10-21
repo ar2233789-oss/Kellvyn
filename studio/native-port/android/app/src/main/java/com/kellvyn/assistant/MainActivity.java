@@ -1589,19 +1589,17 @@ public class MainActivity extends Activity {
         close.setOnClickListener(v -> dialog.dismiss());
         body.addView(titleRow, new LinearLayout.LayoutParams(-1, dp(36)));
 
-        HSVColorSquareView square = new HSVColorSquareView(hsv, finished -> colorPickerUpdate(
-                target, hsv, finished, preview, hexHolder[0], sliderHolder, valueHolder));
+        final EditText[] hexHolder = new EditText[1];
+        final HsvGradientSliderView[] sliderHolder = new HsvGradientSliderView[3];
+        final TextView[] valueHolder = new TextView[3];
+        HSVColorSquareView square = new HSVColorSquareView(hsv, null);
         LinearLayout.LayoutParams squareLp = new LinearLayout.LayoutParams(-1, dp(160));
         squareLp.topMargin = dp(12);
         body.addView(square, squareLp);
 
-        final EditText[] hexHolder = new EditText[1];
-        final HsvGradientSliderView[] sliderHolder = new HsvGradientSliderView[3];
-        final TextView[] valueHolder = new TextView[3];
-
         // The listener updates the preview while dragging and commits the selected
         // color when a gesture ends, matching the original Lovable color studio.
-        HSVColorSquareView.Listener pickerListener = finished ->
+        ColorPickerListener pickerListener = finished ->
                 colorPickerUpdate(target, hsv, finished, preview, hexHolder[0], sliderHolder, valueHolder);
         square.setListener(pickerListener);
 
@@ -1738,12 +1736,11 @@ public class MainActivity extends Activity {
     }
 
     private class HSVColorSquareView extends View {
-        interface Listener { void onChanged(boolean finished); }
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final float[] hsv;
-        private Listener listener;
+        private ColorPickerListener listener;
 
-        HSVColorSquareView(float[] hsv, Listener listener) {
+        HSVColorSquareView(float[] hsv, ColorPickerListener listener) {
             super(MainActivity.this);
             this.hsv = hsv;
             this.listener = listener;
@@ -1751,7 +1748,7 @@ public class MainActivity extends Activity {
             setContentDescription("Seletor de saturação e brilho");
         }
 
-        void setListener(Listener listener) { this.listener = listener; }
+        void setListener(ColorPickerListener listener) { this.listener = listener; }
 
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
