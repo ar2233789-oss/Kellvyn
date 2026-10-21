@@ -151,7 +151,7 @@ test("virtual Poco F6 workflow builds the production native app and verifies UI 
   assert.doesNotMatch(emulatorWorkflow, /gradle setup-gradle|studio\/native-port\/android/);
   assert.match(emulatorWorkflow, /script: bash studio\/run-poco-f6-smoke\.sh/);
   assert.doesNotMatch(emulatorWorkflow, /studio\/native-port\/android/);
-  assert.doesNotMatch(emulatorWorkflow, /gh release download/);
+  assert.match(emulatorWorkflow, /gh release download/);
   assert.match(emulatorWorkflow, /gh release create/);
   assert.match(emulatorWorkflow, /android-emulator-runner/);
   assert.match(smokeScript, /wm size 1220x2712/);
@@ -165,5 +165,6 @@ test("virtual Poco F6 workflow builds the production native app and verifies UI 
   assert.match(smokeScript, /Copiar/);
   assert.match(smokeScript, /Enviar mensagem/);
   assert.match(smokeScript, /LovableThinkingBrain/);
+  assert.match(smokeScript, /Quem%ste%criou\\?/);
   assert.match(smokeScript, /1220x2712/);
 });

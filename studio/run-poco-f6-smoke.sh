@@ -262,7 +262,7 @@ adb shell input keyevent 4
 
 # Send a deterministic identity question that must work offline; verify chat and response action controls.
 tap_label "Pergunte qualquer coisa..."
-adb shell input text 'Quem%20te%20criou%3F'
+adb shell input text 'Quem%ste%criou?'
 sleep 0.5
 tap_label "Enviar mensagem"
 sleep 1
