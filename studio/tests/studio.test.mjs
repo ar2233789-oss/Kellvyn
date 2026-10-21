@@ -148,7 +148,7 @@ test("virtual Poco F6 workflow builds the production native app and verifies UI 
   assert.match(emulatorWorkflow, /gh release download/);
   assert.match(emulatorWorkflow, /EXPECTED_DIGEST/);
   assert.match(emulatorWorkflow, /ACTUAL_DIGEST/);
-  assert.doesNotMatch(emulatorWorkflow, /gradle setup-gradle|working-directory: source-main/);
+  assert.doesNotMatch(emulatorWorkflow, /gradle setup-gradle|studio\/native-port\/android/);
   assert.match(emulatorWorkflow, /script: bash studio\/run-poco-f6-smoke\.sh/);
   assert.doesNotMatch(emulatorWorkflow, /studio\/native-port\/android/);
   assert.doesNotMatch(emulatorWorkflow, /gh release download/);
