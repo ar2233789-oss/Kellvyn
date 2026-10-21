@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -496,7 +497,7 @@ private fun LovableThinkingBrain(accent: Color, muted: Color) {
     )
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 4.dp, bottom = 5.dp)
-            .semantics { contentDescription = "Cérebro da Kellvyn pensando" },
+            .semantics { contentDescription = "Cérebro da Kellvyn pensando"; stateDescription = labels[index] },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp)
     ) {
