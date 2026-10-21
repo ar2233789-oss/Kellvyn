@@ -129,42 +129,30 @@ public class MainActivity extends Activity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(10), dp(7), dp(9), dp(7));
-        header.setBackgroundColor(0xEE0B1211);
-        shell.addView(header, new LinearLayout.LayoutParams(-1, dp(66)));
+        header.setPadding(dp(12), dp(10), dp(12), dp(10));
+        header.setBackgroundColor(panelColor);
+        shell.addView(header, new LinearLayout.LayoutParams(-1, dp(56)));
 
-        TextView menu = iconButton("☰", "Histórico");
-        header.addView(menu, new LinearLayout.LayoutParams(dp(38), dp(44)));
+        // Match the actual Lovable header: history menu, one-line title, settings.
+        TextView menu = iconButton("☰", "Histórico de conversas");
+        header.addView(menu, new LinearLayout.LayoutParams(dp(36), dp(36)));
         menu.setOnClickListener(v -> showHistory());
 
-        // The Lovable header includes the glowing Kellvyn mark and an Apps/APKs
-        // shortcut between the title and settings. Keep both in the native port.
-        KellvynLogoView headerLogo = new KellvynLogoView();
-        header.addView(headerLogo, new LinearLayout.LayoutParams(dp(31), dp(31)));
-
-        LinearLayout brand = new LinearLayout(this);
-        brand.setOrientation(LinearLayout.VERTICAL);
-        brand.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams brandLp = new LinearLayout.LayoutParams(0, -2, 1);
-        brandLp.leftMargin = dp(5);
-        header.addView(brand, brandLp);
-        brand.addView(text("Kellvyn Assistente", 16, accent, false));
-        TextView headerStatus = text("KELLVYN IA • LOCAL", 9, mutedColor, false);
-        headerStatus.setSingleLine(true);
-        brand.addView(headerStatus);
-        // Keep the header status tied to the real local-model readiness state.
-        status = headerStatus;
-
-        TextView apps = iconButton("▦", "Apps e APKs");
-        header.addView(apps, new LinearLayout.LayoutParams(dp(32), dp(44)));
-        apps.setOnClickListener(v -> showApps());
+        TextView title = text("Kellvyn Assistente", 18, accent, false);
+        title.setSingleLine(true);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0, -2, 1);
+        titleLp.leftMargin = dp(8);
+        titleLp.rightMargin = dp(8);
+        header.addView(title, titleLp);
+        status = null;
 
         TextView settings = iconButton("⋮", "Configurações");
-        header.addView(settings, new LinearLayout.LayoutParams(dp(30), dp(44)));
+        header.addView(settings, new LinearLayout.LayoutParams(dp(36), dp(36)));
         settings.setOnClickListener(v -> showSettings());
 
         View divider = new View(this);
-        divider.setBackgroundColor(0x5533C995);
+        divider.setBackgroundColor(borderColor);
         shell.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
 
         chatScroll = new ScrollView(this);
@@ -1737,9 +1725,12 @@ public class MainActivity extends Activity {
 
         @Override protected void onSizeChanged(int w, int h, int oldw, int oldh) {
             super.onSizeChanged(w, h, oldw, oldh);
-            float area = Math.max(1f, (float) w * (float) h);
-            activeRainCount = Math.min(160, Math.max(1, Math.round(area / 6000f)));
-            activeParticleCount = Math.min(160, Math.max(1, Math.round(area / 5000f)));
+            // The original canvas counts particles in CSS pixels. Android's
+            // Canvas uses physical pixels, so convert the area back to dp first.
+            float density = Math.max(1f, getResources().getDisplayMetrics().density);
+            float logicalArea = Math.max(1f, ((float) w * (float) h) / (density * density));
+            activeRainCount = Math.min(160, Math.max(1, Math.round(logicalArea / 6000f)));
+            activeParticleCount = Math.min(160, Math.max(1, Math.round(logicalArea / 5000f)));
             initialized = false;
             lastFrameNanos = 0L;
         }
