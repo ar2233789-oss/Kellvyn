@@ -13,8 +13,8 @@ capture_diagnostics() {
   adb logcat -d -t 12000 > "$EVIDENCE_DIR/logcat.txt" 2>&1 || true
   adb shell dumpsys meminfo com.kellvyn.assistant > "$EVIDENCE_DIR/memory.txt" 2>&1 || true
   adb shell dumpsys activity activities > "$EVIDENCE_DIR/activities.txt" 2>&1 || true
-  adb shell uiautomator dump /sdcard/studio-ui-hierarchy.xml >/dev/null 2>&1 || true
-  adb pull /sdcard/studio-ui-hierarchy.xml "$EVIDENCE_DIR/ui-hierarchy.xml" >/dev/null 2>&1 || true
+  timeout 8s adb shell uiautomator dump --compressed /sdcard/studio-ui-hierarchy.xml >/dev/null 2>&1 || true
+  timeout 8s adb pull /sdcard/studio-ui-hierarchy.xml "$EVIDENCE_DIR/ui-hierarchy.xml" >/dev/null 2>&1 || true
   adb shell screencap -p /sdcard/studio-poco-f6-virtual.png >/dev/null 2>&1 || true
   adb pull /sdcard/studio-poco-f6-virtual.png "$EVIDENCE_DIR/poco-f6-virtual.png" >/dev/null 2>&1 || true
   adb shell wm size > "$EVIDENCE_DIR/display-size.txt" 2>&1 || true
@@ -26,17 +26,17 @@ dump_ui() {
   local destination="$1"
   local remote="/sdcard/kellvyn-ui.xml"
   local dump_log="$EVIDENCE_DIR/uiautomator-dump.log"
-  for attempt in $(seq 1 8); do
-    if adb shell uiautomator dump --compressed "$remote" > "$dump_log" 2>&1 \
-      && adb pull "$remote" "$destination" >/dev/null 2>&1 \
+  for attempt in $(seq 1 5); do
+    if timeout 8s adb shell uiautomator dump --compressed "$remote" > "$dump_log" 2>&1 \
+      && timeout 8s adb pull "$remote" "$destination" >/dev/null 2>&1 \
       && test -s "$destination" \
       && grep -q '<hierarchy' "$destination"; then
       return 0
     fi
-    echo "WARN: UIAutomator hierarchy attempt $attempt/8 failed; retrying after 2 seconds." | tee -a "$EVIDENCE_DIR/result.txt"
-    sleep 2
+    echo "WARN: UIAutomator hierarchy attempt $attempt/5 failed; retrying after 1 second." | tee -a "$EVIDENCE_DIR/result.txt"
+    sleep 1
   done
-  echo "FAIL: UIAutomator could not produce a valid hierarchy after eight attempts." | tee -a "$EVIDENCE_DIR/result.txt"
+  echo "FAIL: UIAutomator could not produce a valid hierarchy after five bounded attempts." | tee -a "$EVIDENCE_DIR/result.txt"
   cat "$dump_log" >> "$EVIDENCE_DIR/result.txt" 2>/dev/null || true
   return 1
 }
@@ -109,8 +109,14 @@ capture_screen() {
   adb pull "/sdcard/$name" "$EVIDENCE_DIR/$name" >/dev/null
 }
 
-# The virtual device matches the approximate portrait resolution of the Poco F6.
-adb shell wm size 1220x2712
+# The AVD hardware profile is configured before boot to the Poco F6 portrait dimensions.
+# Verify that Android reports the real display height, rather than a truncated WM override.
+adb shell wm size > "$EVIDENCE_DIR/display-size-configured.txt"
+cat "$EVIDENCE_DIR/display-size-configured.txt"
+if ! grep -Fq "1220x2712" "$EVIDENCE_DIR/display-size-configured.txt"; then
+  echo "FAIL: virtual display was not configured to 1220x2712 before launch." | tee -a "$EVIDENCE_DIR/result.txt"
+  exit 1
+fi
 adb shell wm density 440
 adb shell settings put system font_scale 1.0
 adb shell settings put system animator_duration_scale 1.0

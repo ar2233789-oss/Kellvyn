@@ -166,9 +166,12 @@ test("virtual Poco F6 workflow builds the production native app and verifies UI 
   assert.match(smokeScript, /input swipe 600 1470 600 850 450/);
   assert.match(smokeScript, /tap_label "Nenhum"/);
   assert.match(smokeScript, /tap_label "Raios"/);
-  assert.match(smokeScript, /for attempt in \$\(seq 1 8\)/);
-  assert.match(smokeScript, /uiautomator dump --compressed/);
-  assert.match(smokeScript, /could not produce a valid hierarchy after eight attempts/);
+  assert.match(smokeScript, /for attempt in \$\(seq 1 5\)/);
+  assert.match(smokeScript, /timeout 8s adb shell uiautomator dump --compressed/);
+  assert.match(smokeScript, /could not produce a valid hierarchy after five bounded attempts/);
+  assert.match(emulatorWorkflow, /pre-emulator-launch-script: bash studio\/configure-poco-f6-avd\.sh/);
+  assert.match(smokeScript, /display-size-configured\.txt/);
+  assert.match(smokeScript, /1220x2712/);
   assert.match(smokeScript, /system Pixel Launcher ANR dialog remained/);
   assert.match(smokeScript, /Conectar à Web/);
   assert.match(smokeScript, /Desconectar da Web/);
