@@ -1,6 +1,12 @@
-name: Publish isolated production studio
+name: Publish Kellvyn Studio preview
 
 on:
+  push:
+    branches:
+      - studio-production-suite
+    paths:
+      - "studio/**"
+      - ".github/workflows/studio-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -14,20 +20,21 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish static studio
-    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout studio branch
+      - name: Checkout Studio
         uses: actions/checkout@v4
-      - name: Configure existing GitHub Pages site
+        with:
+          ref: studio-production-suite
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-      - name: Package the studio directory
+      - name: Package interactive Studio
         uses: actions/upload-pages-artifact@v3
         with:
           path: studio
-      - name: Deploy Pages site
+      - name: Publish Studio
         id: deployment
         uses: actions/deploy-pages@v4
