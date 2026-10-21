@@ -1,0 +1,101 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-bubble-user: var(--bubble-user);
+  --color-panel: var(--panel);
+  --font-sans: "Rubik", system-ui, sans-serif;
+}
+
+/* --brand is the user-selected accent (default emerald). Everything derives from it. */
+:root {
+  --brand: #38e6bc;
+  --bg: #0b1413;
+  --radius: 0.75rem;
+  --background: var(--bg);
+  --fg: #e3eeec;
+  --glow-k: 40%;
+  --foreground: var(--fg);
+  --card: color-mix(in oklab, var(--bg) 88%, white);
+  --card-foreground: var(--foreground);
+  --popover: color-mix(in oklab, var(--bg) 92%, white);
+  --popover-foreground: var(--foreground);
+  --panel: color-mix(in oklab, color-mix(in oklab, var(--bg) 94%, white) 88%, transparent);
+  --primary: var(--brand);
+  --primary-foreground: var(--bg);
+  --secondary: color-mix(in oklab, var(--bg) 82%, white);
+  --secondary-foreground: var(--foreground);
+  --muted: color-mix(in oklab, var(--bg) 84%, white);
+  --muted-foreground: color-mix(in oklab, var(--fg) 62%, var(--bg));
+  --accent: color-mix(in oklab, var(--brand) 16%, transparent);
+  --accent-foreground: var(--brand);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: color-mix(in oklab, var(--brand) 18%, transparent);
+  --input: color-mix(in oklab, var(--brand) 35%, transparent);
+  --ring: var(--brand);
+  --bubble-user: color-mix(in oklab, var(--brand) 12%, var(--bg));
+  --glow: 0 0 10px color-mix(in oklab, var(--brand) calc(var(--glow-k) * 1.6), transparent),
+    0 0 22px color-mix(in oklab, var(--brand) calc(var(--glow-k) * 0.8), transparent);
+  --glow-soft: 0 0 18px -4px color-mix(in oklab, var(--brand) var(--glow-k), transparent);
+  --scene: radial-gradient(120% 60% at 10% 0%, color-mix(in oklab, var(--brand) 14%, transparent), transparent 60%),
+    radial-gradient(90% 50% at 100% 100%, color-mix(in oklab, var(--brand) 10%, transparent), transparent 65%),
+    var(--bg);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body { height: 100%; overscroll-behavior: none; }
+  body {
+    background: var(--scene);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@utility glow { box-shadow: var(--glow); }
+@utility glow-soft { box-shadow: var(--glow-soft); }
+@utility text-glow { text-shadow: 0 0 8px color-mix(in oklab, var(--brand) calc(var(--glow-k) * 1.6), transparent); }
+@utility icon-glow { filter: drop-shadow(0 0 4px var(--brand)) drop-shadow(0 0 10px color-mix(in oklab, var(--brand) 60%, transparent)); }
+@utility bg-scene { background: var(--scene); }
+@utility pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
+@utility pt-safe { padding-top: env(safe-area-inset-top); }
+
+.kv-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 9999px; background: var(--fg); border: 2px solid var(--bg); box-shadow: 0 1px 4px rgb(0 0 0 / .5); }
+.kv-range::-moz-range-thumb { width: 20px; height: 20px; border-radius: 9999px; background: var(--fg); border: 2px solid var(--bg); }
+
+.shimmer-text {
+  background: linear-gradient(90deg, var(--color-muted-foreground) 30%, var(--color-primary) 50%, var(--color-muted-foreground) 70%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
