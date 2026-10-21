@@ -786,10 +786,8 @@ public class MainActivity extends Activity {
         item.setContentDescription(label);
         item.setBackground(roundRect(0x00000000, dp(8), 0, 0));
 
-        TextView symbol = text(glyph, 21, accent, false);
-        symbol.setGravity(Gravity.CENTER);
-        symbol.setIncludeFontPadding(false);
-        item.addView(symbol, new LinearLayout.LayoutParams(-1, dp(25)));
+        NavIconView symbol = new NavIconView(label, "AI".equals(label) ? accent : mixColors(accent, backgroundColor, 0.18f));
+        item.addView(symbol, new LinearLayout.LayoutParams(dp(24), dp(25)));
 
         TextView caption = text(label, 10, "AI".equals(label) ? accent : mutedColor, false);
         caption.setGravity(Gravity.CENTER);
@@ -798,6 +796,75 @@ public class MainActivity extends Activity {
 
         item.setOnClickListener(v -> action.run());
         parent.addView(item, new LinearLayout.LayoutParams(0, -1, 1));
+    }
+
+    /** Minimal vector strokes matching the Lucide icons used by the Lovable tab bar. */
+    private final class NavIconView extends View {
+        private final String kind;
+        private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        NavIconView(String label, int color) {
+            super(MainActivity.this);
+            kind = label;
+            stroke.setColor(color);
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(dp(1.6f));
+            stroke.setStrokeCap(Paint.Cap.ROUND);
+            stroke.setStrokeJoin(Paint.Join.ROUND);
+        }
+        private void line(Canvas c, float... xy) {
+            Path path = new Path();
+            path.moveTo(xy[0], xy[1]);
+            for (int i = 2; i < xy.length; i += 2) path.lineTo(xy[i], xy[i + 1]);
+            c.drawPath(path, stroke);
+        }
+        private void round(Canvas c, float l, float t, float r, float b, float radius) {
+            c.drawRoundRect(l, t, r, b, radius, radius, stroke);
+        }
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float d = getResources().getDisplayMetrics().density;
+            float side = dp(22), ox = (getWidth() - side) / 2f, oy = (getHeight() - side) / 2f;
+            canvas.save();
+            canvas.translate(ox, oy);
+            canvas.scale(d, d);
+            switch (kind) {
+                case "AI":
+                    line(canvas, 11, 1.5f, 13.2f, 7.3f, 19, 9.5f, 13.2f, 11.7f, 11, 17.5f, 8.8f, 11.7f, 3, 9.5f, 8.8f, 7.3f, 11, 1.5f);
+                    line(canvas, 18.5f, 2.5f, 19.2f, 4.4f, 21, 5, 19.2f, 5.7f, 18.5f, 7.5f, 17.8f, 5.7f, 16, 5, 17.8f, 4.4f, 18.5f, 2.5f);
+                    break;
+                case "Navegador":
+                    canvas.drawCircle(11, 11, 8.5f, stroke);
+                    canvas.drawOval(7, 2.5f, 15, 19.5f, stroke);
+                    line(canvas, 3, 8, 19, 8);
+                    line(canvas, 3, 14, 19, 14);
+                    break;
+                case "Editor":
+                    line(canvas, 8, 6, 3, 11, 8, 16);
+                    line(canvas, 14, 6, 19, 11, 14, 16);
+                    line(canvas, 13, 3, 9, 19);
+                    break;
+                case "Terminal":
+                    round(canvas, 2.5f, 3, 19.5f, 19, 2);
+                    line(canvas, 6, 8, 9, 11, 6, 14);
+                    line(canvas, 11, 14, 16, 14);
+                    break;
+                case "Bots":
+                    round(canvas, 3.5f, 7, 18.5f, 18, 3);
+                    line(canvas, 11, 3, 11, 7);
+                    canvas.drawCircle(11, 2.5f, 1, stroke);
+                    canvas.drawCircle(8, 11, 1, stroke);
+                    canvas.drawCircle(14, 11, 1, stroke);
+                    line(canvas, 8, 15, 14, 15);
+                    break;
+                case "Apps":
+                    round(canvas, 3, 3, 9, 9, 1);
+                    round(canvas, 13, 3, 19, 9, 1);
+                    round(canvas, 3, 13, 9, 19, 1);
+                    round(canvas, 13, 13, 19, 19, 1);
+                    break;
+            }
+            canvas.restore();
+        }
     }
 
     /** Launch Termux only after the user taps the existing Terminal navigation item. */
