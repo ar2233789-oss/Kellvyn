@@ -2,6 +2,7 @@ package com.kellvyn.assistant;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.ActivityNotFoundException;
@@ -1562,31 +1563,283 @@ public class MainActivity extends Activity {
 
     private void showCustomColorPicker(String target) {
         int current = target.equals("accent") ? accent : target.equals("background") ? backgroundColor : textColor;
+        final float[] hsv = new float[3];
+        Color.colorToHSV(current, hsv);
+
+        Dialog dialog = new Dialog(this);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(16), dp(14), dp(16), dp(16));
+        int outline = mixColors(backgroundColor, textColor, 0.18f);
+        body.setBackground(roundRect(panelColor, dp(20), outline, dp(1)));
+
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView preview = text("", 14, textColor, false);
+        preview.setBackground(roundRect(current, dp(6), outline, dp(1)));
+        titleRow.addView(preview, new LinearLayout.LayoutParams(dp(27), dp(27)));
+        TextView title = text(target.equals("accent") ? "Cor de destaque" :
+                target.equals("background") ? "Cor de fundo" : "Cor do texto", 14, textColor, true);
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0, -2, 1f);
+        titleLp.leftMargin = dp(10);
+        titleRow.addView(title, titleLp);
+        TextView close = text("×", 25, mutedColor, false);
+        close.setGravity(Gravity.CENTER);
+        titleRow.addView(close, new LinearLayout.LayoutParams(dp(34), dp(34)));
+        close.setOnClickListener(v -> dialog.dismiss());
+        body.addView(titleRow, new LinearLayout.LayoutParams(-1, dp(36)));
+
+        HSVColorSquareView square = new HSVColorSquareView(hsv, finished -> colorPickerUpdate(
+                target, hsv, finished, preview, hexHolder[0], sliderHolder, valueHolder));
+        LinearLayout.LayoutParams squareLp = new LinearLayout.LayoutParams(-1, dp(160));
+        squareLp.topMargin = dp(12);
+        body.addView(square, squareLp);
+
+        final EditText[] hexHolder = new EditText[1];
+        final HsvGradientSliderView[] sliderHolder = new HsvGradientSliderView[3];
+        final TextView[] valueHolder = new TextView[3];
+
+        // The listener updates the preview while dragging and commits the selected
+        // color when a gesture ends, matching the original Lovable color studio.
+        HSVColorSquareView.Listener pickerListener = finished ->
+                colorPickerUpdate(target, hsv, finished, preview, hexHolder[0], sliderHolder, valueHolder);
+        square.setListener(pickerListener);
+
+        for (int mode = 0; mode < 3; mode++) {
+            final int sliderMode = mode;
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.VERTICAL);
+            row.setPadding(0, dp(5), 0, 0);
+            LinearLayout labelRow = new LinearLayout(this);
+            labelRow.setGravity(Gravity.CENTER_VERTICAL);
+            String label = mode == 0 ? "Tom" : mode == 1 ? "Saturação" : "Brilho / Sombra";
+            labelRow.addView(text(label, 11, mutedColor, false),
+                    new LinearLayout.LayoutParams(0, -2, 1f));
+            TextView value = text("", 11, mutedColor, false);
+            value.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+            valueHolder[mode] = value;
+            labelRow.addView(value, new LinearLayout.LayoutParams(-2, -2));
+            row.addView(labelRow, new LinearLayout.LayoutParams(-1, dp(18)));
+
+            HsvGradientSliderView slider = new HsvGradientSliderView(hsv, sliderMode, pickerListener);
+            sliderHolder[mode] = slider;
+            row.addView(slider, new LinearLayout.LayoutParams(-1, dp(25)));
+            body.addView(row, new LinearLayout.LayoutParams(-1, -2));
+        }
+
+        String[] soft = {"#38E6BC", "#D4AF37", "#E5484D", "#4C9AFF", "#A78BFA", "#F472B6", "#C9CED6", "#F08A4B",
+                "#9BCB5A", "#2DD4BF", "#0B1413", "#0A0907", "#111214", "#0E0A16", "#070D18", "#F2EFE9"};
+        for (int rowIndex = 0; rowIndex < 2; rowIndex++) {
+            LinearLayout swatchRow = new LinearLayout(this);
+            swatchRow.setGravity(Gravity.CENTER_VERTICAL);
+            for (int column = 0; column < 8; column++) {
+                String swatchHex = soft[rowIndex * 8 + column];
+                int swatchColor = Color.parseColor(swatchHex);
+                TextView swatch = text("", 10, textColor, false);
+                swatch.setContentDescription(swatchHex);
+                swatch.setBackground(roundRect(swatchColor, dp(5), outline, dp(1)));
+                LinearLayout.LayoutParams swatchLp = new LinearLayout.LayoutParams(0, dp(26), 1f);
+                swatchLp.setMargins(dp(2), dp(3), dp(2), dp(3));
+                swatchRow.addView(swatch, swatchLp);
+                swatch.setOnClickListener(v -> {
+                    Color.colorToHSV(swatchColor, hsv);
+                    colorPickerUpdate(target, hsv, true, preview, hexHolder[0], sliderHolder, valueHolder);
+                });
+            }
+            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, -2);
+            rowLp.topMargin = rowIndex == 0 ? dp(4) : 0;
+            body.addView(swatchRow, rowLp);
+        }
+
+        LinearLayout hexRow = new LinearLayout(this);
+        hexRow.setGravity(Gravity.CENTER_VERTICAL);
+        hexRow.setPadding(0, dp(8), 0, 0);
         EditText hex = new EditText(this);
+        hexHolder[0] = hex;
         hex.setSingleLine(true);
-        hex.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
-        hex.setHint("#38E6BC");
         hex.setText(String.format(Locale.US, "#%06X", 0xFFFFFF & current));
-        hex.setSelection(hex.getText().length());
-        hex.setPadding(dp(12), dp(10), dp(12), dp(10));
-        new AlertDialog.Builder(this)
-                .setTitle(target.equals("accent") ? "Cor de destaque" : target.equals("background") ? "Cor de fundo" : "Cor do texto")
-                .setMessage("Informe uma cor HEX com seis dígitos.")
-                .setView(hex)
-                .setPositiveButton("Aplicar", (dialog, which) -> {
-                    String value = hex.getText().toString().trim();
-                    if (!value.startsWith("#")) value = "#" + value;
-                    try {
-                        int parsed = Color.parseColor(value);
-                        applyTheme(target.equals("accent") ? parsed : accent,
-                                target.equals("background") ? parsed : backgroundColor,
-                                target.equals("text") ? parsed : textColor);
-                    } catch (IllegalArgumentException invalid) {
-                        toast("HEX inválido. Use seis dígitos, por exemplo #38E6BC.");
-                    }
-                })
-                .setNegativeButton("Cancelar", null)
-                .show();
+        hex.setSelectAllOnFocus(true);
+        hex.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(7)});
+        hex.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        hex.setTextColor(textColor);
+        hex.setHintTextColor(mutedColor);
+        hex.setTextSize(13);
+        hex.setPadding(dp(10), dp(7), dp(10), dp(7));
+        hex.setBackground(roundRect(mixColors(backgroundColor, Color.WHITE, 0.04f), dp(8), outline, dp(1)));
+        hexRow.addView(hex, new LinearLayout.LayoutParams(0, dp(42), 1f));
+
+        TextView hexButton = text("HEX", 12, accent, true);
+        hexButton.setGravity(Gravity.CENTER);
+        hexButton.setBackground(roundRect(panelAltColor, dp(8), outline, dp(1)));
+        LinearLayout.LayoutParams hexButtonLp = new LinearLayout.LayoutParams(dp(52), dp(42));
+        hexButtonLp.leftMargin = dp(7);
+        hexRow.addView(hexButton, hexButtonLp);
+        hexButton.setOnClickListener(v -> {
+            String raw = hex.getText().toString().trim();
+            if (!raw.matches("#[0-9a-fA-F]{6}")) {
+                toast("HEX inválido. Use seis dígitos, por exemplo #38E6BC.");
+                return;
+            }
+            Color.colorToHSV(Color.parseColor(raw), hsv);
+            colorPickerUpdate(target, hsv, true, preview, hex, sliderHolder, valueHolder);
+            hex.setText(String.format(Locale.US, "#%06X", 0xFFFFFF & Color.HSVToColor(hsv)));
+            hex.setSelection(hex.length());
+        });
+
+        TextView done = text("Pronto", 13, backgroundColor, true);
+        done.setGravity(Gravity.CENTER);
+        done.setBackground(roundRect(accent, dp(8), accent, dp(1)));
+        LinearLayout.LayoutParams doneLp = new LinearLayout.LayoutParams(dp(76), dp(42));
+        doneLp.leftMargin = dp(7);
+        hexRow.addView(done, doneLp);
+        done.setOnClickListener(v -> {
+            applyColorTarget(target, Color.HSVToColor(hsv));
+            dialog.dismiss();
+        });
+        body.addView(hexRow, new LinearLayout.LayoutParams(-1, -2));
+
+        dialog.setContentView(body);
+        dialog.show();
+        android.view.Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+            window.setDimAmount(0.72f);
+            window.setGravity(Gravity.BOTTOM);
+            window.setLayout(-1, -2);
+        }
+        colorPickerUpdate(target, hsv, false, preview, hex, sliderHolder, valueHolder);
+    }
+
+    private void colorPickerUpdate(String target, float[] hsv, boolean finished, TextView preview,
+                                   EditText hex, HsvGradientSliderView[] sliders, TextView[] values) {
+        int picked = Color.HSVToColor(hsv);
+        preview.setBackground(roundRect(picked, dp(6), mixColors(backgroundColor, textColor, 0.18f), dp(1)));
+        if (hex != null && !hex.hasFocus()) {
+            hex.setText(String.format(Locale.US, "#%06X", 0xFFFFFF & picked));
+            hex.setSelection(hex.length());
+        }
+        if (values != null) {
+            if (values[0] != null) values[0].setText(Math.round(hsv[0]) + "°");
+            if (values[1] != null) values[1].setText(Math.round(hsv[1] * 100f) + "%");
+            if (values[2] != null) values[2].setText(Math.round(hsv[2] * 100f) + "%");
+        }
+        if (sliders != null) for (HsvGradientSliderView slider : sliders) if (slider != null) slider.invalidate();
+        if (finished) applyColorTarget(target, picked);
+    }
+
+    private void applyColorTarget(String target, int picked) {
+        applyTheme(target.equals("accent") ? picked : accent,
+                target.equals("background") ? picked : backgroundColor,
+                target.equals("text") ? picked : textColor);
+    }
+
+    private interface ColorPickerListener {
+        void onChanged(boolean finished);
+    }
+
+    private class HSVColorSquareView extends View {
+        interface Listener { void onChanged(boolean finished); }
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final float[] hsv;
+        private Listener listener;
+
+        HSVColorSquareView(float[] hsv, Listener listener) {
+            super(MainActivity.this);
+            this.hsv = hsv;
+            this.listener = listener;
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            setContentDescription("Seletor de saturação e brilho");
+        }
+
+        void setListener(Listener listener) { this.listener = listener; }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            int pure = Color.HSVToColor(new float[]{hsv[0], 1f, 1f});
+            paint.setShader(new LinearGradient(0, 0, getWidth(), 0,
+                    Color.WHITE, pure, Shader.TileMode.CLAMP));
+            canvas.drawRect(0, 0, getWidth(), getHeight(), paint);
+            paint.setShader(new LinearGradient(0, 0, 0, getHeight(),
+                    0x00000000, Color.BLACK, Shader.TileMode.CLAMP));
+            canvas.drawRect(0, 0, getWidth(), getHeight(), paint);
+            paint.setShader(null);
+            float x = Math.max(dp(6), Math.min(getWidth() - dp(6), hsv[1] * getWidth()));
+            float y = Math.max(dp(6), Math.min(getHeight() - dp(6), (1f - hsv[2]) * getHeight()));
+            paint.setColor(Color.WHITE);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(2));
+            canvas.drawCircle(x, y, dp(6), paint);
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        @Override public boolean onTouchEvent(android.view.MotionEvent event) {
+            if (event.getAction() != android.view.MotionEvent.ACTION_DOWN &&
+                    event.getAction() != android.view.MotionEvent.ACTION_MOVE &&
+                    event.getAction() != android.view.MotionEvent.ACTION_UP) return true;
+            hsv[1] = Math.max(0f, Math.min(1f, event.getX() / Math.max(1f, getWidth())));
+            hsv[2] = 1f - Math.max(0f, Math.min(1f, event.getY() / Math.max(1f, getHeight())));
+            invalidate();
+            if (listener != null) listener.onChanged(event.getAction() == android.view.MotionEvent.ACTION_UP);
+            return true;
+        }
+    }
+
+    private class HsvGradientSliderView extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final float[] hsv;
+        private final int mode;
+        private final ColorPickerListener listener;
+
+        HsvGradientSliderView(float[] hsv, int mode, ColorPickerListener listener) {
+            super(MainActivity.this);
+            this.hsv = hsv;
+            this.mode = mode;
+            this.listener = listener;
+            setContentDescription(mode == 0 ? "Tom" : mode == 1 ? "Saturação" : "Brilho e sombra");
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float height = getHeight();
+            float top = height * 0.32f, bottom = height * 0.68f, width = getWidth();
+            if (mode == 0) {
+                paint.setShader(new LinearGradient(0, 0, width, 0,
+                        new int[]{Color.RED, Color.YELLOW, Color.GREEN, Color.CYAN, Color.BLUE,
+                                Color.MAGENTA, Color.RED}, null, Shader.TileMode.CLAMP));
+            } else if (mode == 1) {
+                paint.setShader(new LinearGradient(0, 0, width, 0,
+                        Color.HSVToColor(new float[]{hsv[0], 0f, hsv[2]}),
+                        Color.HSVToColor(new float[]{hsv[0], 1f, hsv[2]}), Shader.TileMode.CLAMP));
+            } else {
+                paint.setShader(new LinearGradient(0, 0, width, 0, Color.BLACK,
+                        Color.HSVToColor(new float[]{hsv[0], hsv[1], 1f}), Shader.TileMode.CLAMP));
+            }
+            canvas.drawRoundRect(new RectF(0, top, width, bottom), (bottom - top) / 2f, (bottom - top) / 2f, paint);
+            paint.setShader(null);
+            float normalized = mode == 0 ? hsv[0] / 360f : hsv[mode];
+            float x = Math.max(dp(7), Math.min(width - dp(7), normalized * width));
+            float y = height / 2f;
+            paint.setColor(Color.WHITE);
+            paint.setStyle(Paint.Style.FILL);
+            canvas.drawCircle(x, y, dp(7), paint);
+            paint.setColor(Color.DKGRAY);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(1));
+            canvas.drawCircle(x, y, dp(6), paint);
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        @Override public boolean onTouchEvent(android.view.MotionEvent event) {
+            if (event.getAction() != android.view.MotionEvent.ACTION_DOWN &&
+                    event.getAction() != android.view.MotionEvent.ACTION_MOVE &&
+                    event.getAction() != android.view.MotionEvent.ACTION_UP) return true;
+            float value = Math.max(0f, Math.min(1f, event.getX() / Math.max(1f, getWidth())));
+            if (mode == 0) hsv[0] = value * 360f;
+            else hsv[mode] = value;
+            invalidate();
+            if (listener != null) listener.onChanged(event.getAction() == android.view.MotionEvent.ACTION_UP);
+            return true;
+        }
     }
 
     private void showPalette() {
