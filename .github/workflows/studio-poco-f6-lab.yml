@@ -64,6 +64,12 @@ jobs:
           printf "Verified release tag: %s\n" "$BUILD_TAG" >> studio-artifacts/test-scope.txt
           printf "APK SHA-256: %s\n" "$ACTUAL_DIGEST" | tee studio-artifacts/apk-sha256.txt
 
+      - name: Enable KVM for accelerated Android virtual device
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Boot Android 15 virtual device and collect UI evidence
         uses: reactivecircus/android-emulator-runner@v2
         with:
