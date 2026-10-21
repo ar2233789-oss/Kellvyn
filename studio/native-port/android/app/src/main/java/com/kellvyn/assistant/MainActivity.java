@@ -1077,32 +1077,154 @@ public class MainActivity extends Activity {
                 .setPositiveButton("Entendi", null).show();
     }
 
+    private void addSettingsHeading(LinearLayout parent, String label) {
+        TextView heading = text(label, 11, accent, true);
+        heading.setLetterSpacing(0.08f);
+        heading.setPadding(0, dp(13), 0, dp(5));
+        parent.addView(heading, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void addSettingsAction(LinearLayout parent, String title, String description,
+                                   String actionLabel, Runnable action) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(10), dp(9), dp(8), dp(9));
+        row.setBackground(roundRect(PANEL, dp(11), 0x4433C995, dp(1)));
+        LinearLayout labels = new LinearLayout(this);
+        labels.setOrientation(LinearLayout.VERTICAL);
+        labels.addView(text(title, 13, TEXT, true), new LinearLayout.LayoutParams(-1, -2));
+        if (description != null && !description.isEmpty()) {
+            TextView detail = text(description, 11, MUTED, false);
+            detail.setPadding(0, dp(3), 0, 0);
+            labels.addView(detail, new LinearLayout.LayoutParams(-1, -2));
+        }
+        row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView button = text(actionLabel, 12, accent, true);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(11), dp(8), dp(11), dp(8));
+        button.setBackground(roundRect(PANEL_ALT, dp(8), 0x7745A989, dp(1)));
+        button.setOnClickListener(v -> action.run());
+        row.addView(button, new LinearLayout.LayoutParams(-2, -2));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.bottomMargin = dp(7);
+        parent.addView(row, lp);
+    }
+
     private void showSettings() {
-        PopupMenu popup = new PopupMenu(this, findViewById(android.R.id.content));
-        popup.getMenu().add("Configurações");
-        popup.getMenu().add("Cor da interface");
-        popup.getMenu().add("Efeito na tela");
-        android.view.MenuItem webAccess = popup.getMenu().add("Acesso à Web");
-        webAccess.setCheckable(true);
-        webAccess.setChecked(isWebAccessEnabled());
-        popup.getMenu().add("Proteção da IA");
-        popup.setOnMenuItemClickListener(item -> {
-            String label = item.getTitle().toString();
-            if (label.equals("Cor da interface")) showPalette();
-            else if (label.equals("Efeito na tela")) showEffectSettings();
-            else if (label.equals("Acesso à Web")) toggleWebAccess();
-            else if (label.equals("Proteção da IA")) new AlertDialog.Builder(this).setTitle("Proteção da IA")
-                    .setMessage("A proteção visual está disponível. Controles avançados de proteção do motor de IA dependem da integração do cérebro.")
-                    .setPositiveButton("Ativar proteção visual", (d, w) -> {
-                        prefs.edit().putBoolean("protection", true).apply();
-                        toast("Proteção visual ativada.");
-                    }).setNegativeButton("Fechar", null).show();
-            else new AlertDialog.Builder(this).setTitle("Configurações")
-                    .setMessage("Kellvyn IA nativa\nTema escuro · cor esmeralda\nHistórico salvo neste aparelho\nMotor local: baixa e inicia sob solicitação\nAcesso à Web: " + (isWebAccessEnabled() ? "ativado (Wikipédia PT)" : "desativado"))
-                    .setPositiveButton("OK", null).show();
-            return true;
+        final boolean[] glowChanged = {false};
+        final AlertDialog[] settingsDialog = {null};
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(false);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(14), dp(4), dp(14), dp(12));
+        scroll.addView(body, new ScrollView.LayoutParams(-1, -2));
+
+        addSettingsHeading(body, "CORES");
+        addSettingsAction(body, "Temas prontos", "Escolha a paleta da interface", "Abrir", () -> {
+            if (settingsDialog[0] != null) settingsDialog[0].dismiss();
+            showPalette();
         });
-        popup.show();
+
+        TextView glowLabel = text("", 12, TEXT, false);
+        int initialGlow = Math.max(0, Math.min(60, prefs.getInt("glow", 40)));
+        glowLabel.setText("Intensidade do brilho  ·  " + initialGlow + "%");
+        body.addView(glowLabel, new LinearLayout.LayoutParams(-1, -2));
+        android.widget.SeekBar glow = new android.widget.SeekBar(this);
+        glow.setMax(60);
+        glow.setProgress(initialGlow);
+        glow.setContentDescription("Intensidade do brilho");
+        body.addView(glow, new LinearLayout.LayoutParams(-1, -2));
+        glow.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                glowLabel.setText("Intensidade do brilho  ·  " + progress + "%");
+                if (fromUser) glowChanged[0] = true;
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {
+                prefs.edit().putInt("glow", seekBar.getProgress()).apply();
+            }
+        });
+
+        addSettingsHeading(body, "EFEITO NA TELA");
+        addSettingsAction(body, "Chuva, neve, folhas e raios",
+                "Os efeitos podem ser combinados; “Nenhum” desativa todos.", "Configurar", () -> {
+                    if (settingsDialog[0] != null) settingsDialog[0].dismiss();
+                    showEffectSettings();
+                });
+
+        addSettingsHeading(body, "ATALHOS");
+        addSettingsAction(body, "Memória local",
+                "O histórico fica salvo no aparelho. O painel dedicado de memórias ainda está sendo portado.",
+                "Detalhes", () -> new AlertDialog.Builder(this).setTitle("Memória local")
+                        .setMessage("O histórico de conversas é salvo neste aparelho. O painel dedicado de memórias do projeto web ainda não foi portado para esta versão nativa.")
+                        .setPositiveButton("Fechar", null).show());
+
+        Switch virtualAssistant = new Switch(this);
+        virtualAssistant.setText("Assistente virtual");
+        virtualAssistant.setTextColor(TEXT);
+        virtualAssistant.setTextSize(13);
+        virtualAssistant.setEnabled(false);
+        virtualAssistant.setContentDescription("Assistente virtual indisponível nesta versão");
+        body.addView(virtualAssistant, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        Switch screenReader = new Switch(this);
+        screenReader.setText("Leitura de tela");
+        screenReader.setTextColor(TEXT);
+        screenReader.setTextSize(13);
+        screenReader.setEnabled(false);
+        screenReader.setContentDescription("Leitura de tela ainda não portada");
+        body.addView(screenReader, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        addSettingsHeading(body, "MODO DE JOGO");
+        Switch gameMode = new Switch(this);
+        gameMode.setText("Modo de jogo");
+        gameMode.setTextColor(TEXT);
+        gameMode.setTextSize(13);
+        gameMode.setEnabled(false);
+        gameMode.setContentDescription("Modo de jogo ainda não disponível");
+        body.addView(gameMode, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        addSettingsHeading(body, "SEGURANÇA");
+        Switch webAccess = new Switch(this);
+        webAccess.setText("Acesso à Web");
+        webAccess.setTextColor(TEXT);
+        webAccess.setTextSize(13);
+        webAccess.setChecked(isWebAccessEnabled());
+        webAccess.setOnCheckedChangeListener((button, checked) -> {
+            prefs.edit().putBoolean("web_access", checked).apply();
+            toast(checked
+                    ? "Acesso à Web ativado. Perguntas compatíveis podem consultar a Wikipédia em português."
+                    : "Acesso à Web desativado. As mensagens não farão consultas externas.");
+        });
+        body.addView(webAccess, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        Switch protection = new Switch(this);
+        protection.setText("Proteção reforçada da IA");
+        protection.setTextColor(TEXT);
+        protection.setTextSize(13);
+        protection.setChecked(prefs.getBoolean("protection", true));
+        protection.setOnCheckedChangeListener((button, checked) -> {
+            prefs.edit().putBoolean("protection", checked).apply();
+            toast(checked ? "Preferência de proteção ativada." : "Preferência de proteção desativada.");
+        });
+        body.addView(protection, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        settingsDialog[0] = new AlertDialog.Builder(this)
+                .setTitle("CONFIGURAÇÕES DO KELLVYN")
+                .setView(scroll)
+                .setPositiveButton("Fechar", null)
+                .create();
+        settingsDialog[0].setOnDismissListener(dialog -> {
+            if (glowChanged[0]) {
+                buildScreen();
+                messages.removeAllViews();
+                for (String item : transcript) addMessageView(!item.startsWith("S|"), item.substring(2));
+                if (transcript.isEmpty()) showWelcome();
+                updateStatus();
+            }
+        });
+        settingsDialog[0].show();
     }
 
     private boolean isWebAccessEnabled() {
