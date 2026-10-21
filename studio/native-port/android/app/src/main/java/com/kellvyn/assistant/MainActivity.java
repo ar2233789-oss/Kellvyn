@@ -81,11 +81,16 @@ public class MainActivity extends Activity {
     private boolean waitingForReply = false;
     private String engineLabel = "MOTOR LOCAL PENDENTE";
     private int accent = EMERALD;
+    private int backgroundColor = BG;
+    private int panelColor = PANEL;
+    private int panelAltColor = PANEL_ALT;
+    private int textColor = TEXT;
+    private int mutedColor = MUTED;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        getWindow().setStatusBarColor(BG);
-        getWindow().setNavigationBarColor(BG);
+        getWindow().setStatusBarColor(backgroundColor);
+        getWindow().setNavigationBarColor(backgroundColor);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         activeHistoryId = prefs.getString("active_history_id", "current");
@@ -96,6 +101,13 @@ public class MainActivity extends Activity {
             }
         });
         accent = prefs.getInt("accent", EMERALD);
+        backgroundColor = prefs.getInt("theme_bg", Color.rgb(11, 20, 19));
+        textColor = prefs.getInt("theme_text", Color.rgb(227, 238, 236));
+        panelColor = mixColors(backgroundColor, textColor, 0.08f);
+        panelAltColor = mixColors(backgroundColor, accent, 0.10f);
+        mutedColor = mixColors(textColor, backgroundColor, 0.35f);
+        getWindow().setStatusBarColor(backgroundColor);
+        getWindow().setNavigationBarColor(backgroundColor);
         restoreTranscript();
         buildScreen();
         for (String item : transcript) addMessageView(!item.startsWith("S|"), item.substring(2));
@@ -107,7 +119,7 @@ public class MainActivity extends Activity {
 
     private void buildScreen() {
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(BG);
+        root.setBackgroundColor(backgroundColor);
         rain = new RainView();
         root.addView(rain, new FrameLayout.LayoutParams(-1, -1));
 
@@ -157,13 +169,13 @@ public class MainActivity extends Activity {
 
         LinearLayout entry = new LinearLayout(this);
         entry.setGravity(Gravity.CENTER_VERTICAL);
-        entry.setBackground(roundRect(PANEL_ALT, dp(15), 0x8845A989, dp(1)));
+        entry.setBackground(roundRect(panelAltColor, dp(15), 0x8845A989, dp(1)));
         composerPanel.addView(entry, new LinearLayout.LayoutParams(-1, -2));
 
         composer = new EditText(this);
         composer.setHint("Pergunte qualquer coisa...");
-        composer.setHintTextColor(MUTED);
-        composer.setTextColor(TEXT);
+        composer.setHintTextColor(mutedColor);
+        composer.setTextColor(textColor);
         composer.setTextSize(14);
         composer.setSingleLine(false);
         composer.setMinLines(1);
@@ -183,7 +195,7 @@ public class MainActivity extends Activity {
         controls.addView(plus, new LinearLayout.LayoutParams(dp(38), dp(38)));
         plus.setOnClickListener(v -> showPlusMenu(v));
 
-        footerStatus = text("Kellvyn · MOTOR LOCAL PENDENTE", 10, MUTED, false);
+        footerStatus = text("Kellvyn · MOTOR LOCAL PENDENTE", 10, mutedColor, false);
         footerStatus.setSingleLine(true);
         footerStatus.setGravity(Gravity.CENTER_VERTICAL);
         controls.addView(footerStatus, new LinearLayout.LayoutParams(0, dp(34), 1));
@@ -235,6 +247,8 @@ public class MainActivity extends Activity {
         TextView t = text(glyph, 21, accent, false);
         t.setGravity(Gravity.CENTER);
         t.setContentDescription(description);
+        int glow = Math.max(0, Math.min(60, prefs.getInt("glow", 40)));
+        if (glow > 0) t.setShadowLayer(dp(glow / 12f), 0, 0, accent);
         t.setBackground(roundRect(0x00000000, dp(10), 0, 0));
         t.setOnTouchListener((v, event) -> {
             if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) v.setAlpha(0.65f);
@@ -250,7 +264,7 @@ public class MainActivity extends Activity {
         welcome.setGravity(Gravity.CENTER_HORIZONTAL);
         welcome.setPadding(dp(8), dp(72), dp(8), dp(24));
         welcome.addView(new KellvynLogoView(), new LinearLayout.LayoutParams(dp(56), dp(56)));
-        TextView sub = text("Converse com a Kellvyn IA ou peça para criar um aplicativo.", 14, MUTED, false);
+        TextView sub = text("Converse com a Kellvyn IA ou peça para criar um aplicativo.", 14, mutedColor, false);
         sub.setGravity(Gravity.CENTER);
         sub.setLineSpacing(dp(2), 1f);
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, -2);
@@ -264,7 +278,7 @@ public class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(user ? Gravity.END : Gravity.START);
         row.setPadding(dp(1), dp(4), dp(1), dp(4));
-        TextView bubble = text(value, 14, TEXT, false);
+        TextView bubble = text(value, 14, textColor, false);
         bubble.setLineSpacing(dp(3), 1f);
         bubble.setPadding(dp(13), dp(10), dp(13), dp(10));
         bubble.setMaxWidth((int) (getResources().getDisplayMetrics().widthPixels * 0.84f));
@@ -297,7 +311,7 @@ public class MainActivity extends Activity {
     }
 
     private void addMessageAction(LinearLayout parent, String glyph, String description, Runnable action) {
-        TextView button = text(glyph, 17, MUTED, false);
+        TextView button = text(glyph, 17, mutedColor, false);
         button.setGravity(Gravity.CENTER);
         button.setContentDescription(description);
         button.setBackground(roundRect(0x00000000, dp(7), 0, 0));
@@ -345,7 +359,7 @@ public class MainActivity extends Activity {
 
     private void showThinkingIndicator() {
         hideThinkingIndicator();
-        thinkingIndicator = text("🧠  Pensando…", 12, MUTED, false);
+        thinkingIndicator = text("🧠  Pensando…", 12, mutedColor, false);
         thinkingIndicator.setPadding(dp(6), dp(3), dp(6), dp(8));
         messages.addView(thinkingIndicator, new LinearLayout.LayoutParams(-2, -2));
         thinkingAnimator = ObjectAnimator.ofFloat(thinkingIndicator, View.ALPHA, 0.45f, 1f);
@@ -774,7 +788,7 @@ public class MainActivity extends Activity {
         symbol.setIncludeFontPadding(false);
         item.addView(symbol, new LinearLayout.LayoutParams(-1, dp(25)));
 
-        TextView caption = text(label, 10, "AI".equals(label) ? accent : MUTED, false);
+        TextView caption = text(label, 10, "AI".equals(label) ? accent : mutedColor, false);
         caption.setGravity(Gravity.CENTER);
         caption.setIncludeFontPadding(false);
         item.addView(caption, new LinearLayout.LayoutParams(-1, dp(15)));
@@ -830,7 +844,7 @@ public class MainActivity extends Activity {
                 "Configure os tokens pelo chat principal. Telegram: /bot telegram token SEU_TOKEN. " +
                 "Discord: /bot discord token SEU_TOKEN (ative Message Content Intent no portal do Discord). " +
                 "O modelo local precisa estar baixado antes de ativar um bot. O WhatsApp exige uma integração pública de webhook e permanece indisponível neste APK.",
-                12, MUTED, false);
+                12, mutedColor, false);
         instructions.setLineSpacing(dp(3), 1f);
         layout.addView(instructions, new LinearLayout.LayoutParams(-1, -2));
 
@@ -857,9 +871,9 @@ public class MainActivity extends Activity {
                 LinearLayout labels = new LinearLayout(MainActivity.this);
                 labels.setOrientation(LinearLayout.VERTICAL);
                 labels.setGravity(Gravity.CENTER_VERTICAL);
-                labels.addView(text(title, 14, TEXT, true));
+                labels.addView(text(title, 14, textColor, true));
                 status = text(botStatusText(platform, prefs.getBoolean("bot_enabled_" + platform, false), tokenPresent),
-                        11, MUTED, false);
+                        11, mutedColor, false);
                 status.setPadding(0, dp(2), dp(8), 0);
                 labels.addView(status, new LinearLayout.LayoutParams(-1, -2));
                 row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
@@ -981,21 +995,21 @@ public class MainActivity extends Activity {
         EditText fileName = new EditText(this);
         fileName.setSingleLine(true);
         fileName.setHint("Nome do arquivo");
-        fileName.setTextColor(TEXT);
-        fileName.setHintTextColor(MUTED);
+        fileName.setTextColor(textColor);
+        fileName.setHintTextColor(mutedColor);
         fileName.setTextSize(14);
 
         EditText source = new EditText(this);
         source.setHint("Escreva seu código ou nota aqui…");
-        source.setTextColor(TEXT);
-        source.setHintTextColor(MUTED);
+        source.setTextColor(textColor);
+        source.setHintTextColor(mutedColor);
         source.setTextSize(13);
         source.setGravity(Gravity.TOP | Gravity.START);
         source.setMinLines(9);
         source.setMaxLines(16);
         source.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         source.setTypeface(Typeface.MONOSPACE);
-        source.setBackground(roundRect(PANEL_ALT, dp(10), 0x5545A989, dp(1)));
+        source.setBackground(roundRect(panelAltColor, dp(10), 0x5545A989, dp(1)));
         source.setPadding(dp(10), dp(10), dp(10), dp(10));
 
         LinearLayout form = new LinearLayout(this);
@@ -1088,12 +1102,12 @@ public class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(10), dp(9), dp(8), dp(9));
-        row.setBackground(roundRect(PANEL, dp(11), 0x4433C995, dp(1)));
+        row.setBackground(roundRect(panelColor, dp(11), 0x4433C995, dp(1)));
         LinearLayout labels = new LinearLayout(this);
         labels.setOrientation(LinearLayout.VERTICAL);
-        labels.addView(text(title, 13, TEXT, true), new LinearLayout.LayoutParams(-1, -2));
+        labels.addView(text(title, 13, textColor, true), new LinearLayout.LayoutParams(-1, -2));
         if (description != null && !description.isEmpty()) {
-            TextView detail = text(description, 11, MUTED, false);
+            TextView detail = text(description, 11, mutedColor, false);
             detail.setPadding(0, dp(3), 0, 0);
             labels.addView(detail, new LinearLayout.LayoutParams(-1, -2));
         }
@@ -1101,7 +1115,7 @@ public class MainActivity extends Activity {
         TextView button = text(actionLabel, 12, accent, true);
         button.setGravity(Gravity.CENTER);
         button.setPadding(dp(11), dp(8), dp(11), dp(8));
-        button.setBackground(roundRect(PANEL_ALT, dp(8), 0x7745A989, dp(1)));
+        button.setBackground(roundRect(panelAltColor, dp(8), 0x7745A989, dp(1)));
         button.setOnClickListener(v -> action.run());
         row.addView(button, new LinearLayout.LayoutParams(-2, -2));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
@@ -1120,12 +1134,24 @@ public class MainActivity extends Activity {
         scroll.addView(body, new ScrollView.LayoutParams(-1, -2));
 
         addSettingsHeading(body, "CORES");
-        addSettingsAction(body, "Temas prontos", "Escolha a paleta da interface", "Abrir", () -> {
+        addSettingsAction(body, "Temas prontos", "10 paletas completas da interface", "Abrir", () -> {
             if (settingsDialog[0] != null) settingsDialog[0].dismiss();
             showPalette();
         });
+        addSettingsAction(body, "Cor de destaque", String.format(Locale.US, "#%06X", 0xFFFFFF & accent), "Editar", () -> {
+            if (settingsDialog[0] != null) settingsDialog[0].dismiss();
+            showCustomColorPicker("accent");
+        });
+        addSettingsAction(body, "Cor de fundo", String.format(Locale.US, "#%06X", 0xFFFFFF & backgroundColor), "Editar", () -> {
+            if (settingsDialog[0] != null) settingsDialog[0].dismiss();
+            showCustomColorPicker("background");
+        });
+        addSettingsAction(body, "Cor do texto", String.format(Locale.US, "#%06X", 0xFFFFFF & textColor), "Editar", () -> {
+            if (settingsDialog[0] != null) settingsDialog[0].dismiss();
+            showCustomColorPicker("text");
+        });
 
-        TextView glowLabel = text("", 12, TEXT, false);
+        TextView glowLabel = text("", 12, textColor, false);
         int initialGlow = Math.max(0, Math.min(60, prefs.getInt("glow", 40)));
         glowLabel.setText("Intensidade do brilho  ·  " + initialGlow + "%");
         body.addView(glowLabel, new LinearLayout.LayoutParams(-1, -2));
@@ -1161,7 +1187,7 @@ public class MainActivity extends Activity {
 
         Switch virtualAssistant = new Switch(this);
         virtualAssistant.setText("Assistente virtual");
-        virtualAssistant.setTextColor(TEXT);
+        virtualAssistant.setTextColor(textColor);
         virtualAssistant.setTextSize(13);
         virtualAssistant.setEnabled(false);
         virtualAssistant.setContentDescription("Assistente virtual indisponível nesta versão");
@@ -1169,7 +1195,7 @@ public class MainActivity extends Activity {
 
         Switch screenReader = new Switch(this);
         screenReader.setText("Leitura de tela");
-        screenReader.setTextColor(TEXT);
+        screenReader.setTextColor(textColor);
         screenReader.setTextSize(13);
         screenReader.setEnabled(false);
         screenReader.setContentDescription("Leitura de tela ainda não portada");
@@ -1178,7 +1204,7 @@ public class MainActivity extends Activity {
         addSettingsHeading(body, "MODO DE JOGO");
         Switch gameMode = new Switch(this);
         gameMode.setText("Modo de jogo");
-        gameMode.setTextColor(TEXT);
+        gameMode.setTextColor(textColor);
         gameMode.setTextSize(13);
         gameMode.setEnabled(false);
         gameMode.setContentDescription("Modo de jogo ainda não disponível");
@@ -1187,7 +1213,7 @@ public class MainActivity extends Activity {
         addSettingsHeading(body, "SEGURANÇA");
         Switch webAccess = new Switch(this);
         webAccess.setText("Acesso à Web");
-        webAccess.setTextColor(TEXT);
+        webAccess.setTextColor(textColor);
         webAccess.setTextSize(13);
         webAccess.setChecked(isWebAccessEnabled());
         webAccess.setOnCheckedChangeListener((button, checked) -> {
@@ -1200,7 +1226,7 @@ public class MainActivity extends Activity {
 
         Switch protection = new Switch(this);
         protection.setText("Proteção reforçada da IA");
-        protection.setTextColor(TEXT);
+        protection.setTextColor(textColor);
         protection.setTextSize(13);
         protection.setChecked(prefs.getBoolean("protection", true));
         protection.setOnCheckedChangeListener((button, checked) -> {
@@ -1312,16 +1338,81 @@ public class MainActivity extends Activity {
                 .setNegativeButton("Cancelar", null).show();
     }
 
+    private int mixColors(int from, int to, float amount) {
+        float t = Math.max(0f, Math.min(1f, amount));
+        return Color.rgb(
+                Math.round(Color.red(from) * (1f - t) + Color.red(to) * t),
+                Math.round(Color.green(from) * (1f - t) + Color.green(to) * t),
+                Math.round(Color.blue(from) * (1f - t) + Color.blue(to) * t));
+    }
+
+    private void refreshScreenFromTranscript() {
+        getWindow().setStatusBarColor(backgroundColor);
+        getWindow().setNavigationBarColor(backgroundColor);
+        buildScreen();
+        messages.removeAllViews();
+        for (String item : transcript) addMessageView(!item.startsWith("S|"), item.substring(2));
+        if (transcript.isEmpty()) showWelcome();
+        updateStatus();
+    }
+
+    private void applyTheme(int newAccent, int newBackground, int newText) {
+        accent = newAccent;
+        backgroundColor = newBackground;
+        textColor = newText;
+        panelColor = mixColors(backgroundColor, textColor, 0.08f);
+        panelAltColor = mixColors(backgroundColor, accent, 0.10f);
+        mutedColor = mixColors(textColor, backgroundColor, 0.35f);
+        prefs.edit().putInt("accent", accent).putInt("theme_bg", backgroundColor)
+                .putInt("theme_text", textColor).apply();
+        refreshScreenFromTranscript();
+    }
+
+    private void showCustomColorPicker(String target) {
+        int current = target.equals("accent") ? accent : target.equals("background") ? backgroundColor : textColor;
+        EditText hex = new EditText(this);
+        hex.setSingleLine(true);
+        hex.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        hex.setHint("#38E6BC");
+        hex.setText(String.format(Locale.US, "#%06X", 0xFFFFFF & current));
+        hex.setSelection(hex.getText().length());
+        hex.setPadding(dp(12), dp(10), dp(12), dp(10));
+        new AlertDialog.Builder(this)
+                .setTitle(target.equals("accent") ? "Cor de destaque" : target.equals("background") ? "Cor de fundo" : "Cor do texto")
+                .setMessage("Informe uma cor HEX com seis dígitos.")
+                .setView(hex)
+                .setPositiveButton("Aplicar", (dialog, which) -> {
+                    String value = hex.getText().toString().trim();
+                    if (!value.startsWith("#")) value = "#" + value;
+                    try {
+                        int parsed = Color.parseColor(value);
+                        applyTheme(target.equals("accent") ? parsed : accent,
+                                target.equals("background") ? parsed : backgroundColor,
+                                target.equals("text") ? parsed : textColor);
+                    } catch (IllegalArgumentException invalid) {
+                        toast("HEX inválido. Use seis dígitos, por exemplo #38E6BC.");
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
     private void showPalette() {
-        String[] colors = {"Verde-esmeralda", "Turquesa", "Azul", "Violeta"};
-        int[] values = {Color.rgb(32,205,143), Color.rgb(45,212,191), Color.rgb(75,155,255), Color.rgb(174,112,255)};
-        new AlertDialog.Builder(this).setTitle("Cor da interface").setItems(colors, (d, which) -> {
-            accent = values[which];
-            prefs.edit().putInt("accent", accent).apply();
-            buildScreen();
-            messages.removeAllViews();
-            for (String item : transcript) addMessageView(!item.startsWith("S|"), item.substring(2));
-            if (transcript.isEmpty()) showWelcome();
+        String[] names = {"Esmeralda", "Preto e Dourado", "Preto e Vermelho", "Azul Noturno",
+                "Roxo Real", "Rosa Noite", "Prata Grafite", "Laranja Brasa", "Lima Escuro", "Branco e Preto"};
+        String[] accents = {"#38E6BC", "#D4AF37", "#E5484D", "#4C9AFF", "#A78BFA",
+                "#F472B6", "#C9CED6", "#F08A4B", "#9BCB5A", "#F2F2F2"};
+        String[] backgrounds = {"#0B1413", "#0A0907", "#0D0707", "#070D18", "#0E0A16",
+                "#140A11", "#111214", "#120A06", "#0A0F06", "#000000"};
+        String[] texts = {"#E3EEEC", "#EFE6D2", "#F1E4E4", "#E2E9F5", "#ECE6F7",
+                "#F5E6EE", "#ECEEF1", "#F4E9E1", "#E8F0DE", "#FFFFFF"};
+        new AlertDialog.Builder(this).setTitle("Temas prontos").setItems(names, (dialog, which) -> {
+            try {
+                applyTheme(Color.parseColor(accents[which]), Color.parseColor(backgrounds[which]),
+                        Color.parseColor(texts[which]));
+            } catch (IllegalArgumentException invalid) {
+                toast("Não foi possível aplicar esta paleta.");
+            }
         }).setNegativeButton("Cancelar", null).show();
     }
 
