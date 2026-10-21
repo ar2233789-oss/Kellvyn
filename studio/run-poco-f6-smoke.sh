@@ -218,12 +218,19 @@ dump_ui "$EVIDENCE_DIR/settings-ui.xml"
 capture_screen "poco-f6-settings.png"
 assert_labels "$EVIDENCE_DIR/settings-ui.xml" \
   "COR DA INTERFACE" "INTERNET DA KELLVYN IA" "EFEITO VISUAL" \
-  "Esmeralda" "Azul" "Chuva" "Raios" "Nenhum" "Acesso à web"
+  "Esmeralda" "Azul" "Chuva" "Acesso à web"
 
 tap_label "Azul"
 sleep 0.3
 tap_label "Esmeralda"
 sleep 0.3
+
+# The settings body is vertically scrollable; swipe so the second effects row is actually visible.
+adb shell input swipe 600 1470 600 850 450
+sleep 0.5
+dump_ui "$EVIDENCE_DIR/settings-effects-ui.xml"
+capture_screen "poco-f6-settings-effects-visible.png"
+assert_labels "$EVIDENCE_DIR/settings-effects-ui.xml" "EFEITO VISUAL" "Chuva" "Raios" "Nenhum"
 tap_label "Nenhum"
 sleep 0.3
 tap_label "Chuva"
