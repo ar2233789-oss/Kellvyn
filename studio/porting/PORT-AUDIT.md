@@ -21,7 +21,7 @@ A cópia de referência foi importada para o Studio, incluindo o código React/C
 
 ## Observações técnicas sobre chuva e raios
 
-- A animação web usa `requestAnimationFrame`, calcula `dt) a partir do tempo real e limita o delta para evitar saltos após engasgos.
+- A animação web usa `requestAnimationFrame`, calcula `dt` a partir do tempo real e limita o delta para evitar saltos após engasgos.
 - A chuva web ajusta a quantidade de partículas à área de tela (até 160 por tipo) e redimensiona o canvas com limite de `devicePixelRatio = 2`.
 - A animação nativa atual agenda novos quadros a cada 45 ms (~22 quadros/s em condições ideais) e move as gotas por quadro. Portanto, a velocidade varia com a cadência real do dispositivo.
 - A chuva nativa usa 64 gotas fixas e cores/comprimentos diferentes. O relâmpago nativo dura três quadros e a web usa um tempo de brilho interpolado. Essas diferenças são candidatas concretas a explicar por que a animação parece diferente ou irregular.
