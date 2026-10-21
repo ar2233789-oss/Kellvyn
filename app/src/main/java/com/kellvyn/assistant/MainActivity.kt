@@ -115,6 +115,17 @@ private val Panel = Color(0xE0131C1A)
 private val Neon = Color(0xFF38E6BC)
 private val Muted = Color(0xFF929B99)
 private val Warning = Color(0xFFFFC857)
+private val VISUAL_EFFECT_IDS = setOf("chuva", "neve", "folhas", "raios")
+internal fun toggleVisualEffects(current: Set<String>, selected: String): Set<String> {
+    val active = current.intersect(VISUAL_EFFECT_IDS)
+    if (selected == "nenhum") return emptySet()
+    if (selected !in VISUAL_EFFECT_IDS) return active
+    return when {
+        active.isEmpty() -> setOf(selected)
+        selected in active -> active - selected
+        else -> active + selected
+    }
+}
 private const val MAX_CONTEXT_MESSAGES = 12
 private const val MAX_HISTORY_MESSAGE_CHARS = 800
 private const val MAX_INPUT_CHARS = 12_000
@@ -570,8 +581,13 @@ fun KellvynApp() {
         mutableStateOf(uiPreferences.getBoolean("game_mode_enabled", false))
     }
     val securityPreferences = remember(context) { context.getSharedPreferences("kellvyn_security", Context.MODE_PRIVATE) }
-    var visualEffect by remember(uiPreferences) {
-        mutableStateOf(uiPreferences.getString("visual_effect", "chuva") ?: "chuva")
+    var visualEffects by remember(uiPreferences) {
+        mutableStateOf(
+            (uiPreferences.getStringSet("visual_effects", null)?.toSet()
+                ?: setOf(uiPreferences.getString("visual_effect", "chuva") ?: "chuva"))
+                .filter { it in VISUAL_EFFECT_IDS }
+                .toSet()
+        )
     }
     // Frame-clock animation keeps the drops moving continuously instead of jumping at each loop reset.
     var rainElapsedNanos by remember { mutableStateOf(0L) }
@@ -594,8 +610,8 @@ fun KellvynApp() {
         while (brainSteps.size > 5) brainSteps.removeAt(0)
     }
 
-    LaunchedEffect(visualEffect) {
-        if (visualEffect != "nenhum") {
+    LaunchedEffect(visualEffects) {
+        if (visualEffects.isNotEmpty()) {
             var startNanos: Long? = null
             while (true) {
                 withFrameNanos { frameTimeNanos ->
@@ -1863,10 +1879,9 @@ fun KellvynApp() {
     ) {
         Column(
             modifier = Modifier.fillMaxSize().background(Night).drawBehind {
-                if (visualEffect != "nenhum") {
+                if (visualEffects.isNotEmpty()) {
                     val elapsed = rainElapsedNanos / 1_000_000_000.0
-                    when (visualEffect) {
-                        "chuva" -> {
+                    if ("chuva" in visualEffects) {
                             val spacing = 13.dp.toPx()
                             val dropLength = 11.dp.toPx()
                             val dropColumns = (size.width / spacing).toInt().coerceAtLeast(1)
@@ -1890,7 +1905,7 @@ fun KellvynApp() {
                                 }
                             }
                         }
-                        "neve" -> {
+                    if ("neve" in visualEffects) {
                             for (flake in 0 until 72) {
                                 val phase = ((elapsed * (0.035 + (flake % 7) * 0.009) + ((flake * 37) % 101) / 101.0) % 1.0).toFloat()
                                 val xBase = ((flake * 73) % 997) / 997f * size.width
@@ -1900,7 +1915,7 @@ fun KellvynApp() {
                                 drawCircle(Color.White.copy(alpha = 0.45f + (flake % 5) * 0.1f), radius, Offset(x, y))
                             }
                         }
-                        "folhas" -> {
+                    if ("folhas" in visualEffects) {
                             val leafColors = listOf(Color(0xFFC9682B), Color(0xFFD9A441), Color(0xFF8E3B1F), Color(0xFFA8B04A))
                             for (leaf in 0 until 32) {
                                 val phase = ((elapsed * (0.025 + (leaf % 6) * 0.007) + ((leaf * 29) % 89) / 89.0) % 1.0).toFloat()
@@ -1915,7 +1930,7 @@ fun KellvynApp() {
                                 )
                             }
                         }
-                        "raios" -> {
+                    if ("raios" in visualEffects) {
                             val cycle = (elapsed % 6.0).toFloat()
                             if (cycle < 0.18f) {
                                 val alpha = (1f - cycle / 0.18f) * 0.09f
@@ -1931,8 +1946,6 @@ fun KellvynApp() {
                                 drawPath(path, Color(0xFFEAF1FF).copy(alpha = 0.85f - cycle), style = Stroke(width = 1.5.dp.toPx()))
                             }
                         }
-                        else -> Unit
-                    }
                 }
             }.windowInsetsPadding(WindowInsets.safeDrawing).imePadding()
         ) {
@@ -2495,12 +2508,12 @@ fun KellvynApp() {
                         KellvynLineIcon(
                             iconKind,
                             if (selected) accentColor else accentColor.copy(alpha = 0.82f),
-                            Modifier.size(21.dp)
+                            Modifier.size(22.dp)
                         )
                         Text(
                             label,
                             color = if (selected) accentColor else Muted,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             maxLines = 1
                         )
                     }
@@ -3204,13 +3217,15 @@ fun KellvynApp() {
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 group.forEach { (effectId, label) ->
-                                    val selected = visualEffect == effectId
+                                    val selected = if (effectId == "nenhum") visualEffects.isEmpty() else effectId in visualEffects
                                     Surface(
                                         modifier = Modifier.weight(1f).height(38.dp).clickable {
-                                            visualEffect = effectId
+                                            val updatedEffects = toggleVisualEffects(visualEffects, effectId)
+                                            visualEffects = updatedEffects
                                             uiPreferences.edit()
-                                                .putString("visual_effect", effectId)
-                                                .putBoolean("rain_effect_enabled", effectId != "nenhum")
+                                                .putStringSet("visual_effects", updatedEffects.toMutableSet())
+                                                .putString("visual_effect", updatedEffects.firstOrNull() ?: "nenhum")
+                                                .putBoolean("rain_effect_enabled", updatedEffects.isNotEmpty())
                                                 .apply()
                                         },
                                         color = if (selected) accentColor.copy(alpha = 0.18f) else Panel,
