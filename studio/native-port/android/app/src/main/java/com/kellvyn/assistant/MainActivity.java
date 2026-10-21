@@ -9,10 +9,14 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.LinearGradient;
 import android.graphics.Path;
+import android.graphics.RectF;
+import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
@@ -1733,13 +1737,15 @@ public class MainActivity extends Activity {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint leafPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint flashPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint rainSpritePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private Bitmap rainSprite;
         // Match the Lovable particle density per screen area instead of drawing
         // the maximum number of particles on every phone size.
         private final int count = 160;
         private final int particleCount = 160;
         private int activeRainCount = 0;
         private int activeParticleCount = 0;
-        private final float[] x = new float[count], y = new float[count], speed = new float[count], len = new float[count];
+        private final float[] x = new float[count], y = new float[count], speed = new float[count], len = new float[count], rainAlpha = new float[count];
         private final float[] px = new float[particleCount], py = new float[particleCount];
         private final float[] pspeed = new float[particleCount], psize = new float[particleCount], prot = new float[particleCount], protSpeed = new float[particleCount];
         private final float[] boltX = new float[15], boltY = new float[15];
@@ -1773,11 +1779,13 @@ public class MainActivity extends Activity {
         private void init() {
             float width = Math.max(1, getWidth());
             float height = Math.max(1, getHeight());
+            ensureRainSprite();
             for (int i = 0; i < count; i++) {
                 x[i] = (float)Math.random() * width;
                 y[i] = (float)Math.random() * height;
                 speed[i] = dp(140) + (float)Math.random() * dp(380);
                 len[i] = dp(18) + (float)Math.random() * dp(50);
+                rainAlpha[i] = 0.15f + (float)Math.random() * 0.4f;
             }
             for (int i = 0; i < particleCount; i++) {
                 px[i] = (float)Math.random() * width;
@@ -1802,15 +1810,28 @@ public class MainActivity extends Activity {
             lastFrameNanos = 0L;
         }
 
+        private void ensureRainSprite() {
+            if (rainSprite != null) return;
+            rainSprite = Bitmap.createBitmap(4, 64, Bitmap.Config.ARGB_8888);
+            Canvas spriteCanvas = new Canvas(rainSprite);
+            Paint spritePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            spritePaint.setShader(new LinearGradient(0, 0, 0, 64,
+                    new int[]{0x00CFE3F2, 0xFF DCEBF8}, null, Shader.TileMode.CLAMP));
+            spriteCanvas.drawRect(1, 0, 3, 64, spritePaint);
+            spritePaint.setShader(null);
+        }
+
         private void drawRain(Canvas c, float dt) {
-            p.setStrokeWidth(dp(1));
+            ensureRainSprite();
             for (int i = 0; i < activeRainCount; i++) {
-                p.setColor(i % 5 == 0 ? 0x55DCEBF8 : 0x2AAAC6DC);
-                c.drawLine(x[i], y[i], x[i] - dp(1), y[i] + len[i], p);
+                rainSpritePaint.setAlpha(Math.max(0, Math.min(255, (int)(rainAlpha[i] * 255f))));
+                c.drawBitmap(rainSprite, null,
+                        new RectF(x[i] - dp(1), y[i] - len[i], x[i] + dp(1), y[i]),
+                        rainSpritePaint);
                 if (running) {
                     y[i] += speed[i] * dt;
-                    if (y[i] > getHeight() + len[i]) {
-                        y[i] = -len[i];
+                    if (y[i] - dp(60) > getHeight()) {
+                        y[i] = -dp(20) - (float)Math.random() * dp(60);
                         x[i] = (float)Math.random() * Math.max(1, getWidth());
                     }
                 }
