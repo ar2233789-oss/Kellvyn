@@ -128,6 +128,57 @@ assert_labels "$EVIDENCE_DIR/initial-ui.xml" \
   "Anexos e Web" "Ditado por voz" "Enviar mensagem" \
   "Pergunte qualquer coisa..."
 
+# Exercise each existing bottom navigation control and verify its real native surface.
+tap_label "Histórico de conversas"
+sleep 0.5
+dump_ui "$EVIDENCE_DIR/history-ui.xml"
+assert_labels "$EVIDENCE_DIR/history-ui.xml" "CONVERSAS" "Nova conversa" "Fechar"
+tap_label "Fechar"
+
+tap_label "Navegador"
+sleep 0.5
+dump_ui "$EVIDENCE_DIR/browser-ui.xml"
+assert_labels "$EVIDENCE_DIR/browser-ui.xml" \
+  "Navegador" "Pesquise ou abra um endereço no navegador do aparelho." \
+  "Pesquisa ou endereço" "Pesquisar / abrir" "Cancelar"
+tap_label "Cancelar"
+
+tap_label "Editor"
+sleep 0.5
+dump_ui "$EVIDENCE_DIR/editor-ui.xml"
+assert_labels "$EVIDENCE_DIR/editor-ui.xml" \
+  "CÓDIGOS SALVOS" "PROJETOS" "Nenhum código salvo ainda" "Fechar"
+tap_label "Fechar"
+
+tap_label "Terminal"
+sleep 0.5
+dump_ui "$EVIDENCE_DIR/terminal-ui.xml"
+assert_labels "$EVIDENCE_DIR/terminal-ui.xml" \
+  "TERMINAL TERMUX" "Sessão independente do chat da IA" \
+  "Diretório de trabalho do Termux" "Comando" "Executar" "Abrir Termux completo" "Fechar"
+tap_label "Fechar"
+
+tap_label "Bots"
+sleep 0.5
+dump_ui "$EVIDENCE_DIR/bots-ui.xml"
+assert_labels "$EVIDENCE_DIR/bots-ui.xml" \
+  "APPS, BOTS E PROJETOS" "Bots: confira o estado" \
+  "Nenhum bot Discord ou Telegram compatível foi salvo ainda" "Fechar"
+tap_label "Fechar"
+
+tap_label "Apps"
+sleep 0.5
+dump_ui "$EVIDENCE_DIR/apps-catalog-ui.xml"
+capture_screen "poco-f6-apps-catalog.png"
+assert_labels "$EVIDENCE_DIR/apps-catalog-ui.xml" \
+  "APPS, BOTS E PROJETOS" "Seus apps e projetos salvos" \
+  "Códigos" "Bots ativos" "Navegador / Google" "Ainda não há aplicativos criados" "Fechar"
+tap_label "Fechar"
+tap_label "AI"
+sleep 0.3
+dump_ui "$EVIDENCE_DIR/chat-home-after-navigation.xml"
+assert_labels "$EVIDENCE_DIR/chat-home-after-navigation.xml" "Kellvyn IA" "Anexos e Web" "Enviar mensagem"
+
 # Verify the thinking indicator is controlled by the true generation lifecycle in source,
 # and that completion/failure clears generation state. Model inference itself remains offline here.
 grep -Fq 'private fun LovableThinkingBrain' "$MAIN_ACTIVITY_SOURCE"
@@ -158,12 +209,43 @@ sleep 0.7
 dump_ui "$EVIDENCE_DIR/settings-combined-effects.xml"
 capture_screen "poco-f6-settings-combined-effects.png"
 
-# Close settings; capture the native composite animation on the actual virtual device.
-adb shell input keyevent 4
+# Close settings through its own button; capture the native composite animation on the actual virtual device.
+tap_label "Fechar"
 sleep 7
 capture_screen "poco-f6-rain-lightning.png"
 
-# Exercise the attachment/web menu and prove the toggle can be switched on and back off.
+# Exercise attachment picker and native plugin panel, then prove Web access toggles both ways.
+tap_label "Anexos e Web"
+sleep 0.5
+dump_ui "$EVIDENCE_DIR/plus-menu-initial.xml"
+assert_labels "$EVIDENCE_DIR/plus-menu-initial.xml" "Imagem ou arquivo" "Plugins" "Conectar à Web"
+
+tap_label "Imagem ou arquivo"
+sleep 1
+dump_ui "$EVIDENCE_DIR/file-picker-ui.xml"
+capture_screen "poco-f6-file-picker.png"
+adb shell dumpsys activity activities > "$EVIDENCE_DIR/file-picker-activities.txt" 2>&1 || true
+if grep -Eiq 'documentsui|PhotoPicker|com\.android\.documentsui|picker\.PickActivity' "$EVIDENCE_DIR/file-picker-activities.txt"; then
+  echo "PASS: attachment button opened an Android file/photo picker." >> "$EVIDENCE_DIR/result.txt"
+else
+  echo "WARN: system picker activity name not recognized; inspect file-picker-ui.xml and file-picker-activities.txt." | tee -a "$EVIDENCE_DIR/result.txt"
+fi
+adb shell input keyevent 4
+sleep 0.5
+test -n "$(adb shell pidof com.kellvyn.assistant 2>/dev/null | tr -d '\r' || true)"
+
+tap_label "Anexos e Web"
+sleep 0.4
+tap_label "Plugins"
+sleep 0.7
+dump_ui "$EVIDENCE_DIR/plugins-ui.xml"
+capture_screen "poco-f6-plugins.png"
+assert_labels "$EVIDENCE_DIR/plugins-ui.xml" \
+  "PLUGINS E FERRAMENTAS" "Cérebro local" "Acesso à Web" \
+  "Construtor Android e editor" "Terminal Termux independente" "Bots Discord / Telegram" "Fechar"
+tap_label "Fechar"
+sleep 0.3
+
 tap_label "Anexos e Web"
 sleep 0.5
 dump_ui "$EVIDENCE_DIR/plus-menu-connected-off.xml"
