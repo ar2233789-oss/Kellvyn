@@ -82,6 +82,17 @@ O workflow de QA usa Node.js, sem dependências de terceiros. Ele verifica a est
 - A densidade lógica de 440 dpi do perfil é provisória; 446 PPI descreve a densidade física da tela e não deve ser tratada automaticamente como densidade lógica do Android.
 - O fluxo de transformação da interface Lovable em interface Android nativa ainda precisa de um adaptador de migração específico e validação de paridade. Esta oficina prepara inspeção e relatório; não declara essa conversão concluída.
 
+## Migração da interface Lovable para Android nativo
+
+A estrutura original foi importada para `studio/lovable-source/` como referência de 119 arquivos, incluindo a interface web e o projeto Android Java/Kotlin já existente.
+
+- [Fonte original preservada](./lovable-source/)
+- [Auditoria de controles, funções e animações](./porting/PORT-AUDIT.md)
+- [Cópia de trabalho Android nativa](./native-port/android/)
+- [Execuções de compilação e testes nativos](https://github.com/ar2233789-oss/Kellvyn/actions/workflows/studio-native-port-qa.yml)
+
+A cópia de referência não deve ser editada durante a migração. As mudanças ficam em `studio/native-port/android/`, sem WebView de produção. A auditoria inicial encontrou diferenças concretas no painel dos três pontos, temas, densidade e temporização das partículas; a conversão integral e a validação visual no Poco F6 ainda não estão concluídas.
+
 ## Contrato para a próxima etapa
 
 Antes de usar a oficina para mexer no Kellvyn: carregar o projeto de origem, executar QA, registrar o relatório, preparar um patch isolado, revisar o diff e só então promover uma alteração aprovada. Nenhuma alteração do aplicativo deve ocorrer como efeito colateral de importar ou executar o estúdio.
