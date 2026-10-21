@@ -121,7 +121,31 @@ if [[ -z "$app_pid" ]]; then
   exit 1
 fi
 sleep 4
+
+# Fresh Android 15 images may report a first-boot ANR for the system Pixel Launcher
+# while Kellvyn is already resumed underneath it. Dismiss/wait for that OS dialog and
+# re-read the actual foreground hierarchy before judging application controls.
+for attempt in $(seq 1 6); do
+  dump_ui "$EVIDENCE_DIR/preflight-ui.xml"
+  if ! grep -Fq "Pixel Launcher isn't responding" "$EVIDENCE_DIR/preflight-ui.xml"; then
+    break
+  fi
+  echo "WARN: system Pixel Launcher ANR dialog detected during fresh AVD startup (attempt $attempt)." | tee -a "$EVIDENCE_DIR/result.txt"
+  if grep -Fq 'text="Wait"' "$EVIDENCE_DIR/preflight-ui.xml"; then
+    tap_label "Wait"
+    sleep 4
+  else
+    adb shell input keyevent 4
+    sleep 2
+  fi
+done
+
 dump_ui "$EVIDENCE_DIR/initial-ui.xml"
+if grep -Fq "Pixel Launcher isn't responding" "$EVIDENCE_DIR/initial-ui.xml"; then
+  echo "FAIL: system Pixel Launcher ANR dialog remained over the app after recovery attempts." | tee -a "$EVIDENCE_DIR/result.txt"
+  capture_screen "poco-f6-initial.png"
+  exit 1
+fi
 capture_screen "poco-f6-initial.png"
 assert_labels "$EVIDENCE_DIR/initial-ui.xml" \
   "Kellvyn IA" "Navegador" "Editor" "Terminal" "Bots" "Apps" \
