@@ -1180,10 +1180,10 @@ public class MainActivity extends Activity {
 
         addSettingsHeading(body, "ATALHOS");
         addSettingsAction(body, "Memória local",
-                "O histórico fica salvo no aparelho. O painel dedicado de memórias ainda está sendo portado.",
-                "Detalhes", () -> new AlertDialog.Builder(this).setTitle("Memória local")
-                        .setMessage("O histórico de conversas é salvo neste aparelho. O painel dedicado de memórias do projeto web ainda não foi portado para esta versão nativa.")
-                        .setPositiveButton("Fechar", null).show());
+                "Informações salvas explicitamente por você", "Abrir", () -> {
+                    if (settingsDialog[0] != null) settingsDialog[0].dismiss();
+                    showMemoryPanel();
+                });
 
         Switch virtualAssistant = new Switch(this);
         virtualAssistant.setText("Assistente virtual");
@@ -1193,13 +1193,9 @@ public class MainActivity extends Activity {
         virtualAssistant.setContentDescription("Assistente virtual indisponível nesta versão");
         body.addView(virtualAssistant, new LinearLayout.LayoutParams(-1, dp(44)));
 
-        Switch screenReader = new Switch(this);
-        screenReader.setText("Leitura de tela");
-        screenReader.setTextColor(textColor);
-        screenReader.setTextSize(13);
-        screenReader.setEnabled(false);
-        screenReader.setContentDescription("Leitura de tela ainda não portada");
-        body.addView(screenReader, new LinearLayout.LayoutParams(-1, dp(44)));
+        TextView screenReader = text("Leitura de tela", 13, textColor, false);
+        screenReader.setPadding(dp(4), dp(10), dp(4), dp(10));
+        body.addView(screenReader, new LinearLayout.LayoutParams(-1, dp(40)));
 
         addSettingsHeading(body, "MODO DE JOGO");
         Switch gameMode = new Switch(this);
@@ -1211,19 +1207,6 @@ public class MainActivity extends Activity {
         body.addView(gameMode, new LinearLayout.LayoutParams(-1, dp(44)));
 
         addSettingsHeading(body, "SEGURANÇA");
-        Switch webAccess = new Switch(this);
-        webAccess.setText("Acesso à Web");
-        webAccess.setTextColor(textColor);
-        webAccess.setTextSize(13);
-        webAccess.setChecked(isWebAccessEnabled());
-        webAccess.setOnCheckedChangeListener((button, checked) -> {
-            prefs.edit().putBoolean("web_access", checked).apply();
-            toast(checked
-                    ? "Acesso à Web ativado. Perguntas compatíveis podem consultar a Wikipédia em português."
-                    : "Acesso à Web desativado. As mensagens não farão consultas externas.");
-        });
-        body.addView(webAccess, new LinearLayout.LayoutParams(-1, dp(44)));
-
         Switch protection = new Switch(this);
         protection.setText("Proteção reforçada da IA");
         protection.setTextColor(textColor);
@@ -1250,6 +1233,137 @@ public class MainActivity extends Activity {
             }
         });
         settingsDialog[0].show();
+    }
+
+    private JSONArray readLocalMemories() {
+        try {
+            return new JSONArray(prefs.getString("local_memories", "[]"));
+        } catch (Exception ignored) {
+            return new JSONArray();
+        }
+    }
+
+    private void writeLocalMemories(JSONArray memories) {
+        prefs.edit().putString("local_memories", memories.toString()).apply();
+    }
+
+    private void showMemoryPanel() {
+        JSONArray memories = readLocalMemories();
+        final AlertDialog[] panelDialog = {null};
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(14), dp(8), dp(14), dp(12));
+        scroll.addView(body, new ScrollView.LayoutParams(-1, -2));
+
+        TextView description = text("Informações salvas explicitamente por você", 12, mutedColor, false);
+        description.setPadding(0, 0, 0, dp(10));
+        body.addView(description, new LinearLayout.LayoutParams(-1, -2));
+
+        EditText draft = new EditText(this);
+        draft.setSingleLine(false);
+        draft.setMinLines(1);
+        draft.setMaxLines(3);
+        draft.setHint("Nova informação…");
+        draft.setTextColor(textColor);
+        draft.setHintTextColor(mutedColor);
+        draft.setPadding(dp(10), dp(8), dp(10), dp(8));
+        draft.setBackground(roundRect(panelAltColor, dp(9), 0x5545A989, dp(1)));
+        body.addView(draft, new LinearLayout.LayoutParams(-1, -2));
+
+        TextView add = text("Adicionar memória", 13, accent, true);
+        add.setGravity(Gravity.CENTER);
+        add.setPadding(dp(10), dp(11), dp(10), dp(11));
+        add.setBackground(roundRect(panelColor, dp(9), 0x7745A989, dp(1)));
+        LinearLayout.LayoutParams addLp = new LinearLayout.LayoutParams(-1, -2);
+        addLp.topMargin = dp(7);
+        addLp.bottomMargin = dp(10);
+        body.addView(add, addLp);
+        add.setOnClickListener(v -> {
+            String value = draft.getText().toString().trim();
+            if (value.isEmpty()) {
+                toast("Escreva uma informação antes de salvar.");
+                return;
+            }
+            JSONArray updated = readLocalMemories();
+            updated.put(value);
+            writeLocalMemories(updated);
+            if (panelDialog[0] != null) panelDialog[0].dismiss();
+            showMemoryPanel();
+        });
+
+        if (memories.length() == 0) {
+            TextView empty = text("Nenhuma memória salva ainda.", 12, mutedColor, false);
+            empty.setPadding(dp(2), dp(8), dp(2), dp(8));
+            body.addView(empty, new LinearLayout.LayoutParams(-1, -2));
+        }
+
+        for (int i = 0; i < memories.length(); i++) {
+            final int index = i;
+            String value = memories.optString(i, "");
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.VERTICAL);
+            row.setPadding(dp(10), dp(9), dp(10), dp(9));
+            row.setBackground(roundRect(panelColor, dp(9), 0x4433C995, dp(1)));
+            TextView saved = text(value, 13, textColor, false);
+            saved.setTextIsSelectable(true);
+            row.addView(saved, new LinearLayout.LayoutParams(-1, -2));
+
+            LinearLayout actions = new LinearLayout(this);
+            actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+            TextView edit = text("Editar", 12, accent, true);
+            edit.setPadding(dp(12), dp(8), dp(12), dp(8));
+            edit.setOnClickListener(v -> {
+                if (panelDialog[0] != null) panelDialog[0].dismiss();
+                EditText editor = new EditText(this);
+                editor.setText(value);
+                editor.setTextColor(textColor);
+                editor.setHintTextColor(mutedColor);
+                editor.setMinLines(2);
+                editor.setPadding(dp(10), dp(8), dp(10), dp(8));
+                new AlertDialog.Builder(this).setTitle("Editar memória").setView(editor)
+                        .setPositiveButton("Salvar", (dialog, which) -> {
+                            String edited = editor.getText().toString().trim();
+                            if (edited.isEmpty()) {
+                                toast("A memória não pode ficar vazia.");
+                                showMemoryPanel();
+                                return;
+                            }
+                            JSONArray current = readLocalMemories();
+                            JSONArray updated = new JSONArray();
+                            for (int j = 0; j < current.length(); j++) {
+                                updated.put(j == index ? edited : current.optString(j, ""));
+                            }
+                            writeLocalMemories(updated);
+                            showMemoryPanel();
+                        }).setNegativeButton("Cancelar", (dialog, which) -> showMemoryPanel()).show();
+            });
+            TextView delete = text("Excluir", 12, Color.rgb(240, 105, 105), true);
+            delete.setPadding(dp(12), dp(8), dp(2), dp(8));
+            delete.setOnClickListener(v -> new AlertDialog.Builder(this).setTitle("Excluir memória?")
+                    .setMessage("Esta informação será removida do armazenamento local.")
+                    .setNegativeButton("Cancelar", null)
+                    .setPositiveButton("Excluir", (dialog, which) -> {
+                        JSONArray current = readLocalMemories();
+                        JSONArray updated = new JSONArray();
+                        for (int j = 0; j < current.length(); j++) {
+                            if (j != index) updated.put(current.optString(j, ""));
+                        }
+                        writeLocalMemories(updated);
+                        if (panelDialog[0] != null) panelDialog[0].dismiss();
+                        showMemoryPanel();
+                    }).show());
+            actions.addView(edit, new LinearLayout.LayoutParams(-2, -2));
+            actions.addView(delete, new LinearLayout.LayoutParams(-2, -2));
+            row.addView(actions, new LinearLayout.LayoutParams(-1, -2));
+            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, -2);
+            rowLp.bottomMargin = dp(7);
+            body.addView(row, rowLp);
+        }
+
+        panelDialog[0] = new AlertDialog.Builder(this).setTitle("MEMÓRIA LOCAL")
+                .setView(scroll).setPositiveButton("Fechar", null).create();
+        panelDialog[0].show();
     }
 
     private boolean isWebAccessEnabled() {
