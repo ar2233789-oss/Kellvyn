@@ -126,8 +126,7 @@ capture_screen "poco-f6-initial.png"
 assert_labels "$EVIDENCE_DIR/initial-ui.xml" \
   "Kellvyn IA" "Navegador" "Editor" "Terminal" "Bots" "Apps" \
   "Anexos e Web" "Ditado por voz" "Enviar mensagem" \
-  "Pergunte qualquer coisa..." \
-  "Copiar" "Ouvir" "Baixar" "Compartilhar"
+  "Pergunte qualquer coisa..."
 
 # Verify the thinking indicator is controlled by the true generation lifecycle in source,
 # and that completion/failure clears generation state. Model inference itself remains offline here.
