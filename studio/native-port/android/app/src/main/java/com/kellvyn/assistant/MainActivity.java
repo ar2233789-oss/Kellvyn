@@ -202,10 +202,14 @@ public class MainActivity extends Activity {
         controls.addView(plus, new LinearLayout.LayoutParams(dp(38), dp(38)));
         plus.setOnClickListener(v -> showPlusMenu(v));
 
-        footerStatus = text("Kellvyn · MOTOR LOCAL PENDENTE", 10, mutedColor, false);
+        footerStatus = text("●  Kellvyn  ⌄", 12, textColor, false);
         footerStatus.setSingleLine(true);
-        footerStatus.setGravity(Gravity.CENTER_VERTICAL);
-        controls.addView(footerStatus, new LinearLayout.LayoutParams(0, dp(34), 1));
+        footerStatus.setGravity(Gravity.CENTER);
+        footerStatus.setPadding(dp(10), 0, dp(10), 0);
+        footerStatus.setBackground(roundRect(panelAltColor, dp(8), borderColor, dp(1)));
+        controls.addView(footerStatus, new LinearLayout.LayoutParams(-2, dp(32)));
+        View composerSpacer = new View(this);
+        controls.addView(composerSpacer, new LinearLayout.LayoutParams(0, 1, 1));
 
         TextView mic = iconButton("♩", "Ditado por voz");
         controls.addView(mic, new LinearLayout.LayoutParams(dp(38), dp(38)));
@@ -1607,7 +1611,8 @@ public class MainActivity extends Activity {
     private void updateStatus() {
         if (status != null) status.setText("KELLVYN IA  •  " + engineLabel);
         if (footerStatus != null) {
-            footerStatus.setText("KELLVYN IA  ·  CONVERSA LOCAL  ·  " + engineLabel);
+            footerStatus.setText("●  Kellvyn  ⌄");
+            footerStatus.setTextColor(textColor);
         }
     }
 
