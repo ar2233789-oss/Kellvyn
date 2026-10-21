@@ -351,7 +351,7 @@ class LocalCompilerAgentIntegrationTest {
 
             // Exercise the real main Activity against the same warmed local model instance.
             // These semantics are invisible and do not change the existing visual layout.
-            val appLaunch = shell("am force-stop com.kellvyn.assistant >/dev/null 2>&1; am start -W -n com.kellvyn.assistant/.MainActivity 2>&1")
+            val appLaunch = shell("am start -W -n com.kellvyn.assistant/.MainActivity 2>&1")
             var kellvynUiTree = ""
             val readyDeadline = SystemClock.elapsedRealtime() + 30_000L
             while (SystemClock.elapsedRealtime() < readyDeadline) {
