@@ -152,7 +152,8 @@ public class MainActivity extends Activity {
         TextView headerStatus = text("KELLVYN IA • LOCAL", 9, mutedColor, false);
         headerStatus.setSingleLine(true);
         brand.addView(headerStatus);
-        status = null;
+        // Keep the header status tied to the real local-model readiness state.
+        status = headerStatus;
 
         TextView apps = iconButton("▦", "Apps e APKs");
         header.addView(apps, new LinearLayout.LayoutParams(dp(32), dp(44)));
