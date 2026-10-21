@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   virtual-device-smoke:
-    name: Inspect published APK on virtual Android 15
+    name: Build current native app and inspect it on virtual Android 15
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -28,15 +28,43 @@ jobs:
       - name: Prepare evidence directory
         run: mkdir -p studio-artifacts input-apk
 
-      - name: Download an existing release APK — do not build
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Set up Java and Android SDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK packages
+        shell: bash
         run: |
           set -euo pipefail
-          gh release download --repo "$GITHUB_REPOSITORY" --pattern "app-debug.apk" --dir input-apk
-          test -s input-apk/app-debug.apk
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -n "$SDKMANAGER"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          set +o pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          set -o pipefail
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Compile the exact native Android source from this commit
+        working-directory: studio/native-port/android
+        run: gradle testDebugUnitTest assembleDebug --no-daemon
+
+      - name: Record the freshly compiled APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="studio/native-port/android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          cp "$APK" input-apk/app-debug.apk
           sha256sum input-apk/app-debug.apk | tee studio-artifacts/apk-sha256.txt
-          echo "This workflow downloaded an existing release asset; it did not compile an APK." > studio-artifacts/test-scope.txt
+          echo "This run compiled and tested the native Android source at the checked-out commit before installing it in the virtual device." > studio-artifacts/test-scope.txt
 
       - name: Boot Android 15 virtual device and collect UI evidence
         uses: reactivecircus/android-emulator-runner@v2
