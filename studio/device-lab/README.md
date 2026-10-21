@@ -2,7 +2,7 @@
 
 ## O que este laboratório faz
 
-O workflow do Studio inicializa um Android Emulator com Android 15/API 35, configuração de memória semelhante à meta de 8 GB e resolução de tela sobrescrita para 1220 × 2712 em orientação retrato. Ele baixa o APK de release já compilado, instala-o, abre o pacote e recolhe:
+O workflow do Studio inicializa um Android Emulator com Android 15/API 35, configuração de memória semelhante à meta de 8 GB e resolução de tela sobrescrita para 1220 × 2712 em orientação retrato. Ele compila o código nativo Android do commit testado, executa os testes unitários, instala exatamente esse APK, abre o pacote e recolhe:
 
 - Captura de tela do app.
 - Hierarquia da interface obtida por UI Automator.
@@ -22,10 +22,10 @@ A densidade lógica de 440 dpi é provisória. O PPI físico oficial (446) não 
 
 1. No GitHub, abra Actions e selecione o workflow “Studio — Virtual Poco F6 smoke test”.
 2. Execute “Run workflow” na branch studio-production-suite quando a opção estiver disponível. O workflow também é iniciado por alterações na pasta studio ou no próprio workflow.
-3. O workflow baixa o asset app-debug.apk da release mais recente, sem compilar um APK.
+3. O workflow compila a pasta studio/native-port/android com Gradle, executa testDebugUnitTest e assembleDebug, e instala o APK gerado nessa mesma execução.
 4. Abra os artefatos da execução para acessar a captura, a hierarquia e os logs.
 
-Se não existir uma release com o asset app-debug.apk, o job deve falhar com uma mensagem clara; não criar APK substituto nem marcar o teste como aprovado.
+Se a compilação, os testes, a instalação ou a inicialização falharem, revisar o log da etapa correspondente. Não reutilizar um APK antigo para mascarar falha no código atual.
 
 ## Como interpretar a evidência
 
