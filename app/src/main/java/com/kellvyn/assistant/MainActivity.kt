@@ -2503,7 +2503,13 @@ fun KellvynApp() {
                                         botsOnlyFilter = true
                                         showAppsDialog = true
                                     }
-                                    "Apps" -> { showAppsDialog = false; showPhoneAppsDialog = true }
+                                    "Apps" -> {
+                                        existingProjects.clear()
+                                        existingProjects.addAll(workspaceStore.listProjects())
+                                        botsOnlyFilter = false
+                                        showPhoneAppsDialog = false
+                                        showAppsDialog = true
+                                    }
                                 }
                             }
                             .padding(vertical = 4.dp),
