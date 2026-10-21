@@ -2340,7 +2340,10 @@ fun KellvynApp() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Box(modifier = Modifier.size(34.dp)) {
+                        Box(
+                            modifier = Modifier.size(34.dp)
+                                .semantics { contentDescription = "Anexos e Web" }
+                        ) {
                             Box(
                                 modifier = Modifier.fillMaxSize().clickable { showAttachmentMenu = true },
                                 contentAlignment = Alignment.Center
@@ -2409,7 +2412,9 @@ fun KellvynApp() {
                         }
                         Spacer(Modifier.weight(1f))
                         Box(
-                            modifier = Modifier.size(34.dp).clickable {
+                            modifier = Modifier.size(34.dp)
+                                .semantics { contentDescription = "Ditado por voz" }
+                                .clickable {
                                 if (!SpeechRecognizer.isRecognitionAvailable(context)) {
                                     status = "O reconhecimento de voz não está disponível neste aparelho."
                                 } else {
