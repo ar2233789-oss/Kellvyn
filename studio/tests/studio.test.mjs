@@ -139,9 +139,11 @@ test("persistent Poco F6 memory defines the target profile and honest emulator l
   assert.match(deviceLab, /HyperOS/);
 });
 
-test("virtual-device workflow uses a prebuilt APK and captures evidence without cloud building", () => {
+test("virtual-device workflow builds the current native APK and captures emulator evidence", () => {
   assert.match(emulatorWorkflow, /reactivecircus\/android-emulator-runner@v2/);
-  assert.match(emulatorWorkflow, /gh release download/);
+  assert.match(emulatorWorkflow, /gradle testDebugUnitTest assembleDebug --no-daemon/);
+  assert.match(emulatorWorkflow, /Compile the exact native Android source from this commit/);
+  assert.doesNotMatch(emulatorWorkflow, /gh release download/);
   assert.match(emulatorWorkflow, /adb install -r input-apk\/app-debug\.apk/);
   assert.match(emulatorWorkflow, /wm size 1220x2712/);
   assert.match(emulatorWorkflow, /screencap/);
@@ -149,6 +151,5 @@ test("virtual-device workflow uses a prebuilt APK and captures evidence without 
   assert.match(emulatorWorkflow, /logcat/);
   assert.match(emulatorWorkflow, /dumpsys meminfo/);
   assert.match(emulatorWorkflow, /sha256sum/);
-  assert.doesNotMatch(emulatorWorkflow, /gradlew|assembleDebug|testDebugUnitTest/);
-  assert.match(deviceLab, /APK de release já compilado/);
+  assert.match(emulatorWorkflow, /APK de release já compilado|This run compiled and tested the native Android source/);
 });
