@@ -17,6 +17,7 @@ const profile = JSON.parse(read("memory/POCO_F6_PROFILE.json"));
 const memory = read("memory/OPERATOR_MEMORY.md");
 const deviceLab = read("device-lab/README.md");
 const emulatorWorkflow = read("../.github/workflows/studio-poco-f6-lab.yml");
+const smokeScript = read("run-poco-f6-smoke.sh");
 
 test("interface is divided into four independent studio modules", () => {
   assert.equal((html.match(/data-module="/g) || []).length, 4);
@@ -139,17 +140,26 @@ test("persistent Poco F6 memory defines the target profile and honest emulator l
   assert.match(deviceLab, /HyperOS/);
 });
 
-test("virtual-device workflow builds the current native APK and captures emulator evidence", () => {
+test("virtual Poco F6 workflow builds the production native app and verifies UI interactions", () => {
   assert.match(emulatorWorkflow, /reactivecircus\/android-emulator-runner@v2/);
-  assert.match(emulatorWorkflow, /gradle testDebugUnitTest assembleDebug --no-daemon/);
-  assert.match(emulatorWorkflow, /Compile the exact native Android source from this commit/);
+  assert.match(emulatorWorkflow, /Checkout current native Android app from main/);
+  assert.match(emulatorWorkflow, /working-directory: source-main/);
+  assert.match(emulatorWorkflow, /\.\/gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug/);
+  assert.match(emulatorWorkflow, /script: bash studio\/run-poco-f6-smoke\.sh/);
+  assert.doesNotMatch(emulatorWorkflow, /studio\/native-port\/android/);
   assert.doesNotMatch(emulatorWorkflow, /gh release download/);
-  assert.match(emulatorWorkflow, /adb install -r input-apk\/app-debug\.apk/);
+  assert.match(emulatorWorkflow, /gh release create/);
+  assert.match(emulatorWorkflow, /android-emulator-runner/);
   assert.match(emulatorWorkflow, /wm size 1220x2712/);
-  assert.match(emulatorWorkflow, /screencap/);
-  assert.match(emulatorWorkflow, /uiautomator dump/);
-  assert.match(emulatorWorkflow, /logcat/);
-  assert.match(emulatorWorkflow, /dumpsys meminfo/);
   assert.match(emulatorWorkflow, /sha256sum/);
-  assert.match(emulatorWorkflow, /APK de release já compilado|This run compiled and tested the native Android source/);
+  assert.match(smokeScript, /adb install -r/);
+  assert.match(smokeScript, /uiautomator dump/);
+  assert.match(smokeScript, /screencap/);
+  assert.match(smokeScript, /Anexos e Web/);
+  assert.match(smokeScript, /Conectar à Web/);
+  assert.match(smokeScript, /Desconectar da Web/);
+  assert.match(smokeScript, /Copiar/);
+  assert.match(smokeScript, /Enviar mensagem/);
+  assert.match(smokeScript, /LovableThinkingBrain/);
+  assert.match(smokeScript, /1220x2712/);
 });
