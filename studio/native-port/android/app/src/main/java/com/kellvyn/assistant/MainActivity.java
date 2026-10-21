@@ -16,7 +16,6 @@ import android.graphics.Path;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
 import android.provider.OpenableColumns;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
@@ -1459,139 +1458,172 @@ public class MainActivity extends Activity {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint leafPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint flashPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Handler h = new Handler();
-        private final Runnable frame = this::invalidate;
-        private final int count = 64;
-        private final int particleCount = 42;
+        private final int count = 160;
+        private final int particleCount = 160;
         private final float[] x = new float[count], y = new float[count], speed = new float[count], len = new float[count];
         private final float[] px = new float[particleCount], py = new float[particleCount];
         private final float[] pspeed = new float[particleCount], psize = new float[particleCount], prot = new float[particleCount], protSpeed = new float[particleCount];
         private final float[] boltX = new float[15], boltY = new float[15];
         private Set<String> activeEffects = new HashSet<>();
         private boolean initialized = false, running = false;
-        private int flashFrames = 0;
+        private float flashAlpha = 0f;
         private long nextLightningAt = 0L;
+        private long lastFrameNanos = 0L;
 
         RainView() {
             super(MainActivity.this);
-            flashPaint.setColor(0x18DDE8FF);
             activeEffects = renderEffectSet();
+            if (activeEffects.contains("raios")) {
+                nextLightningAt = System.currentTimeMillis() + 2000L + (long)(Math.random() * 4000L);
+            }
         }
 
         void setEffects(Set<String> effects) {
+            boolean hadLightning = activeEffects.contains("raios");
             activeEffects = new HashSet<>(effects);
-            if (activeEffects.contains("raios") && nextLightningAt == 0L) {
-                nextLightningAt = System.currentTimeMillis() + 1200L;
+            if (activeEffects.contains("raios") && !hadLightning) {
+                nextLightningAt = System.currentTimeMillis() + 2000L + (long)(Math.random() * 4000L);
+            } else if (!activeEffects.contains("raios")) {
+                nextLightningAt = 0L;
+                flashAlpha = 0f;
             }
+            lastFrameNanos = 0L;
             invalidate();
         }
 
         private void init() {
-            for (int i=0;i<count;i++) {
-                x[i] = (float)Math.random()*Math.max(1,getWidth());
-                y[i] = (float)Math.random()*Math.max(1,getHeight());
-                speed[i] = dp(5) + (float)Math.random()*dp(10);
-                len[i] = dp(14) + (float)Math.random()*dp(36);
+            float width = Math.max(1, getWidth());
+            float height = Math.max(1, getHeight());
+            for (int i = 0; i < count; i++) {
+                x[i] = (float)Math.random() * width;
+                y[i] = (float)Math.random() * height;
+                speed[i] = dp(140) + (float)Math.random() * dp(380);
+                len[i] = dp(18) + (float)Math.random() * dp(50);
             }
-            for (int i=0;i<particleCount;i++) {
-                px[i] = (float)Math.random()*Math.max(1,getWidth());
-                py[i] = (float)Math.random()*Math.max(1,getHeight());
-                pspeed[i] = dp(1) + (float)Math.random()*dp(2.4f);
-                psize[i] = dp(1) + (float)Math.random()*dp(2.3f);
-                prot[i] = (float)Math.random()*360f;
-                protSpeed[i] = -2.5f + (float)Math.random()*5f;
+            for (int i = 0; i < particleCount; i++) {
+                px[i] = (float)Math.random() * width;
+                py[i] = (float)Math.random() * height;
+                pspeed[i] = dp(25) + (float)Math.random() * dp(55);
+                psize[i] = dp(1) + (float)Math.random() * dp(2.6f);
+                prot[i] = (float)Math.random() * 360f;
+                protSpeed[i] = (-2.5f + (float)Math.random() * 5f) * 57.29578f;
             }
             initialized = true;
         }
 
-        private void drawRain(Canvas c) {
+        @Override protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+            super.onSizeChanged(w, h, oldw, oldh);
+            initialized = false;
+            lastFrameNanos = 0L;
+        }
+
+        private void drawRain(Canvas c, float dt) {
             p.setStrokeWidth(dp(1));
-            for (int i=0;i<count;i++) {
-                p.setColor(i%5==0 ? 0x3BDCEBF8 : 0x1DAAC6DC);
-                c.drawLine(x[i], y[i], x[i]-dp(1), y[i]+len[i], p);
+            for (int i = 0; i < count; i++) {
+                p.setColor(i % 5 == 0 ? 0x55DCEBF8 : 0x2AAAC6DC);
+                c.drawLine(x[i], y[i], x[i] - dp(1), y[i] + len[i], p);
                 if (running) {
-                    y[i] += speed[i];
-                    if (y[i] > getHeight()) {
+                    y[i] += speed[i] * dt;
+                    if (y[i] > getHeight() + len[i]) {
                         y[i] = -len[i];
-                        x[i] = (float)Math.random()*getWidth();
+                        x[i] = (float)Math.random() * Math.max(1, getWidth());
                     }
                 }
             }
         }
 
-        private void drawSnow(Canvas c) {
+        private void drawSnow(Canvas c, float dt, float timeSeconds) {
             p.setColor(0xBBDDEEFF);
-            for (int i=0;i<particleCount;i++) {
+            for (int i = 0; i < particleCount; i++) {
                 c.drawCircle(px[i], py[i], psize[i], p);
                 if (running) {
-                    py[i] += pspeed[i];
-                    px[i] += (float)Math.sin((py[i] + i) * 0.015f) * dp(0.4f);
+                    py[i] += pspeed[i] * dt;
+                    px[i] += (float)Math.sin(timeSeconds * 0.8f + i * 0.31f) * dp(18) * dt;
                     if (py[i] > getHeight() + psize[i]) {
                         py[i] = -psize[i];
-                        px[i] = (float)Math.random()*getWidth();
+                        px[i] = (float)Math.random() * Math.max(1, getWidth());
                     }
                 }
             }
         }
 
-        private void drawLeaves(Canvas c) {
-            for (int i=0;i<particleCount/2;i++) {
+        private void drawLeaves(Canvas c, float dt, float timeSeconds) {
+            for (int i = 0; i < particleCount; i++) {
                 c.save();
                 c.rotate(prot[i], px[i], py[i]);
-                leafPaint.setColor(new int[]{0xCCC9682B, 0xCCD9A441, 0xCC8E3B1F, 0xCCA8B04A}[i%4]);
-                c.drawOval(px[i]-psize[i]*2.5f, py[i]-psize[i], px[i]+psize[i]*2.5f, py[i]+psize[i], leafPaint);
+                leafPaint.setColor(new int[]{0xCCC9682B, 0xCCD9A441, 0xCC8E3B1F, 0xCCA8B04A}[i % 4]);
+                c.drawOval(px[i] - psize[i] * 2.5f, py[i] - psize[i], px[i] + psize[i] * 2.5f, py[i] + psize[i], leafPaint);
                 c.restore();
                 if (running) {
-                    py[i] += pspeed[i] * 1.15f;
-                    px[i] += (float)Math.sin(py[i] * 0.012f) * dp(0.8f);
-                    prot[i] += protSpeed[i];
+                    py[i] += pspeed[i] * 1.15f * dt;
+                    px[i] += (float)Math.sin(timeSeconds * 1.2f + i * 0.27f) * dp(40) * dt;
+                    prot[i] += protSpeed[i] * dt;
                     if (py[i] > getHeight() + dp(12)) {
                         py[i] = -dp(12);
-                        px[i] = (float)Math.random()*getWidth();
+                        px[i] = (float)Math.random() * Math.max(1, getWidth());
                     }
                 }
             }
         }
 
-        private void drawLightning(Canvas c) {
+        private void drawLightning(Canvas c, float dt) {
             long now = System.currentTimeMillis();
-            if (flashFrames <= 0 && now >= nextLightningAt) {
-                float bx = getWidth() * (0.2f + (float)Math.random()*0.6f);
+            if (flashAlpha <= 0f && now >= nextLightningAt) {
+                float bx = getWidth() * (0.2f + (float)Math.random() * 0.6f);
                 float by = 0f;
-                for (int i=0;i<boltX.length;i++) {
+                for (int i = 0; i < boltX.length; i++) {
                     boltX[i] = bx;
                     boltY[i] = by;
-                    bx += (-getWidth()*0.055f + (float)Math.random()*getWidth()*0.11f);
+                    bx += (-getWidth() * 0.055f + (float)Math.random() * getWidth() * 0.11f);
                     by += getHeight() / (float)(boltX.length - 1);
                 }
-                flashFrames = 3;
-                nextLightningAt = now + 3500L + (long)(Math.random()*5500L);
+                flashAlpha = 1f;
+                nextLightningAt = now + 3000L + (long)(Math.random() * 6000L);
             }
-            if (flashFrames > 0) {
+            if (flashAlpha > 0f) {
+                flashPaint.setColor(Color.argb((int)(255 * flashAlpha * 0.12f), 221, 232, 255));
                 c.drawRect(0, 0, getWidth(), getHeight(), flashPaint);
-                p.setColor(0xFFEAF1FF);
-                p.setStrokeWidth(dp(1.8f));
-                p.setShadowLayer(dp(12), 0, 0, 0xFF9DB8FF);
+                p.setColor(Color.rgb(234, 241, 255));
+                p.setAlpha((int)(255 * flashAlpha * 0.85f));
+                p.setStrokeWidth(dp(1.6f));
+                p.setShadowLayer(dp(14), 0, 0, 0xFF9DB8FF);
                 Path path = new Path();
                 path.moveTo(boltX[0], boltY[0]);
-                for (int i=1;i<boltX.length;i++) path.lineTo(boltX[i], boltY[i]);
+                for (int i = 1; i < boltX.length; i++) path.lineTo(boltX[i], boltY[i]);
                 c.drawPath(path, p);
                 p.clearShadowLayer();
-                flashFrames--;
+                p.setAlpha(255);
+                flashAlpha = Math.max(0f, flashAlpha - dt * 2.2f);
             }
         }
 
-        void start() { if (!running) { running = true; h.post(frame); } }
-        void stop() { running = false; h.removeCallbacks(frame); }
+        void start() {
+            if (!running) {
+                running = true;
+                lastFrameNanos = 0L;
+                postInvalidateOnAnimation();
+            }
+        }
+
+        void stop() {
+            running = false;
+            lastFrameNanos = 0L;
+        }
+
         @Override protected void onDraw(Canvas c) {
             super.onDraw(c);
             if (getWidth() == 0 || getHeight() == 0) return;
             if (!initialized) init();
-            if (activeEffects.contains("chuva")) drawRain(c);
-            if (activeEffects.contains("neve")) drawSnow(c);
-            if (activeEffects.contains("folhas")) drawLeaves(c);
-            if (activeEffects.contains("raios")) drawLightning(c);
-            if (running && !activeEffects.isEmpty()) h.postDelayed(frame, 45);
+            long nowNanos = System.nanoTime();
+            float dt = lastFrameNanos == 0L ? 1f / 60f
+                    : Math.min((nowNanos - lastFrameNanos) / 1_000_000_000f, 1f / 30f);
+            lastFrameNanos = nowNanos;
+            float timeSeconds = nowNanos / 1_000_000_000f;
+            if (activeEffects.contains("chuva")) drawRain(c, dt);
+            if (activeEffects.contains("neve")) drawSnow(c, dt, timeSeconds);
+            if (activeEffects.contains("folhas")) drawLeaves(c, dt, timeSeconds);
+            if (activeEffects.contains("raios")) drawLightning(c, dt);
+            if (running && !activeEffects.isEmpty()) postInvalidateOnAnimation();
         }
     }
 }
