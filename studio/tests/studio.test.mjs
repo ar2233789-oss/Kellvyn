@@ -143,8 +143,12 @@ test("persistent Poco F6 memory defines the target profile and honest emulator l
 test("virtual Poco F6 workflow builds the production native app and verifies UI interactions", () => {
   assert.match(emulatorWorkflow, /reactivecircus\/android-emulator-runner@v2/);
   assert.match(emulatorWorkflow, /Checkout current native Android app from main/);
-  assert.match(emulatorWorkflow, /working-directory: source-main/);
-  assert.match(emulatorWorkflow, /\.\/gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug/);
+  assert.match(emulatorWorkflow, /Fetch the successful production APK for this exact source commit/);
+  assert.match(emulatorWorkflow, /actions\/workflows\/android-apk\.yml\/runs/);
+  assert.match(emulatorWorkflow, /gh release download/);
+  assert.match(emulatorWorkflow, /EXPECTED_DIGEST/);
+  assert.match(emulatorWorkflow, /ACTUAL_DIGEST/);
+  assert.doesNotMatch(emulatorWorkflow, /gradle setup-gradle|working-directory: source-main/);
   assert.match(emulatorWorkflow, /script: bash studio\/run-poco-f6-smoke\.sh/);
   assert.doesNotMatch(emulatorWorkflow, /studio\/native-port\/android/);
   assert.doesNotMatch(emulatorWorkflow, /gh release download/);
