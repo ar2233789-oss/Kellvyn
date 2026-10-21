@@ -43,3 +43,25 @@ A cópia de referência foi importada para o Studio, incluindo o código React/C
 3. Usar a versão web para inventário e comparação, nunca como WebView de produção.
 4. Preservar a lógica original dos três pontos e todos os seis destinos da barra inferior.
 5. Não declarar a conversão concluída até compilar o APK, executar testes e comparar visualmente a interface e as animações.
+
+## Atualização de execução — 2026-10-21
+
+### Ajustes já aplicados na cópia Android
+
+- Cabeçalho nativo: incluído o símbolo luminoso Kellvyn e o atalho superior Apps/APKs, ausentes na primeira versão do port.
+- Status do cabeçalho: agora reutiliza o estado real de prontidão do motor local em vez de exibir um rótulo estático.
+- Clima: a quantidade desenhada de gotas/neve agora é dimensionada pela área da tela, com limite de 160 partículas por camada, aproximando as densidades por área do Canvas original.
+- A cópia de referência em `studio/lovable-source/` continua intocada.
+
+### Ainda não certificado como paridade 100%
+
+- A composição principal continua implementada com Android Views/Canvas, enquanto o original usa React/CSS. Os dois não são automaticamente pixel-idênticos.
+- Os ícones da barra inferior ainda usam glifos de texto, não os mesmos desenhos vetoriais do original.
+- A área de composição, balões de mensagens, ações de resposta e painéis de configurações ainda precisam de comparação visual e ajustes de medidas/estados.
+- A chuva nativa ainda precisa de comparação lado a lado; a contagem foi corrigida, mas sprites, alfa por partícula, comprimentos, rotação e temporização podem continuar diferentes.
+- O catálogo Apps/APKs ainda é um placeholder e não deve ser considerado funcionalmente concluído.
+- Assistente virtual e modo de jogo continuam desativados; não devem ser apresentados como recursos prontos.
+- O workflow de compilação/testes está sendo executado para o commit atual. Só um resultado verde pode confirmar compilação e testes automatizados; isso não certifica a aparência no Poco F6 físico.
+- A publicação do Studio pela GitHub Pages depende de Pages estar habilitado no repositório; a conexão de automação não tem permissão administrativa para ativar essa configuração.
+
+**Critério de conclusão:** não declarar 100% de identidade até que a versão nativa seja compilada, suas telas/estados sejam capturados no laboratório e comparados com capturas correspondentes do Lovable, e os controles principais sejam testados. Nenhuma mudança nesta auditoria autoriza editar a fonte original.
