@@ -1816,7 +1816,7 @@ public class MainActivity extends Activity {
             Canvas spriteCanvas = new Canvas(rainSprite);
             Paint spritePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             spritePaint.setShader(new LinearGradient(0, 0, 0, 64,
-                    new int[]{0x00CFE3F2, 0xFF DCEBF8}, null, Shader.TileMode.CLAMP));
+                    new int[]{0x00CFE3F2, 0xFFDCEBF8}, null, Shader.TileMode.CLAMP));
             spriteCanvas.drawRect(1, 0, 3, 64, spritePaint);
             spritePaint.setShader(null);
         }
