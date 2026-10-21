@@ -154,7 +154,8 @@ test("virtual Poco F6 workflow builds the production native app and verifies UI 
   assert.match(emulatorWorkflow, /gh release download/);
   assert.match(emulatorWorkflow, /gh release create/);
   assert.match(emulatorWorkflow, /android-emulator-runner/);
-  assert.match(smokeScript, /wm size 1220x2712/);
+  assert.match(smokeScript, /display-size-configured\.txt/);
+  assert.match(smokeScript, /1220x2712/);
   assert.match(emulatorWorkflow, /sha256sum/);
   assert.match(smokeScript, /adb install -r/);
   assert.match(smokeScript, /uiautomator dump/);

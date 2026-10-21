@@ -308,7 +308,10 @@ dump_ui "$EVIDENCE_DIR/plus-menu-connected-on.xml"
 assert_labels "$EVIDENCE_DIR/plus-menu-connected-on.xml" "Imagem ou arquivo" "Plugins" "Desconectar da Web"
 tap_label "Desconectar da Web"
 sleep 0.5
-adb shell input keyevent 4
+# The menu selection closes itself; do not send an extra Back because it exits the main Activity.
+dump_ui "$EVIDENCE_DIR/chat-home-after-web-toggle.xml"
+assert_labels "$EVIDENCE_DIR/chat-home-after-web-toggle.xml" \
+  "Kellvyn IA" "Anexos e Web" "Enviar mensagem" "Pergunte qualquer coisa..."
 
 # Send a deterministic identity question that must work offline; verify chat and response action controls.
 tap_label "Pergunte qualquer coisa..."
