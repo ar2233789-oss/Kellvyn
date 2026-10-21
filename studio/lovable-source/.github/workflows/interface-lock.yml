@@ -1,0 +1,31 @@
+name: Protect Lovable interface
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/interface-lock.sha"
+      - ".github/workflows/interface-lock.yml"
+      - "scripts/check-interface-lock.sh"
+      - "src/components/kellvyn/**"
+      - "src/styles.css"
+  push:
+    branches: [main]
+    paths:
+      - ".github/interface-lock.sha"
+      - ".github/workflows/interface-lock.yml"
+      - "scripts/check-interface-lock.sh"
+      - "src/components/kellvyn/**"
+      - "src/styles.css"
+
+permissions:
+  contents: read
+
+jobs:
+  interface-lock:
+    name: Reject unapproved interface changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify approved interface fingerprints
+        run: bash scripts/check-interface-lock.sh
