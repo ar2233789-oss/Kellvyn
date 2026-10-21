@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: studio-poco-f6-lab-${{ github.ref }}
@@ -40,43 +41,28 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Android SDK packages
+
+      - name: Fetch the successful production APK for this exact source commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
-          test -n "$SDKMANAGER"
-          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
-          set +o pipefail
-          yes | "$SDKMANAGER" --licenses >/dev/null
-          set -o pipefail
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.13'
-
-      - name: Compile and unit-test the latest native app from main
-        working-directory: source-main
-        shell: bash
-        run: |
-          set -euo pipefail
-          chmod +x ./gradlew
-          ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
-
-      - name: Record the freshly compiled APK and source identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK="source-main/app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK"
-          cp "$APK" input-apk/app-debug.apk
-          sha256sum input-apk/app-debug.apk | tee studio-artifacts/apk-sha256.txt
           SOURCE_COMMIT="$(git -C source-main rev-parse HEAD)"
+          BUILD_RUN_NUMBER="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/android-apk.yml/runs?per_page=100" --jq ".workflow_runs[] | select(.head_sha == \"$SOURCE_COMMIT\" and .conclusion == \"success\") | .run_number" | head -n 1)"
+          test -n "$BUILD_RUN_NUMBER"
+          BUILD_TAG="kellvyn-apk-build-$BUILD_RUN_NUMBER"
+          mkdir -p input-apk studio-artifacts
+          gh release download "$BUILD_TAG" --repo "$GITHUB_REPOSITORY" --pattern "app-debug.apk" --dir input-apk
+          test -s input-apk/app-debug.apk
+          EXPECTED_DIGEST="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$BUILD_TAG" --jq '.assets[] | select(.name == "app-debug.apk") | .digest' | sed 's/^sha256://')"
+          ACTUAL_DIGEST="$(sha256sum input-apk/app-debug.apk | awk '{print $1}')"
+          test -n "$EXPECTED_DIGEST"
+          test "$ACTUAL_DIGEST" = "$EXPECTED_DIGEST"
           printf "Native source commit: %s\n" "$SOURCE_COMMIT" > studio-artifacts/test-scope.txt
-          printf "Built source: main/app (Kotlin/Jetpack Compose)\n" >> studio-artifacts/test-scope.txt
+          printf "Matching successful build run: %s\n" "$BUILD_RUN_NUMBER" >> studio-artifacts/test-scope.txt
+          printf "Verified release tag: %s\n" "$BUILD_TAG" >> studio-artifacts/test-scope.txt
+          printf "APK SHA-256: %s\n" "$ACTUAL_DIGEST" | tee studio-artifacts/apk-sha256.txt
 
       - name: Boot Android 15 virtual device and collect UI evidence
         uses: reactivecircus/android-emulator-runner@v2
