@@ -24,8 +24,21 @@ trap capture_diagnostics EXIT
 
 dump_ui() {
   local destination="$1"
-  adb shell uiautomator dump /sdcard/kellvyn-ui.xml >/dev/null
-  adb pull /sdcard/kellvyn-ui.xml "$destination" >/dev/null
+  local remote="/sdcard/kellvyn-ui.xml"
+  local dump_log="$EVIDENCE_DIR/uiautomator-dump.log"
+  for attempt in $(seq 1 8); do
+    if adb shell uiautomator dump --compressed "$remote" > "$dump_log" 2>&1 \
+      && adb pull "$remote" "$destination" >/dev/null 2>&1 \
+      && test -s "$destination" \
+      && grep -q '<hierarchy' "$destination"; then
+      return 0
+    fi
+    echo "WARN: UIAutomator hierarchy attempt $attempt/8 failed; retrying after 2 seconds." | tee -a "$EVIDENCE_DIR/result.txt"
+    sleep 2
+  done
+  echo "FAIL: UIAutomator could not produce a valid hierarchy after eight attempts." | tee -a "$EVIDENCE_DIR/result.txt"
+  cat "$dump_log" >> "$EVIDENCE_DIR/result.txt" 2>/dev/null || true
+  return 1
 }
 
 assert_labels() {
