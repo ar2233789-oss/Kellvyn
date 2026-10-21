@@ -139,7 +139,7 @@ public class MainActivity extends Activity {
         shell.addView(header, new LinearLayout.LayoutParams(-1, dp(56)));
 
         // Match the actual Lovable header: history menu, one-line title, settings.
-        TextView menu = iconButton("☰", "Histórico de conversas");
+        View menu = vectorIconButton("menu", "Histórico de conversas", accent);
         header.addView(menu, new LinearLayout.LayoutParams(dp(36), dp(36)));
         menu.setOnClickListener(v -> showHistory());
 
@@ -152,7 +152,8 @@ public class MainActivity extends Activity {
         header.addView(title, titleLp);
         status = null;
 
-        TextView settings = iconButton("⋮", "Configurações");
+        // Keep the original accent on the three-dot menu; no dull gray glyph or oversized glow.
+        View settings = vectorIconButton("more", "Configurações", accent);
         header.addView(settings, new LinearLayout.LayoutParams(dp(36), dp(36)));
         settings.setOnClickListener(v -> showSettings());
 
@@ -198,8 +199,7 @@ public class MainActivity extends Activity {
         controls.setPadding(0, dp(4), 0, 0);
         composerPanel.addView(controls, new LinearLayout.LayoutParams(-1, dp(42)));
 
-        TextView plus = iconButton("+", "Anexos e Web");
-        plus.setTextSize(25);
+        View plus = vectorIconButton("plus", "Anexos e Web", mutedColor);
         controls.addView(plus, new LinearLayout.LayoutParams(dp(38), dp(38)));
         plus.setOnClickListener(v -> showPlusMenu(v));
 
@@ -212,12 +212,11 @@ public class MainActivity extends Activity {
         View composerSpacer = new View(this);
         controls.addView(composerSpacer, new LinearLayout.LayoutParams(0, 1, 1));
 
-        TextView mic = iconButton("♩", "Ditado por voz");
+        View mic = vectorIconButton("mic", "Ditado por voz", mutedColor);
         controls.addView(mic, new LinearLayout.LayoutParams(dp(38), dp(38)));
         mic.setOnClickListener(v -> startSpeech());
 
-        TextView send = iconButton("↑", "Enviar mensagem");
-        send.setTextSize(23);
+        View send = vectorIconButton("send", "Enviar mensagem", accent);
         controls.addView(send, new LinearLayout.LayoutParams(dp(38), dp(38)));
         send.setOnClickListener(v -> sendMessage());
 
@@ -253,6 +252,101 @@ public class MainActivity extends Activity {
         t.setTextColor(color);
         if (bold) t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         return t;
+    }
+
+    private View vectorIconButton(String icon, String description, int color) {
+        IconGlyphView view = new IconGlyphView(icon, color);
+        view.setContentDescription(description);
+        view.setClickable(true);
+        view.setFocusable(true);
+        view.setBackground(roundRect(0x00000000, dp(10), 0, 0));
+        view.setOnTouchListener((v, event) -> {
+            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) v.setAlpha(0.68f);
+            if (event.getAction() == android.view.MotionEvent.ACTION_UP || event.getAction() == android.view.MotionEvent.ACTION_CANCEL) v.setAlpha(1f);
+            return false;
+        });
+        return view;
+    }
+
+    /** Lucide-like line icons for the primary composer and message actions. */
+    private final class IconGlyphView extends View {
+        private final String kind;
+        private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        IconGlyphView(String kind, int color) {
+            super(MainActivity.this);
+            this.kind = kind;
+            stroke.setColor(color);
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(dp(1.7f));
+            stroke.setStrokeCap(Paint.Cap.ROUND);
+            stroke.setStrokeJoin(Paint.Join.ROUND);
+        }
+        private void line(Canvas c, float... xy) {
+            Path path = new Path();
+            path.moveTo(xy[0], xy[1]);
+            for (int i = 2; i < xy.length; i += 2) path.lineTo(xy[i], xy[i + 1]);
+            c.drawPath(path, stroke);
+        }
+        private void round(Canvas c, float l, float t, float r, float b, float radius) {
+            c.drawRoundRect(l, t, r, b, radius, radius, stroke);
+        }
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float d = getResources().getDisplayMetrics().density;
+            float size = dp(20), ox = (getWidth() - size) / 2f, oy = (getHeight() - size) / 2f;
+            canvas.save();
+            canvas.translate(ox, oy);
+            canvas.scale(d, d);
+            switch (kind) {
+                case "menu":
+                    line(canvas, 3, 6, 21, 6);
+                    line(canvas, 3, 12, 21, 12);
+                    line(canvas, 3, 18, 21, 18);
+                    break;
+                case "more":
+                    canvas.drawCircle(12, 5, 1, stroke);
+                    canvas.drawCircle(12, 12, 1, stroke);
+                    canvas.drawCircle(12, 19, 1, stroke);
+                    break;
+                case "plus":
+                    line(canvas, 12, 4, 12, 20);
+                    line(canvas, 4, 12, 20, 12);
+                    break;
+                case "mic":
+                    round(canvas, 9, 2.5f, 15, 14, 3);
+                    line(canvas, 5, 11, 5, 12, 12, 19, 19, 12, 19, 11);
+                    line(canvas, 12, 19, 12, 22);
+                    line(canvas, 8, 22, 16, 22);
+                    break;
+                case "send":
+                    line(canvas, 3, 11, 21, 3, 16, 21, 11, 14, 3, 11);
+                    line(canvas, 11, 14, 21, 3);
+                    break;
+                case "copy":
+                    round(canvas, 8, 8, 19, 20, 2);
+                    line(canvas, 5, 16, 5, 5, 16, 5);
+                    break;
+                case "volume":
+                    line(canvas, 3, 10, 7, 10, 12, 6, 12, 18, 7, 14, 3, 14, 3, 10);
+                    Path sound = new Path();
+                    sound.moveTo(16, 9); sound.quadTo(20, 12, 16, 15);
+                    canvas.drawPath(sound, stroke);
+                    break;
+                case "download":
+                    line(canvas, 12, 3, 12, 15);
+                    line(canvas, 7, 10, 12, 15, 17, 10);
+                    line(canvas, 4, 19, 4, 21, 20, 21, 20, 19);
+                    break;
+                case "share":
+                    canvas.drawCircle(18, 5, 2.3f, stroke);
+                    canvas.drawCircle(6, 12, 2.3f, stroke);
+                    canvas.drawCircle(18, 19, 2.3f, stroke);
+                    line(canvas, 8, 11, 16, 6);
+                    line(canvas, 8, 13, 16, 18);
+                    break;
+            }
+            canvas.restore();
+        }
     }
 
     private TextView iconButton(String glyph, String description) {
@@ -308,10 +402,10 @@ public class MainActivity extends Activity {
             LinearLayout actions = new LinearLayout(this);
             actions.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             actions.setPadding(dp(1), dp(1), 0, 0);
-            addMessageAction(actions, "▢", "Copiar", () -> copyText(bubble.getText().toString()));
-            addMessageAction(actions, "♫", "Ouvir", () -> speakText(bubble.getText().toString()));
-            addMessageAction(actions, "↓", "Baixar", () -> downloadText(bubble.getText().toString()));
-            addMessageAction(actions, "↗", "Compartilhar", () -> shareText(bubble.getText().toString()));
+            addMessageAction(actions, "copy", "Copiar", () -> copyText(bubble.getText().toString()));
+            addMessageAction(actions, "volume", "Ouvir", () -> speakText(bubble.getText().toString()));
+            addMessageAction(actions, "download", "Baixar", () -> downloadText(bubble.getText().toString()));
+            addMessageAction(actions, "share", "Compartilhar", () -> shareText(bubble.getText().toString()));
             column.addView(actions, new LinearLayout.LayoutParams(-2, dp(30)));
             row.addView(column, new LinearLayout.LayoutParams(-2, -2));
         }
@@ -322,10 +416,8 @@ public class MainActivity extends Activity {
         return bubble;
     }
 
-    private void addMessageAction(LinearLayout parent, String glyph, String description, Runnable action) {
-        TextView button = text(glyph, 17, mutedColor, false);
-        button.setGravity(Gravity.CENTER);
-        button.setContentDescription(description);
+    private void addMessageAction(LinearLayout parent, String icon, String description, Runnable action) {
+        View button = vectorIconButton(icon, description, mutedColor);
         button.setBackground(roundRect(0x00000000, dp(7), 0, 0));
         button.setOnClickListener(v -> action.run());
         parent.addView(button, new LinearLayout.LayoutParams(dp(34), dp(30)));
@@ -795,10 +887,13 @@ public class MainActivity extends Activity {
         item.setContentDescription(label);
         item.setBackground(roundRect(0x00000000, dp(8), 0, 0));
 
-        NavIconView symbol = new NavIconView(label, "AI".equals(label) ? accent : mixColors(accent, backgroundColor, 0.18f));
+        // Inactive tabs use the original muted foreground. Blending the neon accent
+        // into the background made every icon look oversaturated on the native port.
+        int navColor = "AI".equals(label) ? mixColors(accent, backgroundColor, 0.28f) : mutedColor;
+        NavIconView symbol = new NavIconView(label, navColor);
         item.addView(symbol, new LinearLayout.LayoutParams(dp(24), dp(25)));
 
-        TextView caption = text(label, 10, "AI".equals(label) ? accent : mutedColor, false);
+        TextView caption = text(label, 10, "AI".equals(label) ? mixColors(accent, backgroundColor, 0.20f) : mutedColor, false);
         caption.setGravity(Gravity.CENTER);
         caption.setIncludeFontPadding(false);
         item.addView(caption, new LinearLayout.LayoutParams(-1, dp(15)));
@@ -1993,6 +2088,7 @@ public class MainActivity extends Activity {
         private final Paint leafPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint flashPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint rainSpritePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF rainDestination = new RectF();
         private Bitmap rainSprite;
         // Match the Lovable particle density per screen area instead of drawing
         // the maximum number of particles on every phone size.
@@ -2028,6 +2124,10 @@ public class MainActivity extends Activity {
                 flashAlpha = 0f;
             }
             lastFrameNanos = 0L;
+            if (activeEffects.isEmpty()) {
+                flashAlpha = 0f;
+                nextLightningAt = 0L;
+            }
             invalidate();
         }
 
@@ -2080,9 +2180,8 @@ public class MainActivity extends Activity {
             ensureRainSprite();
             for (int i = 0; i < activeRainCount; i++) {
                 rainSpritePaint.setAlpha(Math.max(0, Math.min(255, (int)(rainAlpha[i] * 255f))));
-                c.drawBitmap(rainSprite, null,
-                        new RectF(x[i] - dp(1), y[i] - len[i], x[i] + dp(1), y[i]),
-                        rainSpritePaint);
+                rainDestination.set(x[i] - dp(1), y[i] - len[i], x[i] + dp(1), y[i]);
+                c.drawBitmap(rainSprite, null, rainDestination, rainSpritePaint);
                 if (running) {
                     y[i] += speed[i] * dt;
                     if (y[i] - dp(60) > getHeight()) {
@@ -2143,12 +2242,14 @@ public class MainActivity extends Activity {
                 nextLightningAt = now + 3000L + (long)(Math.random() * 6000L);
             }
             if (flashAlpha > 0f) {
-                flashPaint.setColor(Color.argb((int)(255 * flashAlpha * 0.12f), 221, 232, 255));
+                // Subtle, pale lightning like the Lovable canvas: avoid a blue-white
+                // full-screen wash and an opaque saturated glow.
+                flashPaint.setColor(Color.argb((int)(255 * flashAlpha * 0.035f), 221, 232, 255));
                 c.drawRect(0, 0, getWidth(), getHeight(), flashPaint);
                 p.setColor(Color.rgb(234, 241, 255));
-                p.setAlpha((int)(255 * flashAlpha * 0.85f));
-                p.setStrokeWidth(dp(1.6f));
-                p.setShadowLayer(dp(14), 0, 0, 0xFF9DB8FF);
+                p.setAlpha((int)(255 * flashAlpha * 0.48f));
+                p.setStrokeWidth(dp(1.4f));
+                p.setShadowLayer(dp(8), 0, 0, 0x559DB8FF);
                 Path path = new Path();
                 path.moveTo(boltX[0], boltY[0]);
                 for (int i = 1; i < boltX.length; i++) path.lineTo(boltX[i], boltY[i]);
@@ -2185,7 +2286,13 @@ public class MainActivity extends Activity {
             if (activeEffects.contains("neve")) drawSnow(c, dt, timeSeconds);
             if (activeEffects.contains("folhas")) drawLeaves(c, dt, timeSeconds);
             if (activeEffects.contains("raios")) drawLightning(c, dt);
-            if (running && !activeEffects.isEmpty()) postInvalidateOnAnimation();
+            if (running && !activeEffects.isEmpty()) {
+                postInvalidateOnAnimation();
+            } else {
+                // Stop the frame loop completely when no effects are enabled. Reset the
+                // clock so re-enabling an effect never catches up with a stale frame.
+                lastFrameNanos = 0L;
+            }
         }
     }
 }
