@@ -54,8 +54,8 @@
 ### 5. Laboratório virtual de Android
 
 - O workflow .github/workflows/studio-poco-f6-lab.yml prepara um emulador Android 15/API 35 com resolução de tela configurada para 1220 × 2712.
-- Faz checkout isolado da branch `main`, compila o projeto Android nativo em `app/` e executa `testDebugUnitTest` antes de instalar esse mesmo APK no emulador.
-- O script de smoke test automatiza os controles existentes: chat offline, ações das respostas, Configurações, paletas, combinação chuva + raios e ligação/desligamento do acesso à Web.
+- Faz checkout isolado da branch `main`, encontra uma execução bem-sucedida de `Build Kellvyn APK` para o mesmo SHA do código, baixa o APK do release e verifica o SHA-256 antes de instalar. Essa execução oficial já executou `testDebugUnitTest` e `assembleDebug`; não há uma segunda compilação redundante no laboratório.
+- O script de smoke test automatiza os controles existentes: chat offline, ações das respostas, Configurações, paletas, combinação chuva + raios, catálogo Apps, ferramentas de navegação, seletor de arquivos e ligação/desligamento do acesso à Web.
 - Recolhe capturas, hierarquia da interface, logcat, resumo de memória, SHA-256 e o commit exato do código nativo testado.
 - O APK de download só é publicado depois que as verificações de instalação, execução e controles passam; o emulador continua sendo AOSP, não HyperOS físico.
 
