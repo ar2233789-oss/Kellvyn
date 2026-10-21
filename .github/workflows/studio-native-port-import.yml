@@ -1,0 +1,43 @@
+name: Seed native Android working copy inside Studio
+
+on:
+  push:
+    branches:
+      - studio-production-suite
+    paths:
+      - .github/workflows/studio-native-port-import.yml
+      - studio/lovable-source/android/**
+
+permissions:
+  contents: write
+
+concurrency:
+  group: studio-native-port-import
+  cancel-in-progress: false
+
+jobs:
+  seed-native-copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: studio-production-suite
+          fetch-depth: 0
+      - name: Copy Android project into the isolated native work area
+        run: |
+          set -euo pipefail
+          mkdir -p studio/native-port
+          rm -rf studio/native-port/android
+          cp -a studio/lovable-source/android studio/native-port/android
+          cat > studio/native-port/BASELINE.md <<'EOF'
+          # Native Android working copy
+
+          This is a working copy seeded from `studio/lovable-source/android`.
+          The reference snapshot stays untouched. All UI porting and animation fixes must be made here first and validated with the Studio Native Port QA workflow.
+          The production target is native Android Views/Canvas; do not use a WebView as the production interface.
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add studio/native-port
+          git commit -m "Seed isolated native Android port workspace"
+          git push origin HEAD:studio-production-suite
