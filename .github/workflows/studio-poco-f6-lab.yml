@@ -81,7 +81,9 @@ jobs:
           disable-animations: false
           emulator-boot-timeout: 600
           script: |
-            set -euo pipefail
+            # android-emulator-runner executes this script with /bin/sh, not Bash.
+            # Use POSIX-compatible flags so the emulator test reaches install/launch.
+            set -eu
             mkdir -p studio-artifacts
 
             capture_diagnostics() {
