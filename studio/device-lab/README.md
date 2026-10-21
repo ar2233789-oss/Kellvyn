@@ -22,8 +22,9 @@ A densidade lógica de 440 dpi é provisória. O PPI físico oficial (446) não 
 
 1. No GitHub, abra Actions e selecione o workflow “Studio — Virtual Poco F6 smoke test”.
 2. Execute “Run workflow” na branch studio-production-suite quando a opção estiver disponível. O workflow também é iniciado por alterações na pasta studio ou no próprio workflow.
-3. O workflow compila a pasta studio/native-port/android com Gradle, executa testDebugUnitTest e assembleDebug, e instala o APK gerado nessa mesma execução.
-4. Abra os artefatos da execução para acessar a captura, a hierarquia e os logs.
+3. O workflow faz checkout da branch `main` em `source-main/`, executa `./gradlew testDebugUnitTest assembleDebug` em `source-main/` e registra o SHA exato do código e do APK.
+4. O script `studio/run-poco-f6-smoke.sh` instala esse APK e testa o chat offline, os rótulos/ações, Configurações, paletas, efeitos combinados e o menu de anexos/Web.
+5. Abra os artefatos da execução para acessar as capturas, hierarquias, resultado por verificação e logs.
 
 Se a compilação, os testes, a instalação ou a inicialização falharem, revisar o log da etapa correspondente. Não reutilizar um APK antigo para mascarar falha no código atual.
 
