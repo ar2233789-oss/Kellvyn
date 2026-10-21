@@ -156,7 +156,7 @@ public class MainActivity extends Activity {
         settings.setOnClickListener(v -> showSettings());
 
         View divider = new View(this);
-        divider.setBackgroundColor(borderColor);
+        divider.setBackgroundColor(mixColors(backgroundColor, textColor, 0.18f));
         shell.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
 
         chatScroll = new ScrollView(this);
@@ -206,7 +206,7 @@ public class MainActivity extends Activity {
         footerStatus.setSingleLine(true);
         footerStatus.setGravity(Gravity.CENTER);
         footerStatus.setPadding(dp(10), 0, dp(10), 0);
-        footerStatus.setBackground(roundRect(panelAltColor, dp(8), borderColor, dp(1)));
+        footerStatus.setBackground(roundRect(panelAltColor, dp(8), mixColors(backgroundColor, textColor, 0.18f), dp(1)));
         controls.addView(footerStatus, new LinearLayout.LayoutParams(-2, dp(32)));
         View composerSpacer = new View(this);
         controls.addView(composerSpacer, new LinearLayout.LayoutParams(0, 1, 1));
