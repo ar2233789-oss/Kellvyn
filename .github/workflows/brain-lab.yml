@@ -35,7 +35,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.2"
-          python -m pip install "pytest>=8.0"
+          python -m pip install "pytest>=8.0" "numpy>=1.26"
 
       - name: Install the Kellvyn prototype
         run: python -m pip install --no-deps -e ./brain-lab
@@ -71,9 +71,14 @@ jobs:
           path = Path("/tmp/kellvyn-brain-smoke/checkpoint.pt")
           assert path.is_file() and path.stat().st_size > 0
           payload = torch.load(path, map_location="cpu", weights_only=True)
-          assert payload["format"] == "kellvyn-brain-lab-v1"
+          assert payload["format"] == "kellvyn-brain-lab-v2"
           assert payload["step"] == 3
           assert payload["config"]["d_model"] == 32
+          assert payload["optimizer_state"] is not None
+          assert payload["metadata"]["external_pretrained_weights"] is False
+          assert len(payload["metadata"]["dataset_sha256"]) == 64
+          assert payload["metadata"]["train_document_count"] > 0
+          assert payload["metadata"]["validation_document_count"] > 0
           print(f"checkpoint_bytes={path.stat().st_size}")
           print("smoke_test=PASS")
           PY
