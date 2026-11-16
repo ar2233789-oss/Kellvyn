@@ -86,6 +86,8 @@ def estimate_loss(
     device: torch.device,
     batches: int = 4,
 ) -> float:
+    if batches <= 0:
+        raise ValueError("batches must be positive")
     previous_mode = model.training
     model.eval()
     losses: list[float] = []
@@ -121,7 +123,7 @@ def train(args: argparse.Namespace) -> None:
         raise FileNotFoundError(f"training text file not found: {source}")
     raw_data = source.read_bytes()
     text = raw_data.decode("utf-8")
-    documents = [part.strip() for part in text.split("\\n\\n") if part.strip()]
+    documents = [part.strip() for part in text.split(chr(10) + chr(10)) if part.strip()]
     if len(documents) < 2:
         documents = [line.strip() for line in text.splitlines() if line.strip()]
 
