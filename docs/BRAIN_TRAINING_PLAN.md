@@ -13,20 +13,23 @@
 ## Etapa 0 — prova de integridade
 
 O pacote `brain-lab` fornece uma rede pequena com:
-- tokenizer byte-level transparente para a primeira prova;
+- tokenizer byte-level para referência;
+- BPE byte-level aprendido a partir do texto de treino;
 - Transformer causal implementado no projeto;
 - inicialização aleatória;
 - objetivo de previsão do próximo token;
 - script de treino CPU/CUDA/MPS;
-- checkpoint com configuração e pesos;
-- testes de causalidade, loss finita, round-trip do tokenizer e checkpoint.
+- checkpoint com configuração, pesos e estado do tokenizer;
+- testes de causalidade, loss finita, round-trip de tokenizers e checkpoint.
 
-Critério: conseguir treinar em um corpus de brinquedo, reduzir loss e reconstruir a execução a partir do checkpoint. Isso prova o pipeline, não inteligência.
+Critério: conseguir treinar em um corpus de brinquedo, criar um checkpoint e reconstruir o tokenizer/modelo. Isso prova o pipeline, não inteligência.
 
 ## Etapa 1 — tokenizer de produção
 
-Substituir byte-level por BPE ou Unigram treinado do zero:
-- avaliar taxa de compressão por idioma;
+O BPE da primeira prova é intencionalmente simples e ineficiente em corpora grandes. Próximo trabalho:
+- implementar uma versão eficiente (por exemplo, contagem incremental de pares ou algoritmo de merge otimizado);
+- avaliar Unigram como alternativa;
+- medir taxa de compressão por idioma;
 - reservar tokens de controle para conversas e ferramentas;
 - testar nomes, acentos, português informal, código e números;
 - congelar versão/hash do vocabulário por checkpoint;

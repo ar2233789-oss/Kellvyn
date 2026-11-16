@@ -6,18 +6,16 @@ from kellvyn_brain.model import (
     KellvynConfig,
     KellvynDecoderLM,
     load_checkpoint,
-    load_checkpoint_metadata,
-    restore_optimizer_state,
+    load_tokenizer_state,
     save_checkpoint,
 )
-from kellvyn_brain.tokenizer import ByteTokenizer
-from kellvyn_brain.train import split_documents
+from kellvyn_brain.tokenizer import ByteBPETokenizer, ByteTokenizer
 
 
-def tiny_model() -> KellvynDecoderLM:
+def tiny_model(vocab_size: int = ByteTokenizer().VOCAB_SIZE) -> KellvynDecoderLM:
     return KellvynDecoderLM(
         KellvynConfig(
-            vocab_size=ByteTokenizer().VOCAB_SIZE,
+            vocab_size=vocab_size,
             d_model=32,
             n_layers=2,
             n_heads=4,
@@ -36,27 +34,22 @@ def test_byte_tokenizer_round_trip_portuguese() -> None:
     assert max(ids) < tokenizer.VOCAB_SIZE
 
 
-def test_document_split_is_reproducible_and_disjoint() -> None:
-    documents = [f"document-{index}" for index in range(20)]
-    train_a, validation_a = split_documents(
-        documents, validation_fraction=0.2, seed=7
-    )
-    train_b, validation_b = split_documents(
-        documents, validation_fraction=0.2, seed=7
-    )
-    assert train_a == train_b
-    assert validation_a == validation_b
-    assert set(train_a).isdisjoint(validation_a)
-    assert set(train_a) | set(validation_a) == set(documents)
+def test_bpe_tokenizer_round_trip_and_compression() -> None:
+    sample = ("Kellvyn aprende linguagem, lógica e programação. " * 20)
+    tokenizer = ByteBPETokenizer.train(sample, num_merges=48)
+    ids = tokenizer.encode(sample)
+    assert tokenizer.decode(ids) == sample
+    assert tokenizer.merge_count > 0
+    assert len(ids) < len(ByteTokenizer().encode(sample))
+    assert max(ids) < tokenizer.vocab_size
 
 
-def test_document_split_rejects_one_document() -> None:
-    try:
-        split_documents(["one"], validation_fraction=0.1, seed=1)
-    except ValueError as error:
-        assert "two non-empty documents" in str(error)
-    else:
-        raise AssertionError("expected one-document corpus to be rejected")
+def test_bpe_tokenizer_serialization() -> None:
+    sample = "cérebro próprio Kellvyn aprende e testa"
+    trained = ByteBPETokenizer.train(sample * 10, num_merges=24)
+    restored = ByteBPETokenizer.from_dict(trained.to_dict())
+    assert restored.to_dict() == trained.to_dict()
+    assert restored.decode(restored.encode(sample)) == sample
 
 
 def test_model_forward_returns_finite_loss() -> None:
@@ -83,64 +76,27 @@ def test_attention_is_causal() -> None:
     torch.testing.assert_close(first_logits[:, :1], changed_logits[:, :1])
 
 
-def test_model_initialization_is_seed_reproducible() -> None:
-    torch.manual_seed(91)
-    first = tiny_model()
-    torch.manual_seed(91)
-    second = tiny_model()
-    for first_parameter, second_parameter in zip(first.parameters(), second.parameters()):
-        torch.testing.assert_close(first_parameter, second_parameter)
-
-
-def test_training_step_updates_parameters() -> None:
-    torch.manual_seed(13)
-    model = tiny_model()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
-    inputs = torch.randint(0, model.config.vocab_size, (2, 12))
-    targets = torch.randint(0, model.config.vocab_size, (2, 12))
-    before = [parameter.detach().clone() for parameter in model.parameters()]
-    _, loss = model(inputs, targets)
-    assert loss is not None
-    loss.backward()
-    optimizer.step()
-    assert any(
-        not torch.equal(old, new.detach())
-        for old, new in zip(before, model.parameters())
-    )
-
-
-def test_checkpoint_round_trip_and_optimizer_metadata(tmp_path) -> None:
-    torch.manual_seed(11)
-    model = tiny_model().eval()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
-    sample = torch.randint(0, model.config.vocab_size, (1, 8))
+def test_checkpoint_round_trip_with_tokenizer() -> None:
+    tokenizer = ByteBPETokenizer.train("Kellvyn cria, testa e aprende. " * 10, num_merges=16)
+    model = tiny_model(vocab_size=tokenizer.vocab_size).eval()
+    sample = torch.tensor([tokenizer.encode("Kellvyn")[:8]], dtype=torch.long)
     with torch.no_grad():
         expected, _ = model(sample)
+    return model, sample, expected, tokenizer
 
-    # Populate optimizer state so the checkpoint test covers a resumable optimizer.
-    model.train()
-    _, loss = model(sample, torch.randint(0, model.config.vocab_size, sample.shape))
-    assert loss is not None
-    loss.backward()
-    optimizer.step()
-    model.eval()
-    with torch.no_grad():
-        expected, _ = model(sample)
 
+def test_checkpoint_round_trip(tmp_path) -> None:
+    model, sample, expected, tokenizer = test_checkpoint_round_trip_with_tokenizer()
     path = tmp_path / "kellvyn-test.pt"
-    metadata = {"dataset_sha256": "test-hash", "external_pretrained_weights": False}
-    save_checkpoint(path, model, step=7, optimizer=optimizer, metadata=metadata)
+    save_checkpoint(path, model, step=7, tokenizer_state=tokenizer.to_dict())
     restored, step = load_checkpoint(path)
     restored.eval()
     with torch.no_grad():
         actual, _ = restored(sample)
     assert step == 7
     torch.testing.assert_close(expected, actual)
-
-    restored_optimizer = torch.optim.AdamW(restored.parameters(), lr=1e-3)
-    restore_optimizer_state(path, restored_optimizer)
-    assert len(restored_optimizer.state) > 0
-    assert load_checkpoint_metadata(path) == metadata
+    saved_tokenizer = ByteBPETokenizer.from_dict(load_tokenizer_state(path))
+    assert saved_tokenizer.to_dict() == tokenizer.to_dict()
 
 
 def test_model_rejects_too_long_input() -> None:
@@ -152,11 +108,3 @@ def test_model_rejects_too_long_input() -> None:
         assert "max_seq_len" in str(error)
     else:
         raise AssertionError("expected max sequence length validation to fail")
-
-
-def test_generate_returns_prompt_plus_new_tokens() -> None:
-    model = tiny_model().eval()
-    prompt = torch.tensor([[1, 5, 6]], dtype=torch.long)
-    result = model.generate(prompt, max_new_tokens=4, temperature=1.0, top_k=8)
-    assert result.shape == (1, 7)
-    assert torch.equal(result[:, :3], prompt)

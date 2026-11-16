@@ -14,7 +14,7 @@ Um modelo autoregressivo próprio, inicialmente decoder-only, com:
 - projeção de saída e objetivo de previsão do próximo token;
 - inferência com cache KV quando o runtime estiver maduro.
 
-A primeira prova de funcionamento usa um Transformer pequeno, byte-level, com atenção causal. Isso valida matemática, treinamento e serialização; não pretende oferecer qualidade conversacional.
+A primeira prova de funcionamento usa um Transformer pequeno, byte-level BPE treinado no texto de treino, com atenção causal. O algoritmo BPE inicial prioriza auditabilidade, não escala. Isso valida a matemática, o treinamento e a serialização; não pretende oferecer qualidade conversacional.
 
 ### B. Sistema cognitivo integrado
 O mesmo modelo deve aprender a:
@@ -51,29 +51,30 @@ Conteúdo externo é dado não confiável, nunca instrução privilegiada.
 
 ## 2. Fundação neural: baseline experimental
 
-A experiência inicial em `brain-lab/` implementa uma configuração reduzida:
-- tokenizer UTF-8 byte-level, apenas para provar o ciclo; será substituído por BPE treinado do zero antes de qualquer pré-treinamento sério;
+A experiência inicial em `brain-lab/` implementa:
+- tokenizer byte-level como baseline de referência;
+- BPE byte-level cujas regras são aprendidas do zero no texto de treino;
 - embeddings próprios;
 - RMSNorm;
 - atenção causal multi-head com RoPE;
 - MLP SwiGLU;
 - conexões residuais e projeção de vocabulário;
 - cross-entropy de próximo token;
-- AdamW, clipping de gradiente, validação e checkpoints.
+- AdamW, clipping de gradiente, validação e checkpoints que preservam o tokenizer.
 
-Os métodos são conhecidos na literatura. O código e todos os pesos são próprios do experimento. Não se reivindica uma arquitetura científica inédita nesta primeira etapa.
+O BPE atual é uma implementação didática de complexidade alta, útil para provar que o vocabulário pode ser aprendido sem importar uma tabela. Não deve ser usado em corpus massivo sem otimização e benchmark. Os métodos neurais são conhecidos na literatura. O código e todos os pesos são próprios do experimento.
 
 ## 3. Evolução a avaliar, não assumir
 
 Após estabelecer baseline correto, testar uma mudança por vez:
-- BPE versus unigram tokenizer treinado no corpus;
+- BPE otimizado versus Unigram tokenizer treinado no corpus;
 - GQA versus MHA;
 - contextos maiores e atenção local/global;
 - diferentes proporções de profundidade/largura;
 - SwiGLU e alternativas de MLP;
 - RoPE e alternativas posicionais;
-- precisão mista, quantização e cache KV;
-- técnicas de otimização e agendamento da taxa de aprendizado.
+- técnicas de otimização e agendamento da taxa de aprendizado;
+- precisão mista, quantização e cache KV.
 
 Não adotar MoE, arquiteturas recorrentes, mecanismos exóticos ou multimodalidade antes de haver benchmark que justifique custo e complexidade.
 

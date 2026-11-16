@@ -9,9 +9,9 @@ Este diretório é o primeiro laboratório de treinamento próprio da Kellvyn.
 - Não baixa nem carrega pesos externos.
 - Não importa Gemma, Llama, Qwen, GPT, Claude, Gemini ou outro checkpoint.
 - Inicializa parâmetros aleatoriamente.
-- Implementa tokenizer byte-level e uma rede causal pequena no código deste projeto.
-- Pode treinar um modelo minúsculo a partir de um arquivo de texto fornecido pelo pesquisador.
-- Salva arquitetura e pesos em um checkpoint local.
+- Implementa uma rede causal e um tokenizer byte-level BPE treinado no texto fornecido.
+- Pode treinar um modelo minúsculo a partir de um arquivo de texto autorizado.
+- Salva arquitetura, pesos e regras do tokenizer no mesmo checkpoint.
 
 A implementação usa PyTorch como biblioteca numérica/autograd. PyTorch não fornece pesos de IA aqui; o modelo é instanciado do zero. A arquitetura experimental usa componentes matemáticos conhecidos e não reivindica invenção de Transformer, RoPE, RMSNorm ou SwiGLU.
 
@@ -35,18 +35,20 @@ pytest
 Prepare um arquivo UTF-8 de texto cujo uso seja autorizado e documente a origem/licença. Para validar o pipeline, comece com um texto pequeno e repetitivo:
 
 ```bash
-python -m kellvyn_brain.train --data ./data/toy_corpus.txt --steps 200 --seq-len 64 --batch-size 8 --checkpoint ./runs/kellvyn-toy.pt
+python -m kellvyn_brain.train --data ./data/toy_corpus.txt --steps 200 --seq-len 64 --batch-size 8 --bpe-merges 64 --checkpoint ./runs/kellvyn-toy.pt
 ```
 
-O comando é apenas uma prova de funcionamento. A configuração pequena e o tokenizer por bytes não representam a arquitetura de produção.
+O BPE desta primeira versão é intencionalmente simples e legível; treinar/encodar é caro para corpus grande. Antes de pré-treinamento sério, precisaremos de uma implementação otimizada e validada em corpus documentado.
+
+O comando é apenas uma prova de funcionamento. A configuração pequena não representa a arquitetura de produção nem inteligência conversacional.
 
 ## Próximas etapas
 
-1. Rodar os testes.
-2. Fazer o teste de overfit de corpus minúsculo e verificar se a loss cai.
-3. Implementar tokenizer BPE próprio treinado sobre o corpus selecionado.
-4. Criar manifesto de dados e validação de licença.
-5. Planejar treino em GPU a partir de orçamento medido.
+1. Rodar os testes e o overfit de corpus minúsculo.
+2. Otimizar o tokenizer BPE e medir compressão por idioma.
+3. Criar manifesto de dados e validação de licença.
+4. Planejar treino em GPU a partir de orçamento medido.
+5. Expandir avaliação para português, matemática, código e instruções.
 6. Somente depois integrar inferência ao app Android nativo.
 
 Não use arquivos de conversas privadas, tokens, senhas ou dados pessoais para treino.
