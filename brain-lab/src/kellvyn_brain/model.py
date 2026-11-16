@@ -199,8 +199,12 @@ class KellvynDecoderLM(nn.Module):
     ) -> torch.Tensor:
         if temperature <= 0:
             raise ValueError("temperature must be positive")
+        if max_new_tokens < 0:
+            raise ValueError("max_new_tokens cannot be negative")
         if input_ids.ndim != 2 or input_ids.shape[1] == 0:
             raise ValueError("input_ids must be a non-empty [batch, time] tensor")
+        if top_k is not None and top_k <= 0:
+            raise ValueError("top_k must be positive")
         was_training = self.training
         self.eval()
         try:
@@ -209,8 +213,6 @@ class KellvynDecoderLM(nn.Module):
                 logits, _ = self(context)
                 next_logits = logits[:, -1, :] / temperature
                 if top_k is not None:
-                    if top_k <= 0:
-                        raise ValueError("top_k must be positive")
                     k = min(top_k, next_logits.shape[-1])
                     threshold = torch.topk(next_logits, k, dim=-1).values[:, -1, None]
                     next_logits = next_logits.masked_fill(next_logits < threshold, float("-inf"))
@@ -225,23 +227,55 @@ class KellvynDecoderLM(nn.Module):
         return sum(parameter.numel() for parameter in self.parameters() if parameter.requires_grad)
 
 
-def save_checkpoint(path: str | Path, model: KellvynDecoderLM, *, step: int) -> None:
+def save_checkpoint(
+    path: str | Path,
+    model: KellvynDecoderLM,
+    *,
+    step: int,
+    optimizer: torch.optim.Optimizer | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Save only this project's trained state plus auditable training metadata."""
+    if step < 0:
+        raise ValueError("checkpoint step cannot be negative")
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
-        "format": "kellvyn-brain-lab-v1",
+        "format": "kellvyn-brain-lab-v2",
         "step": int(step),
         "config": asdict(model.config),
         "state_dict": model.state_dict(),
+        "optimizer_state": optimizer.state_dict() if optimizer is not None else None,
+        "metadata": metadata or {},
+        "weights_origin": "random_initialization_and_kellvyn_training_only",
     }
     torch.save(payload, destination)
 
 
-def load_checkpoint(path: str | Path, *, map_location: str | torch.device = "cpu") -> tuple[KellvynDecoderLM, int]:
+def load_checkpoint(
+    path: str | Path,
+    *,
+    map_location: str | torch.device = "cpu",
+    optimizer: torch.optim.Optimizer | None = None,
+) -> tuple[KellvynDecoderLM, int]:
     payload = torch.load(Path(path), map_location=map_location, weights_only=True)
-    if not isinstance(payload, dict) or payload.get("format") != "kellvyn-brain-lab-v1":
+    supported_formats = {"kellvyn-brain-lab-v1", "kellvyn-brain-lab-v2"}
+    if not isinstance(payload, dict) or payload.get("format") not in supported_formats:
         raise ValueError("unsupported or invalid Kellvyn checkpoint")
     config = KellvynConfig(**payload["config"])
     model = KellvynDecoderLM(config)
     model.load_state_dict(payload["state_dict"], strict=True)
+    if optimizer is not None and payload.get("optimizer_state") is not None:
+        optimizer.load_state_dict(payload["optimizer_state"])
     return model, int(payload["step"])
+
+
+def load_checkpoint_metadata(path: str | Path) -> dict[str, Any]:
+    """Return auditable metadata without constructing the neural model."""
+    payload = torch.load(Path(path), map_location="cpu", weights_only=True)
+    if not isinstance(payload, dict) or payload.get("format") not in {
+        "kellvyn-brain-lab-v1",
+        "kellvyn-brain-lab-v2",
+    }:
+        raise ValueError("unsupported or invalid Kellvyn checkpoint")
+    return dict(payload.get("metadata", {}))
