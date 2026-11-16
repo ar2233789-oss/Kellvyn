@@ -159,6 +159,13 @@ class KellvynDecoderLM(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
+    def forward_logits(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """Tensor-only inference path; deliberately free of Python data-dependent checks."""
+        value = self.token_embedding(input_ids)
+        for block in self.blocks:
+            value = block(value)
+        return self.lm_head(self.final_norm(value))
+
     def forward(
         self,
         input_ids: torch.Tensor,
@@ -173,11 +180,7 @@ class KellvynDecoderLM(nn.Module):
         ):
             raise ValueError("input token ID outside configured vocabulary")
 
-        value = self.token_embedding(input_ids)
-        for block in self.blocks:
-            value = block(value)
-        logits = self.lm_head(self.final_norm(value))
-
+        logits = self.forward_logits(input_ids)
         loss = None
         if targets is not None:
             if targets.shape != input_ids.shape:
@@ -219,7 +222,7 @@ class KellvynDecoderLM(nn.Module):
         try:
             for _ in range(max_new_tokens):
                 context = input_ids[:, -self.config.max_seq_len :]
-                logits, _ = self(context)
+                logits = self.forward_logits(context)
                 next_logits = logits[:, -1, :] / temperature
                 if top_k is not None:
                     k = min(top_k, next_logits.shape[-1])
@@ -234,6 +237,17 @@ class KellvynDecoderLM(nn.Module):
 
     def parameter_count(self) -> int:
         return sum(parameter.numel() for parameter in self.parameters() if parameter.requires_grad)
+
+
+class KellvynExportModule(nn.Module):
+    """Export wrapper whose only input is token IDs and whose output is logits."""
+
+    def __init__(self, model: KellvynDecoderLM) -> None:
+        super().__init__()
+        self.model = model
+
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+        return self.model.forward_logits(input_ids)
 
 
 def save_checkpoint(
