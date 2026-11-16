@@ -265,7 +265,7 @@ def load_tokenizer_state(
     map_location: str | torch.device = "cpu",
 ) -> dict[str, Any] | None:
     payload = torch.load(Path(path), map_location=map_location, weights_only=True)
-    if not isinstance(payload, dict) or payload.get("format") != "kellvyn-brain-lab-v1":
+    if not isinstance(payload, dict) or payload.get("format") not in {"kellvyn-brain-lab-v1", "kellvyn-brain-lab-v2"}:
         raise ValueError("unsupported or invalid Kellvyn checkpoint")
     tokenizer_state = payload.get("tokenizer")
     if tokenizer_state is not None and not isinstance(tokenizer_state, dict):
