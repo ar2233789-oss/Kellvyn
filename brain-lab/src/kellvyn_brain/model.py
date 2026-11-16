@@ -182,6 +182,10 @@ class KellvynDecoderLM(nn.Module):
         if targets is not None:
             if targets.shape != input_ids.shape:
                 raise ValueError("targets must have the same shape as input_ids")
+            if targets.numel() and (
+                int(targets.min()) < 0 or int(targets.max()) >= self.config.vocab_size
+            ):
+                raise ValueError("target token ID outside configured vocabulary")
             loss = F.cross_entropy(
                 logits.reshape(-1, self.config.vocab_size),
                 targets.reshape(-1),
@@ -256,7 +260,6 @@ def load_checkpoint(
     path: str | Path,
     *,
     map_location: str | torch.device = "cpu",
-    optimizer: torch.optim.Optimizer | None = None,
 ) -> tuple[KellvynDecoderLM, int]:
     payload = torch.load(Path(path), map_location=map_location, weights_only=True)
     supported_formats = {"kellvyn-brain-lab-v1", "kellvyn-brain-lab-v2"}
@@ -265,8 +268,6 @@ def load_checkpoint(
     config = KellvynConfig(**payload["config"])
     model = KellvynDecoderLM(config)
     model.load_state_dict(payload["state_dict"], strict=True)
-    if optimizer is not None and payload.get("optimizer_state") is not None:
-        optimizer.load_state_dict(payload["optimizer_state"])
     return model, int(payload["step"])
 
 
@@ -279,3 +280,15 @@ def load_checkpoint_metadata(path: str | Path) -> dict[str, Any]:
     }:
         raise ValueError("unsupported or invalid Kellvyn checkpoint")
     return dict(payload.get("metadata", {}))
+
+
+def restore_optimizer_state(
+    path: str | Path,
+    optimizer: torch.optim.Optimizer,
+) -> None:
+    """Restore saved optimizer moments after constructing it around the loaded model."""
+    payload = torch.load(Path(path), map_location="cpu", weights_only=True)
+    state = payload.get("optimizer_state") if isinstance(payload, dict) else None
+    if not isinstance(state, dict):
+        raise ValueError("checkpoint does not contain an optimizer state")
+    optimizer.load_state_dict(state)
