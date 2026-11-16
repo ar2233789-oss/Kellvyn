@@ -133,3 +133,36 @@ As referências convergem em quatro lições:
 2. O contexto tem orçamento finito; precisa de memória recuperável e condensação que preservem fatos e decisões importantes.
 3. Treinamento deve ser uma sequência auditável: tokenizer → pré-treino → ajuste de instruções → uso de ferramentas → avaliação.
 4. A qualidade de dados e o orçamento de tokens/compute condicionam o teto de capacidade. Começar pequeno é adequado para validar a implementação, não para prometer inteligência de ponta.
+
+
+
+## ExecuTorch — candidata para executar nosso próprio modelo no Android
+
+- Documentação LLM 1.5: https://docs.pytorch.org/executorch/stable/llm/getting-started.html
+- Exportação de modelo customizado: https://docs.pytorch.org/executorch/stable/llm/export-custom-llm.html
+- Integração Android: https://docs.pytorch.org/executorch/stable/llm/run-on-android.html
+- Backends Android: https://docs.pytorch.org/executorch/stable/android-backends.html
+- A documentação descreve a exportação de um modelo PyTorch próprio com `torch.export`, transformação para Edge e geração de um arquivo `.pte`. O caminho de modelo customizado existe justamente para modelos que não fazem parte da API nativa de exportação.
+- Para usar o runner padrão de geração autoregressiva, o modelo precisa aceitar IDs de tokens, opcionalmente uma posição de entrada quando usa KV cache, e devolver logits. O cache deve ficar em buffers do próprio modelo; metadados como limites de sequência e IDs BOS/EOS precisam corresponder ao tokenizer.
+- Sem KV cache, o modelo pode ser executado, mas cada passo tende a recalcular a atenção de todo o contexto e fica mais lento.
+- A documentação atual apresenta API Java/Kotlin experimental via AAR `executorch-android`. O runner oferece carregamento, streaming de tokens, callback de erro e estatísticas; a API ainda pode mudar.
+- A documentação lista XNNPACK para CPU, Vulkan para GPU Android e Qualcomm AI Engine para NPU/DSP, além de outras opções. O suporte efetivo depende do dispositivo, backend, operadores e versão. Começar por CPU XNNPACK como baseline de compatibilidade; depois medir Vulkan e eventualmente QNN no Poco F6 real. Não presumir aceleração NPU só pelo fabricante do chip.
+- Os arquivos `.pte` são preparados para um backend específico; operadores não suportados podem cair para CPU. Isso pode reduzir desempenho e precisa ser medido.
+- Decisão Kellvyn: ExecuTorch é a primeira candidata séria ao runtime de inferência nativo porque aceita modelos PyTorch customizados e possui integração Android. Não fornece pesos de modelo e não é o cérebro. Os pesos e o tokenizer serão os treinados no projeto.
+- Lacuna a resolver: o tokenizer BPE atual é serializado em JSON próprio. Precisamos de um tokenizer compatível em Kotlin/C++ ou de um runner/IOManager próprio; não afirmar que o runner padrão lê nosso JSON sem trabalho adicional.
+- Lacuna a resolver: a rede experimental atual ainda não tem KV cache e precisa de uma fronteira de entrada/saída exportável; antes da implantação, acrescentar cache próprio e executar a exportação do modelo Kellvyn (não de um exemplo GPT-2).
+
+## MLC LLM — candidata secundária, não escolhida ainda
+
+- Guia Android: https://llm.mlc.ai/docs/deploy/android.html
+- O fluxo Android documentado compila uma biblioteca de modelo específica e empacota runtime/tokenizer; a configuração lista artefatos de pesos convertidos e uma identificação de biblioteca por arquitetura.
+- Pode ser interessante se a arquitetura própria e as operações necessárias forem suportadas ou se adicionarmos implementação/compilação específica. Isso ainda não foi demonstrado para a arquitetura Kellvyn.
+- Decisão: manter como alternativa de investigação; não adotar só porque executa modelos conhecidos. O requisito é exportar e rodar nossos próprios pesos.
+
+## Curadoria e métrica para tokenizers próprios
+
+- Treinar vocabulário próprio sem importar uma tabela pré-treinada é tecnicamente possível; o BPE da primeira prova aprende regras a partir apenas do corpus de treino.
+- O BPE atual usa contagem repetida de pares e varredura completa do texto por merge. É transparente, mas tem custo elevado e não serve para corpora de bilhões de tokens sem otimização.
+- Próxima etapa: benchmark de bytes/token por idioma e treinamento BPE otimizado (estrutura de pares incremental/implementação compilada própria), preservando o formato e o hash do vocabulário no checkpoint.
+- Para comparar tokenizers com tamanhos diferentes, usar bits-per-byte em avaliação, em vez de comparar somente loss por token.
+- Fontes de método: nanochat `scripts/tok_train.py` e `nanochat/loss_eval.py`; documentação de BPE training da Hugging Face é referência de processo/hiperparâmetros, não fonte de vocabulário para a Kellvyn.
