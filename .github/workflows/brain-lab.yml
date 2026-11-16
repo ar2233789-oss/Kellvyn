@@ -1,0 +1,79 @@
+name: Kellvyn Brain Lab
+
+on:
+  push:
+    branches:
+      - "brain/**"
+    paths:
+      - "brain-lab/**"
+      - ".github/workflows/brain-lab.yml"
+  pull_request:
+    paths:
+      - "brain-lab/**"
+      - ".github/workflows/brain-lab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: brain-lab/pyproject.toml
+
+      - name: Install CPU PyTorch and test tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.2"
+          python -m pip install "pytest>=8.0"
+
+      - name: Install the Kellvyn prototype
+        run: python -m pip install --no-deps -e ./brain-lab
+
+      - name: Run foundation tests
+        run: pytest -q brain-lab/tests
+
+      - name: Run a tiny from-random-init training smoke test
+        shell: bash
+        run: |
+          mkdir -p /tmp/kellvyn-brain-smoke
+          python - <<'PY'
+          from pathlib import Path
+          lines = [
+              "A Kellvyn experimentaliza linguagem e raciocinio.",
+              "Um modelo aprende ajustando parametros por gradiente.",
+              "A verificacao separa dados de treino e validacao.",
+              "Bots executam comandos definidos e respeitam permissoes.",
+              "Aplicativos Android nativos precisam compilar e passar testes.",
+          ]
+          Path("/tmp/kellvyn-brain-smoke/toy.txt").write_text(
+              "\n\n".join(lines * 40), encoding="utf-8"
+          )
+          PY
+          kellvyn-train \
+            --data /tmp/kellvyn-brain-smoke/toy.txt \
+            --checkpoint /tmp/kellvyn-brain-smoke/checkpoint.pt \
+            --steps 3 --batch-size 2 --seq-len 32 \
+            --width 32 --layers 2 --heads 4 --eval-every 1 --seed 17 --device cpu
+          python - <<'PY'
+          from pathlib import Path
+          import torch
+          path = Path("/tmp/kellvyn-brain-smoke/checkpoint.pt")
+          assert path.is_file() and path.stat().st_size > 0
+          payload = torch.load(path, map_location="cpu", weights_only=True)
+          assert payload["format"] == "kellvyn-brain-lab-v1"
+          assert payload["step"] == 3
+          assert payload["config"]["d_model"] == 32
+          print(f"checkpoint_bytes={path.stat().st_size}")
+          print("smoke_test=PASS")
+          PY
