@@ -112,3 +112,22 @@ Nenhuma mudança é promovida apenas por menor loss. Precisa manter ou melhorar:
 - eficiência por parâmetro, memória e latência.
 
 Resultados, configurações, seeds e hashes são versionados. Toda versão deve poder ser reproduzida ou explicitamente marcada como não reproduzível.
+
+
+
+## 7. Implantação da fundação própria no Android — plano de prova
+
+ExecuTorch é a primeira candidata de runtime, não parte do cérebro:
+1. Validar o modelo PyTorch em CPU e congelar contrato de entrada (IDs de token) e saída (logits).
+2. Criar uma classe exportável que devolva apenas logits e remova validações Python que dependam de valores de tensores durante o tracing.
+3. Exportar exatamente os pesos aleatórios/treinados da Kellvyn para `.pte` com a rota de modelo customizado do ExecuTorch.
+4. Comparar logits do PyTorch e ExecuTorch sobre os mesmos IDs de entrada, com tolerância numérica documentada.
+5. Rodar um teste mínimo Android nativo usando `executorch-android`/API Java-Kotlin; primeiro XNNPACK CPU.
+6. Integrar nosso tokenizer BPE por implementação Kotlin/C++ com testes de paridade Python↔Android; não usar vocabulário externo.
+7. Adicionar KV cache como estado interno do modelo e testar prefill/decode; depois otimizar e reexportar.
+8. Quantizar pesos/ativações após medir perda de qualidade e compatibilidade de operadores. Gerar artefatos separados por backend quando necessário.
+9. Medir no Poco F6 físico: RAM, latência, tokens/s, energia, temperatura e throttling. Emulador não substitui esta etapa.
+
+O contrato documentado do runner de LLM customizado aceita IDs de tokens, posição opcional para cache KV, devolve logits e recebe metadados de contexto/BOS/EOS. A API Android LLM de ExecuTorch é atualmente experimental; o protótipo pode precisar usar diretamente `Module` ou um runner/IOManager próprio se o tokenizer ou o protocolo não couber no runner padrão.
+
+Não adicionar dependência ao aplicativo principal até a prova de exportação e paridade. O runtime não fornece parâmetros, tokenizer treinado ou inteligência: esses artefatos são gerados pelo treinamento Kellvyn.
