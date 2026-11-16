@@ -92,3 +92,44 @@ Antes de transportar trechos de qualquer repositório:
 6. documentar exatamente o que foi reutilizado.
 
 Preferência inicial: reimplementar as ideias matemáticas e os contratos a partir de documentação/artigos, sem copiar arquivos de referência para a fundação neural.
+
+
+## Gemini CLI — engenharia de agente aberta
+
+- Código: https://github.com/google-gemini/gemini-cli
+- Licença declarada: Apache-2.0; verificar novamente a versão/commit antes de reutilizar trechos.
+- Arquivos lidos nesta auditoria: `packages/core/src/agent/agent-session.ts`, `packages/core/src/agents/generalist-agent.ts`, `packages/core/src/agents/agent-scheduler.ts`, `packages/core/src/agents/local-executor.ts`, `packages/core/src/tools/tool-registry.ts`, `packages/core/src/policy/policy-engine.ts`, `packages/core/src/config/memory.ts`, `packages/core/src/tools/enter-plan-mode.ts` e `packages/core/src/tools/write-todos.ts`.
+- Aprendizado: eventos de ciclo de vida e streaming; escalonamento de chamadas de ferramenta; limites de turnos/tempo; compressão de contexto; validação de argumentos; políticas de permissão; confirmação; memória hierárquica e plano explícito.
+- Limite: o Gemini CLI utiliza modelos Gemini/API Google. O código aberto é o agente e a infraestrutura, não os pesos nem a inteligência neural Gemini.
+- Uso na Kellvyn: estudar protocolos, scheduler, segurança e gestão de contexto. Reimplementar os contratos essenciais ligados ao modelo neural próprio.
+
+## Android Studio: código aberto versus Gemini
+
+- Código do plugin Android para IntelliJ: https://android.googlesource.com/platform/tools/adt/idea/
+- Documentação do Agent Mode: https://developer.android.com/studio/gemini/agent-mode
+- O repositório público de Android Studio descreve o código do plugin Android para IntelliJ que compõe uma parte importante do IDE. A documentação oficial explica o Agent Mode: plano, ferramentas, leitura de arquivos, edição, permissões e iteração.
+- Limite importante: não encontrei uma distribuição pública do código completo do modelo Gemini nem de toda a implementação proprietária do Agent Mode. Portanto, não é correto dizer que lemos o cérebro do Gemini; estudamos documentação de comportamento e fontes abertas do ambiente/infraestrutura disponível.
+- Uso na Kellvyn: reproduzir a qualidade do ciclo de desenvolvimento com nosso modelo e nossos próprios executores, não depender do Gemini.
+
+## Qwen3 — relatório de treinamento e arquitetura
+
+- Repositório: https://github.com/QwenLM/Qwen3
+- Relatório técnico: https://arxiv.org/abs/2505.09388
+- Aprendizado: famílias dense/MoE, mistura multilíngue, tokenizer byte-level BPE, treinamento em múltiplas etapas, SFT e RL. O relatório descreve um volume de pré-treinamento de dezenas de trilhões de tokens, mostrando a escala de dados e computação exigida para competir em capacidades avançadas.
+- Limite: pesos abertos não equivalem a treinamento da Kellvyn. Nenhum checkpoint Qwen ou tokenizer pré-treinado será importado.
+- Uso na Kellvyn: referência de análise de trade-offs, fases de treinamento e benchmarks. Construiremos nosso próprio tokenizer e pesos.
+
+## OLMo 3 — transparência de treinamento em escala
+
+- Relatório e scripts: https://github.com/allenai/OLMo-core/tree/main/src/scripts/official/OLMo3
+- Aprendizado: fases de treinamento base, instrução e raciocínio; documentação de datasets, logs, checkpoints e configurações.
+- O relatório OLMo 3 descreve modelos 7B/32B treinados com trilhões de tokens, deixando claro que uma primeira prova com dezenas de milhares de tokens valida o código, não capacidade competitiva.
+- Uso na Kellvyn: rastreabilidade experimental, composição dos dados e avaliação por estágios; não importar os pesos.
+
+## Síntese após a leitura de código
+
+As referências convergem em quatro lições:
+1. A qualidade do agente depende de ferramentas tipadas, observações reais, limites e recuperação de erros — não apenas de prompts longos.
+2. O contexto tem orçamento finito; precisa de memória recuperável e condensação que preservem fatos e decisões importantes.
+3. Treinamento deve ser uma sequência auditável: tokenizer → pré-treino → ajuste de instruções → uso de ferramentas → avaliação.
+4. A qualidade de dados e o orçamento de tokens/compute condicionam o teto de capacidade. Começar pequeno é adequado para validar a implementação, não para prometer inteligência de ponta.
