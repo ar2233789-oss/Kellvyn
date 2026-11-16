@@ -56,6 +56,8 @@ jobs:
               "Bots executam comandos definidos e respeitam permissoes.",
               "Aplicativos Android nativos precisam compilar e passar testes.",
           ]
+          # Repetition is intentional: the trainer must deduplicate documents
+          # before creating independent training and validation splits.
           Path("/tmp/kellvyn-brain-smoke/toy.txt").write_text(
               "\n\n".join(lines * 40), encoding="utf-8"
           )
@@ -64,7 +66,8 @@ jobs:
             --data /tmp/kellvyn-brain-smoke/toy.txt \
             --checkpoint /tmp/kellvyn-brain-smoke/checkpoint.pt \
             --steps 3 --batch-size 2 --seq-len 32 \
-            --width 32 --layers 2 --heads 4 --eval-every 1 --seed 17 --device cpu
+            --width 32 --layers 2 --heads 4 --eval-every 1 \
+            --validation-fraction 0.2 --bpe-merges 32 --seed 17 --device cpu
           python - <<'PY'
           from pathlib import Path
           import torch
@@ -75,10 +78,15 @@ jobs:
           assert payload["step"] == 3
           assert payload["config"]["d_model"] == 32
           assert payload["optimizer_state"] is not None
-          assert payload["metadata"]["external_pretrained_weights"] is False
-          assert len(payload["metadata"]["dataset_sha256"]) == 64
-          assert payload["metadata"]["train_document_count"] > 0
-          assert payload["metadata"]["validation_document_count"] > 0
+          assert payload["weights_origin"] == "random_initialization_and_kellvyn_training_only"
+          metadata = payload["metadata"]
+          assert metadata["external_pretrained_weights"] is False
+          assert len(metadata["dataset_sha256"]) == 64
+          assert len(metadata["tokenizer_sha256"]) == 64
+          assert metadata["train_document_count"] > 0
+          assert metadata["validation_document_count"] > 0
+          assert metadata["duplicate_document_count_removed"] > 0
+          assert payload["tokenizer"]["format"] == "kellvyn-byte-bpe-v1"
           print(f"checkpoint_bytes={path.stat().st_size}")
           print("smoke_test=PASS")
           PY
