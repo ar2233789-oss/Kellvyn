@@ -1,7 +1,7 @@
 """Small causal language model implemented for the Kellvyn project.
 
 No pretrained checkpoint is used. All trainable tensors are initialized here.
-The module is a baseline experiment, not a claim of a novel Transformer design.
+This is an experimental baseline, not a claim of a novel Transformer design.
 """
 
 from __future__ import annotations
@@ -182,6 +182,10 @@ class KellvynDecoderLM(nn.Module):
         if targets is not None:
             if targets.shape != input_ids.shape:
                 raise ValueError("targets must have the same shape as input_ids")
+            if targets.numel() and (
+                int(targets.min()) < 0 or int(targets.max()) >= self.config.vocab_size
+            ):
+                raise ValueError("target token ID outside configured vocabulary")
             loss = F.cross_entropy(
                 logits.reshape(-1, self.config.vocab_size),
                 targets.reshape(-1),
@@ -199,8 +203,17 @@ class KellvynDecoderLM(nn.Module):
     ) -> torch.Tensor:
         if temperature <= 0:
             raise ValueError("temperature must be positive")
+        if max_new_tokens < 0:
+            raise ValueError("max_new_tokens cannot be negative")
         if input_ids.ndim != 2 or input_ids.shape[1] == 0:
             raise ValueError("input_ids must be a non-empty [batch, time] tensor")
+        if input_ids.numel() and (
+            int(input_ids.min()) < 0 or int(input_ids.max()) >= self.config.vocab_size
+        ):
+            raise ValueError("input token ID outside configured vocabulary")
+        if top_k is not None and top_k <= 0:
+            raise ValueError("top_k must be positive")
+
         was_training = self.training
         self.eval()
         try:
@@ -209,8 +222,6 @@ class KellvynDecoderLM(nn.Module):
                 logits, _ = self(context)
                 next_logits = logits[:, -1, :] / temperature
                 if top_k is not None:
-                    if top_k <= 0:
-                        raise ValueError("top_k must be positive")
                     k = min(top_k, next_logits.shape[-1])
                     threshold = torch.topk(next_logits, k, dim=-1).values[:, -1, None]
                     next_logits = next_logits.masked_fill(next_logits < threshold, float("-inf"))
@@ -230,11 +241,18 @@ def save_checkpoint(
     model: KellvynDecoderLM,
     *,
     step: int,
-    tokenizer_state: dict[str, Any] | None = None,
+    tokenizer_state: dict[str, Any],
     optimizer_state: dict[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> None:
     """Persist weights, tokenizer, optimizer and auditable training provenance."""
+    if step < 0:
+        raise ValueError("checkpoint step cannot be negative")
+    if not isinstance(tokenizer_state, dict) or not isinstance(tokenizer_state.get("format"), str):
+        raise ValueError("a valid tokenizer state is required")
+    if metadata is not None and not isinstance(metadata, dict):
+        raise TypeError("metadata must be a dictionary")
+
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
@@ -245,29 +263,68 @@ def save_checkpoint(
         "state_dict": model.state_dict(),
         "optimizer_state": optimizer_state,
         "metadata": metadata or {},
+        "weights_origin": "random_initialization_and_kellvyn_training_only",
     }
     torch.save(payload, destination)
 
 
-def load_checkpoint(path: str | Path, *, map_location: str | torch.device = "cpu") -> tuple[KellvynDecoderLM, int]:
+def _read_checkpoint(
+    path: str | Path,
+    map_location: str | torch.device = "cpu",
+) -> dict[str, Any]:
     payload = torch.load(Path(path), map_location=map_location, weights_only=True)
-    if not isinstance(payload, dict) or payload.get("format") not in {"kellvyn-brain-lab-v1", "kellvyn-brain-lab-v2"}:
+    if not isinstance(payload, dict) or payload.get("format") not in {
+        "kellvyn-brain-lab-v1",
+        "kellvyn-brain-lab-v2",
+    }:
         raise ValueError("unsupported or invalid Kellvyn checkpoint")
+    return payload
+
+
+def load_checkpoint(
+    path: str | Path,
+    *,
+    map_location: str | torch.device = "cpu",
+) -> tuple[KellvynDecoderLM, int]:
+    payload = _read_checkpoint(path, map_location)
     config = KellvynConfig(**payload["config"])
     model = KellvynDecoderLM(config)
     model.load_state_dict(payload["state_dict"], strict=True)
     return model, int(payload["step"])
 
 
+def restore_optimizer_state(
+    path: str | Path,
+    optimizer: torch.optim.Optimizer,
+    *,
+    map_location: str | torch.device = "cpu",
+) -> None:
+    payload = _read_checkpoint(path, map_location)
+    state = payload.get("optimizer_state")
+    if not isinstance(state, dict):
+        raise ValueError("checkpoint does not contain an optimizer state")
+    optimizer.load_state_dict(state)
+
+
 def load_tokenizer_state(
     path: str | Path,
     *,
     map_location: str | torch.device = "cpu",
-) -> dict[str, Any] | None:
-    payload = torch.load(Path(path), map_location=map_location, weights_only=True)
-    if not isinstance(payload, dict) or payload.get("format") not in {"kellvyn-brain-lab-v1", "kellvyn-brain-lab-v2"}:
-        raise ValueError("unsupported or invalid Kellvyn checkpoint")
+) -> dict[str, Any]:
+    payload = _read_checkpoint(path, map_location)
     tokenizer_state = payload.get("tokenizer")
-    if tokenizer_state is not None and not isinstance(tokenizer_state, dict):
-        raise ValueError("checkpoint tokenizer state is malformed")
+    if not isinstance(tokenizer_state, dict):
+        raise ValueError("checkpoint does not contain a tokenizer state")
     return tokenizer_state
+
+
+def load_checkpoint_metadata(
+    path: str | Path,
+    *,
+    map_location: str | torch.device = "cpu",
+) -> dict[str, Any]:
+    payload = _read_checkpoint(path, map_location)
+    metadata = payload.get("metadata", {})
+    if not isinstance(metadata, dict):
+        raise ValueError("checkpoint metadata is malformed")
+    return metadata
