@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import Counter
+
 import torch
 
 from kellvyn_brain.model import (
@@ -26,6 +28,69 @@ def tiny_model(vocab_size: int = ByteTokenizer().VOCAB_SIZE) -> KellvynDecoderLM
             dropout=0.0,
         )
     )
+
+
+def _reference_bpe_train(text: str, num_merges: int, min_frequency: int) -> list[tuple[int, int]]:
+    symbols = [byte + ByteBPETokenizer.BYTE_OFFSET for byte in text.encode("utf-8")]
+    merges: list[tuple[int, int]] = []
+    for _ in range(num_merges):
+        pair_counts = Counter(zip(symbols, symbols[1:]))
+        if not pair_counts:
+            break
+        pair, frequency = min(
+            pair_counts.items(),
+            key=lambda item: (-item[1], item[0][0], item[0][1]),
+        )
+        if frequency < min_frequency:
+            break
+        merges.append(pair)
+        merged_id = ByteBPETokenizer.BASE_VOCAB_SIZE + len(merges) - 1
+        merged: list[int] = []
+        index = 0
+        while index < len(symbols):
+            if (
+                index + 1 < len(symbols)
+                and symbols[index] == pair[0]
+                and symbols[index + 1] == pair[1]
+            ):
+                merged.append(merged_id)
+                index += 2
+            else:
+                merged.append(symbols[index])
+                index += 1
+        symbols = merged
+    return merges
+
+
+def _reference_bpe_encode(
+    text: str,
+    merges: list[tuple[int, int]],
+    *,
+    add_bos: bool = True,
+    add_eos: bool = True,
+) -> list[int]:
+    symbols = [byte + ByteBPETokenizer.BYTE_OFFSET for byte in text.encode("utf-8")]
+    for merge_index, pair in enumerate(merges):
+        merged_id = ByteBPETokenizer.BASE_VOCAB_SIZE + merge_index
+        merged: list[int] = []
+        index = 0
+        while index < len(symbols):
+            if (
+                index + 1 < len(symbols)
+                and symbols[index] == pair[0]
+                and symbols[index + 1] == pair[1]
+            ):
+                merged.append(merged_id)
+                index += 2
+            else:
+                merged.append(symbols[index])
+                index += 1
+        symbols = merged
+    if add_bos:
+        symbols.insert(0, ByteBPETokenizer.BOS_ID)
+    if add_eos:
+        symbols.append(ByteBPETokenizer.EOS_ID)
+    return symbols
 
 
 def make_bpe_fixture():
@@ -56,6 +121,37 @@ def test_bpe_tokenizer_round_trip_and_compression() -> None:
     assert tokenizer.merge_count > 0
     assert len(ids) < len(ByteTokenizer().encode(sample))
     assert max(ids) < tokenizer.vocab_size
+
+
+def test_incremental_bpe_matches_reference_for_overlapping_and_utf8_text() -> None:
+    training_samples = [
+        "aaaaaaaaaaaaabaaaaaaaaaaaaab",
+        "abababababababababababababab",
+        "Kellvyn cria, testa e aprende: ação, cérebro, lógica e programação. " * 5,
+        "abcabcabdabcabcabdabcabcabd",
+    ]
+    probe_samples = [
+        "",
+        "aaaaabaaaaab",
+        "abababa",
+        "Kellvyn: ação, coração e raciocínio — português.",
+        "xyzxyzabcabc",
+    ]
+    for training_text in training_samples:
+        expected_merges = _reference_bpe_train(
+            training_text,
+            num_merges=40,
+            min_frequency=2,
+        )
+        tokenizer = ByteBPETokenizer.train(
+            training_text,
+            num_merges=40,
+            min_frequency=2,
+        )
+        assert list(tokenizer.merges) == expected_merges
+        for probe in probe_samples:
+            assert tokenizer.encode(probe) == _reference_bpe_encode(probe, expected_merges)
+            assert tokenizer.decode(tokenizer.encode(probe)) == probe
 
 
 def test_bpe_tokenizer_serialization() -> None:
