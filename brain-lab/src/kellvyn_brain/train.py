@@ -1,11 +1,13 @@
-"""Minimal next-token trainer for the from-scratch Kellvyn prototype."""
+"""Document-aware next-token trainer for the from-scratch Kellvyn prototype."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import random
 from pathlib import Path
+from typing import Sequence
 
 import torch
 
@@ -28,23 +30,56 @@ def choose_device(requested: str) -> torch.device:
     return torch.device("cpu")
 
 
-def split_documents(text: str) -> tuple[str, str, int, int]:
-    """Split on blank-line document boundaries to avoid document-level leakage."""
-    documents = [part.strip() for part in text.replace("\r\n", "\n").split("\n\n") if part.strip()]
-    if len(documents) >= 2:
-        split_index = max(1, min(len(documents) - 1, int(len(documents) * 0.9)))
-        train_documents = documents[:split_index]
-        validation_documents = documents[split_index:]
-        return (
-            "\n\n".join(train_documents),
-            "\n\n".join(validation_documents),
-            len(train_documents),
-            len(validation_documents),
+def split_documents(
+    text: str,
+    *,
+    validation_fraction: float = 0.1,
+    seed: int = 17,
+) -> tuple[list[str], list[str], int]:
+    """Deduplicate, shuffle and split complete documents before tokenization."""
+    if not 0.0 < validation_fraction < 1.0:
+        raise ValueError("validation_fraction must be between 0 and 1")
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    raw_documents = [
+        part.strip()
+        for part in __import__("re").split(r"\n\s*\n", normalized)
+        if part.strip()
+    ]
+    if len(raw_documents) < 2:
+        raise ValueError(
+            "At least two documents separated by blank lines are required; "
+            "a character-level split would leak document context."
         )
 
-    # For a single plain-text document, hold out the final 10% as a segment.
-    split_at = max(1, min(len(text) - 1, int(len(text) * 0.9)))
-    return text[:split_at], text[split_at:], 1, 1
+    unique_documents = list(dict.fromkeys(raw_documents))
+    duplicate_count = len(raw_documents) - len(unique_documents)
+    if len(unique_documents) < 2:
+        raise ValueError("At least two distinct documents are required after deduplication")
+
+    shuffled = unique_documents.copy()
+    random.Random(seed).shuffle(shuffled)
+    validation_count = max(
+        1,
+        min(len(shuffled) - 1, round(len(shuffled) * validation_fraction)),
+    )
+    validation_documents = shuffled[:validation_count]
+    training_documents = shuffled[validation_count:]
+    if set(training_documents).intersection(validation_documents):
+        raise RuntimeError("training and validation documents overlap")
+    return training_documents, validation_documents, duplicate_count
+
+
+def encode_documents(
+    documents: Sequence[str],
+    tokenizer: ByteBPETokenizer,
+) -> torch.Tensor:
+    """Keep explicit BOS/EOS boundaries for every independently split document."""
+    encoded: list[int] = []
+    for document in documents:
+        encoded.extend(tokenizer.encode(document, add_bos=True, add_eos=True))
+    if len(encoded) < 3:
+        raise ValueError("encoded document set is too small")
+    return torch.tensor(encoded, dtype=torch.long)
 
 
 def make_batch(
@@ -75,26 +110,35 @@ def estimate_loss(
     device: torch.device,
     batches: int = 4,
 ) -> float:
-    was_training = model.training
+    if batches <= 0:
+        raise ValueError("batches must be positive")
+    previous_mode = model.training
     model.eval()
-    losses = []
-    for _ in range(batches):
-        inputs, targets = make_batch(
-            tokens, batch_size=batch_size, seq_len=seq_len, device=device
-        )
-        _, loss = model(inputs, targets)
-        if loss is None:
-            raise RuntimeError("model did not return a loss")
-        losses.append(float(loss.item()))
-    model.train(was_training)
+    losses: list[float] = []
+    try:
+        for _ in range(batches):
+            inputs, targets = make_batch(
+                tokens,
+                batch_size=batch_size,
+                seq_len=seq_len,
+                device=device,
+            )
+            _, loss = model(inputs, targets)
+            if loss is None or not torch.isfinite(loss):
+                raise RuntimeError("validation produced a non-finite loss")
+            losses.append(float(loss.item()))
+    finally:
+        model.train(previous_mode)
     return sum(losses) / len(losses)
 
 
 def train(args: argparse.Namespace) -> None:
     if args.steps <= 0 or args.batch_size <= 0 or args.seq_len <= 1:
         raise ValueError("steps/batch-size must be positive and seq-len must exceed 1")
-    if args.eval_every <= 0 or args.learning_rate <= 0:
-        raise ValueError("eval-every and learning-rate must be positive")
+    if args.eval_every <= 0 or args.learning_rate <= 0 or args.grad_clip <= 0:
+        raise ValueError("eval-every, learning-rate and grad-clip must be positive")
+    if args.weight_decay < 0:
+        raise ValueError("weight-decay cannot be negative")
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -104,20 +148,31 @@ def train(args: argparse.Namespace) -> None:
     source = Path(args.data)
     if not source.is_file():
         raise FileNotFoundError(f"training text file not found: {source}")
-    text = source.read_text(encoding="utf-8")
-    train_text, validation_text, train_document_count, validation_document_count = split_documents(text)
-    if not train_text.strip() or not validation_text.strip():
-        raise ValueError("dataset must contain non-empty training and validation portions")
-    dataset_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    raw_data = source.read_bytes()
+    text = raw_data.decode("utf-8")
+
+    train_documents, validation_documents, duplicate_count = split_documents(
+        text,
+        validation_fraction=args.validation_fraction,
+        seed=args.seed,
+    )
+
+    # Fit the tokenizer only on training documents. Validation text cannot
+    # influence BPE merge frequencies or vocabulary construction.
+    train_text = "\n\n".join(train_documents)
     tokenizer = ByteBPETokenizer.train(
         train_text,
         num_merges=args.bpe_merges,
         min_frequency=args.bpe_min_frequency,
     )
-    train_tokens = torch.tensor(tokenizer.encode(train_text), dtype=torch.long)
-    validation_tokens = torch.tensor(tokenizer.encode(validation_text), dtype=torch.long)
-    device = choose_device(args.device)
+    train_tokens = encode_documents(train_documents, tokenizer)
+    validation_tokens = encode_documents(validation_documents, tokenizer)
+    if train_tokens.numel() < args.seq_len + 2:
+        raise ValueError("training documents do not contain enough tokens for seq_len")
+    if validation_tokens.numel() < args.seq_len + 2:
+        raise ValueError("validation documents do not contain enough tokens for seq_len")
 
+    device = choose_device(args.device)
     config = KellvynConfig(
         vocab_size=tokenizer.vocab_size,
         d_model=args.width,
@@ -137,6 +192,9 @@ def train(args: argparse.Namespace) -> None:
     print(f"device={device}")
     print(f"parameters={model.parameter_count():,}")
     print(f"tokenizer=bpe; merges={tokenizer.merge_count}; vocab={tokenizer.vocab_size}")
+    print(f"train_documents={len(train_documents):,}")
+    print(f"validation_documents={len(validation_documents):,}")
+    print(f"duplicate_documents_removed={duplicate_count:,}")
     print(f"training_tokens={train_tokens.numel():,}")
     print(f"validation_tokens={validation_tokens.numel():,}")
     print("initialization=random; external_weights=none")
@@ -170,22 +228,33 @@ def train(args: argparse.Namespace) -> None:
                 f"validation_loss={validation_loss:.4f}"
             )
 
+    tokenizer_state = tokenizer.to_dict()
     metadata = {
+        "initialization": "random",
         "external_pretrained_weights": False,
-        "dataset_sha256": dataset_sha256,
-        "train_document_count": train_document_count,
-        "validation_document_count": validation_document_count,
-        "training_data_bytes": len(text.encode("utf-8")),
+        "dataset_filename": source.name,
+        "dataset_sha256": hashlib.sha256(raw_data).hexdigest(),
+        "document_count_before_deduplication": len(train_documents) + len(validation_documents) + duplicate_count,
+        "duplicate_document_count_removed": duplicate_count,
+        "train_document_count": len(train_documents),
+        "validation_document_count": len(validation_documents),
         "train_token_count": int(train_tokens.numel()),
         "validation_token_count": int(validation_tokens.numel()),
+        "tokenizer_sha256": hashlib.sha256(
+            json.dumps(tokenizer_state, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
+        "tokenizer_merge_count": tokenizer.merge_count,
+        "validation_fraction": args.validation_fraction,
         "seed": int(args.seed),
-        "tokenizer_merges": int(tokenizer.merge_count),
+        "device": str(device),
+        "training_arguments": vars(args).copy(),
+        "note": "Experimental baseline only; BPE algorithm is not optimized for large corpora.",
     }
     save_checkpoint(
         args.checkpoint,
         model,
         step=args.steps,
-        tokenizer_state=tokenizer.to_dict(),
+        tokenizer_state=tokenizer_state,
         optimizer_state=optimizer.state_dict(),
         metadata=metadata,
     )
@@ -193,8 +262,10 @@ def train(args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Train the Kellvyn prototype from random initialization")
-    parser.add_argument("--data", required=True, help="UTF-8 text file with authorized training content")
+    parser = argparse.ArgumentParser(
+        description="Train the Kellvyn prototype from random initialization"
+    )
+    parser.add_argument("--data", required=True, help="UTF-8 documents separated by blank lines; use authorized text")
     parser.add_argument("--checkpoint", default="./runs/kellvyn-prototype.pt")
     parser.add_argument("--steps", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=8)
@@ -207,6 +278,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--weight-decay", type=float, default=0.01)
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--eval-every", type=int, default=20)
+    parser.add_argument("--validation-fraction", type=float, default=0.1)
     parser.add_argument("--bpe-merges", type=int, default=64)
     parser.add_argument("--bpe-min-frequency", type=int, default=2)
     parser.add_argument("--seed", type=int, default=17)
