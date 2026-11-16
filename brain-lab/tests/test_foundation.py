@@ -76,7 +76,7 @@ def test_attention_is_causal() -> None:
     torch.testing.assert_close(first_logits[:, :1], changed_logits[:, :1])
 
 
-def test_checkpoint_round_trip_with_tokenizer() -> None:
+def _build_checkpoint_round_trip_fixture():
     tokenizer = ByteBPETokenizer.train("Kellvyn cria, testa e aprende. " * 10, num_merges=16)
     model = tiny_model(vocab_size=tokenizer.vocab_size).eval()
     sample = torch.tensor([tokenizer.encode("Kellvyn")[:8]], dtype=torch.long)
@@ -86,9 +86,30 @@ def test_checkpoint_round_trip_with_tokenizer() -> None:
 
 
 def test_checkpoint_round_trip(tmp_path) -> None:
-    model, sample, expected, tokenizer = test_checkpoint_round_trip_with_tokenizer()
+    model, sample, expected, tokenizer = _build_checkpoint_round_trip_fixture()
     path = tmp_path / "kellvyn-test.pt"
-    save_checkpoint(path, model, step=7, tokenizer_state=tokenizer.to_dict())
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    metadata = {
+        "external_pretrained_weights": False,
+        "dataset_sha256": "a" * 64,
+        "train_document_count": 9,
+        "validation_document_count": 1,
+    }
+    save_checkpoint(
+        path,
+        model,
+        step=7,
+        tokenizer_state=tokenizer.to_dict(),
+        optimizer_state=optimizer.state_dict(),
+        metadata=metadata,
+    )
+    payload = torch.load(path, map_location="cpu", weights_only=True)
+    assert payload["format"] == "kellvyn-brain-lab-v2"
+    assert payload["optimizer_state"] is not None
+    assert payload["metadata"]["external_pretrained_weights"] is False
+    assert len(payload["metadata"]["dataset_sha256"]) == 64
+    assert payload["metadata"]["train_document_count"] > 0
+    assert payload["metadata"]["validation_document_count"] > 0
     restored, step = load_checkpoint(path)
     restored.eval()
     with torch.no_grad():

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import random
 from pathlib import Path
 
@@ -25,6 +26,25 @@ def choose_device(requested: str) -> torch.device:
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
+
+
+def split_documents(text: str) -> tuple[str, str, int, int]:
+    """Split on blank-line document boundaries to avoid document-level leakage."""
+    documents = [part.strip() for part in text.replace("\r\n", "\n").split("\n\n") if part.strip()]
+    if len(documents) >= 2:
+        split_index = max(1, min(len(documents) - 1, int(len(documents) * 0.9)))
+        train_documents = documents[:split_index]
+        validation_documents = documents[split_index:]
+        return (
+            "\n\n".join(train_documents),
+            "\n\n".join(validation_documents),
+            len(train_documents),
+            len(validation_documents),
+        )
+
+    # For a single plain-text document, hold out the final 10% as a segment.
+    split_at = max(1, min(len(text) - 1, int(len(text) * 0.9)))
+    return text[:split_at], text[split_at:], 1, 1
 
 
 def make_batch(
@@ -85,8 +105,10 @@ def train(args: argparse.Namespace) -> None:
     if not source.is_file():
         raise FileNotFoundError(f"training text file not found: {source}")
     text = source.read_text(encoding="utf-8")
-    split_at = int(len(text) * 0.9)
-    train_text, validation_text = text[:split_at], text[split_at:]
+    train_text, validation_text, train_document_count, validation_document_count = split_documents(text)
+    if not train_text.strip() or not validation_text.strip():
+        raise ValueError("dataset must contain non-empty training and validation portions")
+    dataset_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
     tokenizer = ByteBPETokenizer.train(
         train_text,
         num_merges=args.bpe_merges,
@@ -148,11 +170,24 @@ def train(args: argparse.Namespace) -> None:
                 f"validation_loss={validation_loss:.4f}"
             )
 
+    metadata = {
+        "external_pretrained_weights": False,
+        "dataset_sha256": dataset_sha256,
+        "train_document_count": train_document_count,
+        "validation_document_count": validation_document_count,
+        "training_data_bytes": len(text.encode("utf-8")),
+        "train_token_count": int(train_tokens.numel()),
+        "validation_token_count": int(validation_tokens.numel()),
+        "seed": int(args.seed),
+        "tokenizer_merges": int(tokenizer.merge_count),
+    }
     save_checkpoint(
         args.checkpoint,
         model,
         step=args.steps,
         tokenizer_state=tokenizer.to_dict(),
+        optimizer_state=optimizer.state_dict(),
+        metadata=metadata,
     )
     print(f"checkpoint_saved={args.checkpoint}")
 

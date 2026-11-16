@@ -231,22 +231,27 @@ def save_checkpoint(
     *,
     step: int,
     tokenizer_state: dict[str, Any] | None = None,
+    optimizer_state: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
+    """Persist weights, tokenizer, optimizer and auditable training provenance."""
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
-        "format": "kellvyn-brain-lab-v1",
+        "format": "kellvyn-brain-lab-v2",
         "step": int(step),
         "config": asdict(model.config),
         "tokenizer": tokenizer_state,
         "state_dict": model.state_dict(),
+        "optimizer_state": optimizer_state,
+        "metadata": metadata or {},
     }
     torch.save(payload, destination)
 
 
 def load_checkpoint(path: str | Path, *, map_location: str | torch.device = "cpu") -> tuple[KellvynDecoderLM, int]:
     payload = torch.load(Path(path), map_location=map_location, weights_only=True)
-    if not isinstance(payload, dict) or payload.get("format") != "kellvyn-brain-lab-v1":
+    if not isinstance(payload, dict) or payload.get("format") not in {"kellvyn-brain-lab-v1", "kellvyn-brain-lab-v2"}:
         raise ValueError("unsupported or invalid Kellvyn checkpoint")
     config = KellvynConfig(**payload["config"])
     model = KellvynDecoderLM(config)
