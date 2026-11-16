@@ -6,10 +6,13 @@ from kellvyn_brain.model import (
     KellvynConfig,
     KellvynDecoderLM,
     load_checkpoint,
+    load_checkpoint_metadata,
     load_tokenizer_state,
+    restore_optimizer_state,
     save_checkpoint,
 )
 from kellvyn_brain.tokenizer import ByteBPETokenizer, ByteTokenizer
+from kellvyn_brain.train import encode_documents, split_documents
 
 
 def tiny_model(vocab_size: int = ByteTokenizer().VOCAB_SIZE) -> KellvynDecoderLM:
@@ -23,6 +26,17 @@ def tiny_model(vocab_size: int = ByteTokenizer().VOCAB_SIZE) -> KellvynDecoderLM
             dropout=0.0,
         )
     )
+
+
+def make_bpe_fixture():
+    sample = "Kellvyn cria, testa e aprende. "
+    tokenizer = ByteBPETokenizer.train(sample * 20, num_merges=16)
+    model = tiny_model(vocab_size=tokenizer.vocab_size).eval()
+    sample_ids = tokenizer.encode("Kellvyn")
+    inputs = torch.tensor([sample_ids[:8]], dtype=torch.long)
+    with torch.no_grad():
+        expected, _ = model(inputs)
+    return model, inputs, expected, tokenizer
 
 
 def test_byte_tokenizer_round_trip_portuguese() -> None:
@@ -52,6 +66,39 @@ def test_bpe_tokenizer_serialization() -> None:
     assert restored.decode(restored.encode(sample)) == sample
 
 
+def test_document_split_is_reproducible_disjoint_and_deduplicated() -> None:
+    documents = [f"document-{index}" for index in range(20)] + ["document-3", "document-8"]
+    corpus = "\n\n".join(documents)
+    train_a, validation_a, removed_a = split_documents(
+        corpus, validation_fraction=0.2, seed=7
+    )
+    train_b, validation_b, removed_b = split_documents(
+        corpus, validation_fraction=0.2, seed=7
+    )
+    assert train_a == train_b
+    assert validation_a == validation_b
+    assert removed_a == removed_b == 2
+    assert set(train_a).isdisjoint(validation_a)
+    assert len(train_a) + len(validation_a) == 20
+
+
+def test_document_split_rejects_one_document() -> None:
+    try:
+        split_documents("only one document", validation_fraction=0.1, seed=1)
+    except ValueError as error:
+        assert "two documents separated by blank lines" in str(error)
+    else:
+        raise AssertionError("expected a one-document corpus to be rejected")
+
+
+def test_documents_encode_with_bos_and_eos_boundaries() -> None:
+    tokenizer = ByteBPETokenizer.train("first document second document " * 5, num_merges=8)
+    encoded = encode_documents(["first document", "second document"], tokenizer).tolist()
+    assert encoded[0] == tokenizer.BOS_ID
+    assert encoded.count(tokenizer.BOS_ID) == 2
+    assert encoded.count(tokenizer.EOS_ID) == 2
+
+
 def test_model_forward_returns_finite_loss() -> None:
     model = tiny_model()
     input_ids = torch.randint(0, model.config.vocab_size, (2, 12))
@@ -76,48 +123,74 @@ def test_attention_is_causal() -> None:
     torch.testing.assert_close(first_logits[:, :1], changed_logits[:, :1])
 
 
-def _build_checkpoint_round_trip_fixture():
-    tokenizer = ByteBPETokenizer.train("Kellvyn cria, testa e aprende. " * 10, num_merges=16)
-    model = tiny_model(vocab_size=tokenizer.vocab_size).eval()
-    sample = torch.tensor([tokenizer.encode("Kellvyn")[:8]], dtype=torch.long)
-    with torch.no_grad():
-        expected, _ = model(sample)
-    return model, sample, expected, tokenizer
+def test_model_initialization_is_seed_reproducible() -> None:
+    torch.manual_seed(91)
+    first = tiny_model()
+    torch.manual_seed(91)
+    second = tiny_model()
+    for left, right in zip(first.parameters(), second.parameters()):
+        torch.testing.assert_close(left, right)
 
 
-def test_checkpoint_round_trip(tmp_path) -> None:
-    model, sample, expected, tokenizer = _build_checkpoint_round_trip_fixture()
-    path = tmp_path / "kellvyn-test.pt"
+def test_training_step_updates_parameters() -> None:
+    torch.manual_seed(13)
+    model = tiny_model()
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    inputs = torch.randint(0, model.config.vocab_size, (2, 12))
+    targets = torch.randint(0, model.config.vocab_size, (2, 12))
+    before = [parameter.detach().clone() for parameter in model.parameters()]
+    _, loss = model(inputs, targets)
+    assert loss is not None
+    loss.backward()
+    optimizer.step()
+    assert any(
+        not torch.equal(old, new.detach())
+        for old, new in zip(before, model.parameters())
+    )
+
+
+def test_checkpoint_round_trip_and_optimizer_resume(tmp_path) -> None:
+    model, inputs, _, tokenizer = make_bpe_fixture()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    model.train()
+    targets = torch.randint(0, model.config.vocab_size, inputs.shape)
+    _, loss = model(inputs, targets)
+    assert loss is not None
+    loss.backward()
+    optimizer.step()
+    model.eval()
+    with torch.no_grad():
+        expected, _ = model(inputs)
+
     metadata = {
         "external_pretrained_weights": False,
         "dataset_sha256": "a" * 64,
         "train_document_count": 9,
         "validation_document_count": 1,
+        "duplicate_document_count_removed": 2,
     }
+    checkpoint = tmp_path / "kellvyn-test.pt"
     save_checkpoint(
-        path,
+        checkpoint,
         model,
         step=7,
         tokenizer_state=tokenizer.to_dict(),
         optimizer_state=optimizer.state_dict(),
         metadata=metadata,
     )
-    payload = torch.load(path, map_location="cpu", weights_only=True)
-    assert payload["format"] == "kellvyn-brain-lab-v2"
-    assert payload["optimizer_state"] is not None
-    assert payload["metadata"]["external_pretrained_weights"] is False
-    assert len(payload["metadata"]["dataset_sha256"]) == 64
-    assert payload["metadata"]["train_document_count"] > 0
-    assert payload["metadata"]["validation_document_count"] > 0
-    restored, step = load_checkpoint(path)
+
+    restored, step = load_checkpoint(checkpoint)
     restored.eval()
     with torch.no_grad():
-        actual, _ = restored(sample)
+        actual, _ = restored(inputs)
     assert step == 7
     torch.testing.assert_close(expected, actual)
-    saved_tokenizer = ByteBPETokenizer.from_dict(load_tokenizer_state(path))
-    assert saved_tokenizer.to_dict() == tokenizer.to_dict()
+
+    restored_optimizer = torch.optim.AdamW(restored.parameters(), lr=1e-3)
+    restore_optimizer_state(checkpoint, restored_optimizer)
+    assert len(restored_optimizer.state) > 0
+    assert ByteBPETokenizer.from_dict(load_tokenizer_state(checkpoint)).to_dict() == tokenizer.to_dict()
+    assert load_checkpoint_metadata(checkpoint) == metadata
 
 
 def test_model_rejects_too_long_input() -> None:
@@ -129,3 +202,11 @@ def test_model_rejects_too_long_input() -> None:
         assert "max_seq_len" in str(error)
     else:
         raise AssertionError("expected max sequence length validation to fail")
+
+
+def test_generate_returns_prompt_and_new_tokens() -> None:
+    model = tiny_model().eval()
+    prompt = torch.tensor([[1, 5, 6]], dtype=torch.long)
+    generated = model.generate(prompt, max_new_tokens=4, temperature=1.0, top_k=8)
+    assert generated.shape == (1, 7)
+    assert torch.equal(generated[:, :3], prompt)
