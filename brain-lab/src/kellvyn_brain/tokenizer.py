@@ -1,12 +1,13 @@
 """Tokenizers trained/defined for the Kellvyn project.
 
-ByteTokenizer is the transparent baseline. ByteBPETokenizer learns merge rules
-from the supplied corpus and never loads a third-party vocabulary.
+ByteTokenizer is a transparent byte baseline. ByteBPETokenizer learns all merge
+rules from the supplied training text; no external vocabulary is loaded.
 """
 
 from __future__ import annotations
 
-from collections import Counter
+import heapq
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
@@ -50,11 +51,12 @@ class ByteTokenizer:
 
 
 class ByteBPETokenizer:
-    """A small byte-level BPE tokenizer whose merge table is learned from text.
+    """Byte-level BPE with an incrementally maintained linked sequence and heap.
 
-    This intentionally straightforward implementation favors auditability over
-    speed. Its O(number_of_merges * corpus_length) training/encoding cost makes
-    it a research prototype, not the production tokenizer for a huge corpus.
+    Training updates only pair counts adjacent to changed positions, rather than
+    rescanning the complete corpus for every merge. Encoding uses merge ranks in
+    a priority queue. The implementation is still Python and stores per-position
+    state; it is a research baseline, not yet the large-corpus Rust/C++ trainer.
     """
 
     FORMAT = "kellvyn-byte-bpe-v1"
@@ -68,13 +70,19 @@ class ByteBPETokenizer:
         self.merges = tuple((int(left), int(right)) for left, right in merges)
         pieces: list[bytes] = [b"", b"", b""]
         pieces.extend(bytes([value]) for value in range(256))
+        seen_pairs: set[tuple[int, int]] = set()
         for left, right in self.merges:
             if left < self.BYTE_OFFSET or right < self.BYTE_OFFSET:
                 raise ValueError("BPE merges cannot contain special token IDs")
             if left >= len(pieces) or right >= len(pieces):
                 raise ValueError("BPE merge references a token that was not created yet")
+            pair = (left, right)
+            if pair in seen_pairs:
+                raise ValueError("BPE merge table contains a duplicate pair")
+            seen_pairs.add(pair)
             pieces.append(pieces[left] + pieces[right])
         self._pieces = tuple(pieces)
+        self._merge_ranks = {pair: rank for rank, pair in enumerate(self.merges)}
 
     @property
     def vocab_size(self) -> int:
@@ -98,37 +106,110 @@ class ByteBPETokenizer:
             raise ValueError("num_merges must be non-negative and min_frequency at least 2")
 
         symbols = [byte + cls.BYTE_OFFSET for byte in text.encode("utf-8")]
-        merges: list[tuple[int, int]] = []
+        length = len(symbols)
+        if length < 2 or num_merges == 0:
+            return cls([])
 
-        for _ in range(num_merges):
-            pair_counts = Counter(zip(symbols, symbols[1:]))
-            if not pair_counts:
+        previous = [index - 1 for index in range(length)]
+        following = [index + 1 for index in range(length)]
+        following[-1] = -1
+        alive = [True] * length
+
+        pair_counts: dict[tuple[int, int], int] = defaultdict(int)
+        pair_positions: dict[tuple[int, int], set[int]] = defaultdict(set)
+        pair_versions: dict[tuple[int, int], int] = defaultdict(int)
+        heap: list[tuple[int, int, int, int]] = []
+
+        def refresh(pair: tuple[int, int]) -> None:
+            pair_versions[pair] += 1
+            count = pair_counts[pair]
+            if count > 0:
+                heapq.heappush(
+                    heap,
+                    (-count, pair[0], pair[1], pair_versions[pair]),
+                )
+
+        def add_pair(left_index: int) -> None:
+            if left_index < 0 or not alive[left_index]:
+                return
+            right_index = following[left_index]
+            if right_index < 0 or not alive[right_index]:
+                return
+            pair = (symbols[left_index], symbols[right_index])
+            pair_positions[pair].add(left_index)
+            pair_counts[pair] += 1
+            refresh(pair)
+
+        def remove_pair(left_index: int) -> None:
+            if left_index < 0 or not alive[left_index]:
+                return
+            right_index = following[left_index]
+            if right_index < 0 or not alive[right_index]:
+                return
+            pair = (symbols[left_index], symbols[right_index])
+            positions = pair_positions[pair]
+            if left_index not in positions:
+                raise RuntimeError("BPE pair index bookkeeping is inconsistent")
+            positions.remove(left_index)
+            pair_counts[pair] -= 1
+            refresh(pair)
+
+        for index in range(length - 1):
+            add_pair(index)
+
+        merges: list[tuple[int, int]] = []
+        while heap and len(merges) < num_merges:
+            while heap:
+                negative_count, left, right, version = heapq.heappop(heap)
+                pair = (left, right)
+                if (
+                    pair_versions[pair] == version
+                    and pair_counts[pair] == -negative_count
+                ):
+                    break
+            else:
                 break
-            pair, frequency = min(
-                pair_counts.items(),
-                key=lambda item: (-item[1], item[0][0], item[0][1]),
-            )
+
+            frequency = -negative_count
             if frequency < min_frequency:
                 break
 
-            left, right = pair
-            merged_id = cls.BASE_VOCAB_SIZE + len(merges)
-            merges.append((left, right))
+            merge_id = cls.BASE_VOCAB_SIZE + len(merges)
+            merges.append(pair)
+            # Snapshot positions because merges mutate the live occurrence sets.
+            candidates = sorted(pair_positions[pair])
 
-            merged: list[int] = []
-            index = 0
-            while index < len(symbols):
+            # Left-to-right processing gives the same non-overlapping rule as
+            # the reference BPE definition (e.g. a a a -> [aa, a]).
+            for left_index in candidates:
+                if not alive[left_index]:
+                    continue
+                right_index = following[left_index]
+                if right_index < 0 or not alive[right_index]:
+                    continue
                 if (
-                    index + 1 < len(symbols)
-                    and symbols[index] == left
-                    and symbols[index + 1] == right
+                    symbols[left_index] != left
+                    or symbols[right_index] != right
                 ):
-                    merged.append(merged_id)
-                    index += 2
-                else:
-                    merged.append(symbols[index])
-                    index += 1
-            symbols = merged
+                    continue
+
+                before = previous[left_index]
+                after = following[right_index]
+
+                remove_pair(before)
+                remove_pair(left_index)
+                remove_pair(right_index)
+
+                symbols[left_index] = merge_id
+                following[left_index] = after
+                if after >= 0:
+                    previous[after] = left_index
+                alive[right_index] = False
+                previous[right_index] = -1
+                following[right_index] = -1
+
+                add_pair(before)
+                add_pair(left_index)
 
         return cls(merges)
 
@@ -142,28 +223,69 @@ class ByteBPETokenizer:
         if not isinstance(text, str):
             raise TypeError("text must be str")
         symbols = [byte + self.BYTE_OFFSET for byte in text.encode("utf-8")]
-        for merge_index, (left, right) in enumerate(self.merges):
-            merged_id = self.BASE_VOCAB_SIZE + merge_index
-            merged: list[int] = []
-            index = 0
-            while index < len(symbols):
-                if (
-                    index + 1 < len(symbols)
-                    and symbols[index] == left
-                    and symbols[index + 1] == right
-                ):
-                    merged.append(merged_id)
-                    index += 2
-                else:
-                    merged.append(symbols[index])
-                    index += 1
-            symbols = merged
+        length = len(symbols)
+
+        if length == 0 or not self.merges:
+            if add_bos:
+                symbols.insert(0, self.BOS_ID)
+            if add_eos:
+                symbols.append(self.EOS_ID)
+            return symbols
+
+        previous = [index - 1 for index in range(length)]
+        following = [index + 1 for index in range(length)]
+        following[-1] = -1
+        alive = [True] * length
+        heap: list[tuple[int, int]] = []
+
+        def push_if_mergeable(left_index: int) -> None:
+            if left_index < 0 or not alive[left_index]:
+                return
+            right_index = following[left_index]
+            if right_index < 0 or not alive[right_index]:
+                return
+            rank = self._merge_ranks.get((symbols[left_index], symbols[right_index]))
+            if rank is not None:
+                heapq.heappush(heap, (rank, left_index))
+
+        for index in range(length - 1):
+            push_if_mergeable(index)
+
+        while heap:
+            rank, left_index = heapq.heappop(heap)
+            if not alive[left_index]:
+                continue
+            right_index = following[left_index]
+            if right_index < 0 or not alive[right_index]:
+                continue
+            if (symbols[left_index], symbols[right_index]) != self.merges[rank]:
+                continue
+
+            before = previous[left_index]
+            after = following[right_index]
+            symbols[left_index] = self.BASE_VOCAB_SIZE + rank
+            following[left_index] = after
+            if after >= 0:
+                previous[after] = left_index
+            alive[right_index] = False
+            previous[right_index] = -1
+            following[right_index] = -1
+
+            push_if_mergeable(before)
+            push_if_mergeable(left_index)
+
+        encoded: list[int] = []
+        index = 0
+        while index >= 0:
+            if alive[index]:
+                encoded.append(symbols[index])
+            index = following[index]
 
         if add_bos:
-            symbols.insert(0, self.BOS_ID)
+            encoded.insert(0, self.BOS_ID)
         if add_eos:
-            symbols.append(self.EOS_ID)
-        return symbols
+            encoded.append(self.EOS_ID)
+        return encoded
 
     def decode(self, token_ids: list[int]) -> str:
         output = bytearray()
