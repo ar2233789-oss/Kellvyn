@@ -1,8 +1,9 @@
-"""Minimal next-token trainer for the from-scratch Kellvyn prototype."""
+"""Document-aware next-token trainer for the from-scratch Kellvyn prototype."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import random
 from pathlib import Path
 
@@ -25,6 +26,36 @@ def choose_device(requested: str) -> torch.device:
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
+
+
+def split_documents(
+    documents: list[str],
+    *,
+    validation_fraction: float,
+    seed: int,
+) -> tuple[list[str], list[str]]:
+    """Split whole documents before tokenization to reduce train/validation leakage."""
+    if not 0.0 < validation_fraction < 1.0:
+        raise ValueError("validation_fraction must be between 0 and 1")
+    cleaned = [document.strip() for document in documents if document.strip()]
+    if len(cleaned) < 2:
+        raise ValueError(
+            "At least two non-empty documents are required. Separate documents with blank lines."
+        )
+    shuffled = cleaned.copy()
+    random.Random(seed).shuffle(shuffled)
+    validation_count = max(1, min(len(shuffled) - 1, round(len(shuffled) * validation_fraction)))
+    return shuffled[validation_count:], shuffled[:validation_count]
+
+
+def encode_documents(documents: list[str], tokenizer: ByteTokenizer) -> torch.Tensor:
+    """Keep explicit BOS/EOS boundaries when packing independently supplied documents."""
+    encoded: list[int] = []
+    for document in documents:
+        encoded.extend(tokenizer.encode(document, add_bos=True, add_eos=True))
+    if len(encoded) < 3:
+        raise ValueError("encoded corpus is too small")
+    return torch.tensor(encoded, dtype=torch.long)
 
 
 def make_batch(
@@ -55,25 +86,30 @@ def estimate_loss(
     device: torch.device,
     batches: int = 4,
 ) -> float:
+    previous_mode = model.training
     model.eval()
-    losses = []
-    for _ in range(batches):
-        inputs, targets = make_batch(
-            tokens, batch_size=batch_size, seq_len=seq_len, device=device
-        )
-        _, loss = model(inputs, targets)
-        if loss is None:
-            raise RuntimeError("model did not return a loss")
-        losses.append(float(loss.item()))
-    model.train()
+    losses: list[float] = []
+    try:
+        for _ in range(batches):
+            inputs, targets = make_batch(
+                tokens, batch_size=batch_size, seq_len=seq_len, device=device
+            )
+            _, loss = model(inputs, targets)
+            if loss is None or not torch.isfinite(loss):
+                raise RuntimeError("validation produced a non-finite loss")
+            losses.append(float(loss.item()))
+    finally:
+        model.train(previous_mode)
     return sum(losses) / len(losses)
 
 
 def train(args: argparse.Namespace) -> None:
     if args.steps <= 0 or args.batch_size <= 0 or args.seq_len <= 1:
         raise ValueError("steps/batch-size must be positive and seq-len must exceed 1")
-    if args.eval_every <= 0 or args.learning_rate <= 0:
-        raise ValueError("eval-every and learning-rate must be positive")
+    if args.eval_every <= 0 or args.learning_rate <= 0 or args.grad_clip <= 0:
+        raise ValueError("eval-every, learning-rate and grad-clip must be positive")
+    if args.weight_decay < 0:
+        raise ValueError("weight-decay cannot be negative")
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -83,11 +119,20 @@ def train(args: argparse.Namespace) -> None:
     source = Path(args.data)
     if not source.is_file():
         raise FileNotFoundError(f"training text file not found: {source}")
-    text = source.read_text(encoding="utf-8")
+    raw_data = source.read_bytes()
+    text = raw_data.decode("utf-8")
+    documents = [part.strip() for part in text.split("\\n\\n") if part.strip()]
+    if len(documents) < 2:
+        documents = [line.strip() for line in text.splitlines() if line.strip()]
+
+    train_documents, validation_documents = split_documents(
+        documents,
+        validation_fraction=args.validation_fraction,
+        seed=args.seed,
+    )
     tokenizer = ByteTokenizer()
-    encoded = torch.tensor(tokenizer.encode(text), dtype=torch.long)
-    split = int(encoded.numel() * 0.9)
-    train_tokens, validation_tokens = encoded[:split], encoded[split:]
+    train_tokens = encode_documents(train_documents, tokenizer)
+    validation_tokens = encode_documents(validation_documents, tokenizer)
     device = choose_device(args.device)
 
     config = KellvynConfig(
@@ -108,6 +153,8 @@ def train(args: argparse.Namespace) -> None:
 
     print(f"device={device}")
     print(f"parameters={model.parameter_count():,}")
+    print(f"train_documents={len(train_documents):,}")
+    print(f"validation_documents={len(validation_documents):,}")
     print(f"training_tokens={train_tokens.numel():,}")
     print(f"validation_tokens={validation_tokens.numel():,}")
     print("initialization=random; external_weights=none")
@@ -141,13 +188,35 @@ def train(args: argparse.Namespace) -> None:
                 f"validation_loss={validation_loss:.4f}"
             )
 
-    save_checkpoint(args.checkpoint, model, step=args.steps)
+    metadata = {
+        "initialization": "random",
+        "external_pretrained_weights": False,
+        "tokenizer": "byte-level-v1",
+        "dataset_filename": source.name,
+        "dataset_sha256": hashlib.sha256(raw_data).hexdigest(),
+        "document_count": len(documents),
+        "train_document_count": len(train_documents),
+        "validation_document_count": len(validation_documents),
+        "seed": args.seed,
+        "device": str(device),
+        "training_arguments": vars(args).copy(),
+        "note": "Toy baseline only; tokenizer and corpus pipeline are not production-ready.",
+    }
+    save_checkpoint(
+        args.checkpoint,
+        model,
+        step=args.steps,
+        optimizer=optimizer,
+        metadata=metadata,
+    )
     print(f"checkpoint_saved={args.checkpoint}")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Train the Kellvyn prototype from random initialization")
-    parser.add_argument("--data", required=True, help="UTF-8 text file with authorized training content")
+    parser = argparse.ArgumentParser(
+        description="Train the Kellvyn prototype from random initialization"
+    )
+    parser.add_argument("--data", required=True, help="UTF-8 document corpus; blank lines separate documents")
     parser.add_argument("--checkpoint", default="./runs/kellvyn-prototype.pt")
     parser.add_argument("--steps", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=8)
@@ -160,6 +229,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--weight-decay", type=float, default=0.01)
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--eval-every", type=int, default=20)
+    parser.add_argument("--validation-fraction", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--device", default="auto", help="auto, cpu, cuda, or mps")
     return parser
