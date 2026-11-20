@@ -1,0 +1,96 @@
+name: Audit Gate
+
+on:
+  push:
+    branches:
+      - "brain/from-scratch-foundation"
+  pull_request:
+    branches:
+      - "brain/from-scratch-foundation"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-gate:
+    name: Validate audit state and scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Validate the audit and changed files
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          audit="docs/WORK_AUDIT.md"
+          if [[ ! -s "$audit" ]]; then
+            echo "::error::Arquivo obrigatório ausente ou vazio: $audit"
+            exit 1
+          fi
+
+          if grep -Fq '**Fase atual:** `AUDIT_ONLY`' "$audit"; then
+            phase="AUDIT_ONLY"
+          elif grep -Fq '**Fase atual:** `IMPLEMENTATION_AUTHORIZED`' "$audit"; then
+            phase="IMPLEMENTATION_AUTHORIZED"
+          else
+            echo "::error::A auditoria precisa declarar Fase atual como AUDIT_ONLY ou IMPLEMENTATION_AUTHORIZED."
+            exit 1
+          fi
+
+          changed=""
+          case "$EVENT_NAME" in
+            pull_request)
+              changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+              ;;
+            push)
+              if [[ -z "${BEFORE_SHA:-}" || "$BEFORE_SHA" =~ ^0+$ ]]; then
+                changed="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA")"
+              else
+                changed="$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")"
+              fi
+              ;;
+            *)
+              changed=""
+              ;;
+          esac
+
+          audit_changed="false"
+          code_changed="false"
+          while IFS= read -r path; do
+            [[ -z "$path" ]] && continue
+            [[ "$path" == "$audit" ]] && audit_changed="true"
+
+            case "$path" in
+              app/*|brain-lab/*|src/*|gradle/*|*.kt|*.kts|*.java|*.py|*.xml|*.gradle|*.gradle.kts|settings.gradle*|build.gradle*|gradlew|gradlew.bat|AndroidManifest.xml)
+                code_changed="true"
+                echo "Arquivo técnico alterado: $path"
+                ;;
+            esac
+          done <<< "$changed"
+
+          if [[ "$code_changed" == "true" && "$phase" != "IMPLEMENTATION_AUTHORIZED" ]]; then
+            echo "::error::Fase AUDIT_ONLY: alterações técnicas estão bloqueadas pela auditoria."
+            exit 1
+          fi
+
+          if [[ "$code_changed" == "true" && "$audit_changed" != "true" ]]; then
+            echo "::error::Toda alteração técnica precisa atualizar docs/WORK_AUDIT.md no mesmo push/PR."
+            exit 1
+          fi
+
+          echo "Audit Gate: PASS"
+          echo "Fase atual: $phase"
+          echo "Alterações técnicas detectadas: $code_changed"
+          echo "Auditoria atualizada neste conjunto de mudanças: $audit_changed"
