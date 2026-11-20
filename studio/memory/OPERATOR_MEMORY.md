@@ -83,3 +83,12 @@ A página do resultado identifica o APK e seu SHA-256; usar a evidência corresp
 - A auditoria é o ponto oficial de retomada entre chats; atualizar manualmente após cada marco real, confirmar o commit e reler o arquivo.
 - Escopo atual: cérebro próprio da Kellvyn; sem modelos pré-treinados, agentes, sistema multiagente, orquestrador ou Copiloto.
 - A auditoria inicial foi criada em 2026-11-20 no commit `fa7b668d2f5fe8847a4e2fb92fe06dea5d9bbb26`.
+
+
+## Correção operacional — prioridade atual de auditoria
+
+- Em 2026-11-20, o usuário corrigiu que a tarefa atual é trabalhar na auditoria, não no cérebro.
+- Não alterar arquivos do cérebro durante a etapa de auditoria. Não improvisar mudanças técnicas nem presumir que documentos do repositório definem a próxima tarefa.
+- Primeiro concluir e consultar `docs/WORK_AUDIT.md` na branch `brain/from-scratch-foundation`; depois conferir as decisões anteriores registradas e só então retomar implementação conforme o pedido concreto.
+- Todo chat novo deve começar pela leitura da auditoria e desta memória, antes de responder ou escolher arquivos/projetos.
+- A última correção de escopo está registrada no commit `719474793f54156daec146e888858a11ae4b61c7`.
