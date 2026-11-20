@@ -101,3 +101,12 @@ A página do resultado identifica o APK e seu SHA-256; usar a evidência corresp
 - A fase registrada atualmente em `docs/WORK_AUDIT.md` é `AUDIT_ONLY`. Nenhum código técnico está autorizado nesta etapa.
 - Limite obrigatório: GitHub Actions valida commits/pushes/PRs; não consegue abrir arquivos dentro de uma nova conversa do ChatGPT. O operador precisa consultar explicitamente a auditoria e esta memória no início de cada sessão. Nunca afirmar que existe carregamento automático.
 - O status de CI reprovado não impede sozinho push direto enquanto uma regra de proteção de branch que exija esse status não estiver ativada e verificada. Não alegar que a branch está protegida sem prova.
+
+
+### Evidência da instalação da trava — 2026-11-20
+
+- O workflow `.github/workflows/audit-gate.yml` foi refinado no commit `074608549c26ed74e0bb97b6c37496a601d5cce7`; ele lê a declaração de fase mais recente da auditoria.
+- Validação local da sintaxe YAML e do script Bash: ambas passaram.
+- A execução hospedada do workflow ainda precisa ser conferida em GitHub Actions. Não marcar como aprovada antes de ver o resultado real.
+- A proteção da branch não foi configurada/verificada; uma falha de CI ainda não impede push direto sem regra de proteção que exija esse status.
+- O GitHub não pode forçar o ChatGPT a abrir o arquivo em cada conversa. A consulta precisa ser executada explicitamente no início de cada sessão.
