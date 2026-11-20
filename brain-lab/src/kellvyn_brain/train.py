@@ -16,11 +16,7 @@ from .corpus_manifest import validate_corpus_manifest
 from .model import (
     KellvynConfig,
     KellvynDecoderLM,
-    load_checkpoint,
-    load_checkpoint_metadata,
-    load_tokenizer_state,
-    load_training_state,
-    restore_optimizer_state,
+    load_training_checkpoint,
     save_checkpoint,
 )
 from .tokenizer import ByteBPETokenizer
@@ -269,13 +265,20 @@ def train(args: argparse.Namespace) -> None:
     else:
         if not resume_path.is_file():
             raise FileNotFoundError(f"resume checkpoint not found: {resume_path}")
-        model, start_step = load_checkpoint(resume_path, map_location="cpu")
+        (
+            model,
+            start_step,
+            optimizer_state,
+            metadata,
+            tokenizer_state,
+            saved_training_state,
+            weights_origin,
+        ) = load_training_checkpoint(resume_path, map_location="cpu")
         model = model.to(device)
-        metadata = load_checkpoint_metadata(resume_path, map_location="cpu")
-        saved_training_state = load_training_state(resume_path, map_location="cpu")
-        tokenizer_state = load_tokenizer_state(resume_path, map_location="cpu")
         tokenizer = ByteBPETokenizer.from_dict(tokenizer_state)
 
+        if weights_origin != "random_initialization_and_kellvyn_training_only":
+            raise ValueError("resume checkpoint has an untrusted weights origin")
         if metadata.get("external_pretrained_weights") is not False:
             raise ValueError("resume checkpoint does not prove random initialization/no external weights")
         if metadata.get("dataset_sha256") != actual_dataset_sha256:
@@ -313,7 +316,7 @@ def train(args: argparse.Namespace) -> None:
             lr=args.learning_rate,
             weight_decay=args.weight_decay,
         )
-        restore_optimizer_state(resume_path, optimizer, map_location=device)
+        optimizer.load_state_dict(optimizer_state)
         _restore_rng_state(saved_training_state["rng"], device)
         last_validation_loss = saved_training_state.get("last_validation_loss")
         resumed_from = str(resume_path)

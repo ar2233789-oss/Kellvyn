@@ -321,3 +321,8 @@ Critérios de aceitação: testes completos, comparação exata de pesos na reto
 O primeiro CI do checkpoint v3 executou 32 testes: 31 passaram e um falhou porque o teste comparava o RNG salvo com o estado global atual **depois** de carregar outro modelo. A construção desse modelo consome números aleatórios antes de carregar os pesos, portanto a comparação temporal era inválida; a falha não indicava corrupção do RNG do checkpoint.
 
 O teste foi corrigido para capturar uma cópia do RNG exatamente no momento da gravação e comparar o valor persistido com essa cópia. A nova CI deve confirmar o resultado; não declarar a retomada como aprovada até então.
+
+
+## 20. Leitura única do checkpoint na retomada
+
+A retomada passa a recuperar modelo, estado do AdamW, metadados, tokenizer, RNG e origem dos pesos por uma única leitura do arquivo. Isso evita abrir e desserializar várias vezes um checkpoint grande. A rotina também rejeita arquivos sem estado de treinamento ou sem declaração reconhecível da origem dos pesos. Um teste específico valida o pacote retornado.

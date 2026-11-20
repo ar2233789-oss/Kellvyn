@@ -376,3 +376,47 @@ def load_training_state(
     if not isinstance(state, dict):
         raise ValueError("checkpoint does not contain a resumable training state")
     return state
+
+
+def load_training_checkpoint(
+    path: str | Path,
+    *,
+    map_location: str | torch.device = "cpu",
+) -> tuple[
+    KellvynDecoderLM,
+    int,
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    str,
+]:
+    """Load model and resumable state from one disk read."""
+    payload = _read_checkpoint(path, map_location)
+    metadata = payload.get("metadata")
+    tokenizer_state = payload.get("tokenizer")
+    optimizer_state = payload.get("optimizer_state")
+    training_state = payload.get("training_state")
+    weights_origin = payload.get("weights_origin")
+    if not isinstance(metadata, dict):
+        raise ValueError("checkpoint metadata is malformed")
+    if not isinstance(tokenizer_state, dict):
+        raise ValueError("checkpoint tokenizer state is malformed")
+    if not isinstance(optimizer_state, dict):
+        raise ValueError("checkpoint does not contain an optimizer state")
+    if not isinstance(training_state, dict):
+        raise ValueError("checkpoint does not contain a resumable training state")
+    if not isinstance(weights_origin, str):
+        raise ValueError("checkpoint weights origin is missing")
+    config = KellvynConfig(**payload["config"])
+    model = KellvynDecoderLM(config)
+    model.load_state_dict(payload["state_dict"], strict=True)
+    return (
+        model,
+        int(payload["step"]),
+        optimizer_state,
+        metadata,
+        tokenizer_state,
+        training_state,
+        weights_origin,
+    )

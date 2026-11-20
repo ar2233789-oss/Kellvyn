@@ -10,6 +10,7 @@ from kellvyn_brain.model import (
     load_checkpoint,
     load_checkpoint_metadata,
     load_tokenizer_state,
+    load_training_checkpoint,
     load_training_state,
     restore_optimizer_state,
     save_checkpoint,
@@ -405,3 +406,51 @@ def test_interrupted_training_resumes_to_same_cpu_weights_as_continuous_run(tmp_
     records = [json.loads(line) for line in metrics.read_text(encoding="utf-8").splitlines()]
     assert records[-1]["step"] == 4
     assert records[-1]["tokens_seen"] == 16
+
+
+
+def test_load_training_checkpoint_returns_all_resume_state_from_checkpoint(tmp_path) -> None:
+    model, _, _, tokenizer = make_bpe_fixture()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    rng_snapshot = torch.get_rng_state().clone()
+    state = {
+        "version": 1,
+        "step": 5,
+        "rng": {
+            "version": 1,
+            "python_random": __import__("random").getstate(),
+            "torch_cpu": rng_snapshot,
+            "torch_cuda_all": [],
+            "torch_mps": None,
+        },
+    }
+    metadata = {"external_pretrained_weights": False, "corpus_id": "fixture"}
+    checkpoint = tmp_path / "bundle.pt"
+    save_checkpoint(
+        checkpoint,
+        model,
+        step=5,
+        tokenizer_state=tokenizer.to_dict(),
+        optimizer_state=optimizer.state_dict(),
+        metadata=metadata,
+        training_state=state,
+    )
+
+    (
+        loaded_model,
+        loaded_step,
+        loaded_optimizer,
+        loaded_metadata,
+        loaded_tokenizer,
+        loaded_training_state,
+        weights_origin,
+    ) = load_training_checkpoint(checkpoint)
+
+    assert loaded_step == 5
+    assert loaded_model.config == model.config
+    assert isinstance(loaded_optimizer, dict)
+    assert loaded_metadata == metadata
+    assert loaded_tokenizer == tokenizer.to_dict()
+    assert loaded_training_state["step"] == 5
+    assert torch.equal(loaded_training_state["rng"]["torch_cpu"], rng_snapshot)
+    assert weights_origin == "random_initialization_and_kellvyn_training_only"

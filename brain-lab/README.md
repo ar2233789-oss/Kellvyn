@@ -128,3 +128,6 @@ kellvyn-train \\
 \`\`\`
 
 \`--steps\` é o alvo total, não a quantidade adicional. A retomada rejeita mudanças no hash do corpus/manifesto, tokenizer, arquitetura, hiperparâmetros essenciais ou dispositivo. Para iniciar outro experimento, omita \`--resume-from\` e use outro caminho de checkpoint. Checkpoints antigos sem estado RNG completo não são aceitos para retomada exata.
+
+
+A retomada carrega o pacote do checkpoint em uma única leitura (pesos, otimizador, tokenizer, metadados e RNG), evitando releitura repetida de um arquivo que pode crescer muito com o modelo.
