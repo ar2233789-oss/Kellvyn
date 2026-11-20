@@ -74,3 +74,12 @@ A página do resultado identifica o APK e seu SHA-256; usar a evidência corresp
 - A rotina de auditoria inicial em `AssistantAgent.kt` é um preflight acionado por pedidos de finalização; não é um diário contínuo das decisões do usuário.
 - A implementação `UserMemoryStore.kt` declara memória explícita, sem extração automática do chat. Ela também não substitui o registro operacional do GitHub.
 - Correção permanente: consultar esta memória e os documentos/branches do trabalho antes de responder; registrar decisões e mudanças manualmente com commits confirmados.
+
+
+## Fonte obrigatória para retomada do cérebro
+
+- Antes de qualquer resposta ou edição relacionada ao cérebro da Kellvyn, abrir `docs/WORK_AUDIT.md` na branch `brain/from-scratch-foundation`.
+- Abrir também os documentos apontados pela auditoria e conferir o HEAD/CI atual.
+- A auditoria é o ponto oficial de retomada entre chats; atualizar manualmente após cada marco real, confirmar o commit e reler o arquivo.
+- Escopo atual: cérebro próprio da Kellvyn; sem modelos pré-treinados, agentes, sistema multiagente, orquestrador ou Copiloto.
+- A auditoria inicial foi criada em 2026-11-20 no commit `fa7b668d2f5fe8847a4e2fb92fe06dea5d9bbb26`.
