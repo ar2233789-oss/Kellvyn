@@ -3,7 +3,7 @@
 **Atualizada em:** 2026-11-20  
 **Repositório de trabalho:** `ar2233789-oss/Kellvyn`  
 **Branch de trabalho:** `brain/from-scratch-foundation`  
-**HEAD auditado:** `bd55b8bf3d398266f2a2681b6ae8a614f57ba646` (último commit de documentação; a fundação neural permanece no commit `3419166d2d1c6e900ed127532b07bf813709e150`)  
+**HEAD auditado:** `3ce225287f64b8ed33b7e120c6ee0e27dae07b33` (inclui o primeiro incremento de avaliação do tokenizer)  
 **Memória do operador:** `studio/memory/OPERATOR_MEMORY.md`, branch `studio-production-suite`  
 **Regra para qualquer sessão nova:** ler esta auditoria e a memória do operador antes de responder sobre o projeto, pesquisar arquivos ou editar código. Não usar somente a branch `main`.
 
@@ -34,6 +34,7 @@ A branch correta para a fundação neural é `brain/from-scratch-foundation`. O 
 - `fab60d7`: teste de equivalência do BPE incremental com a referência.
 - `908da35`: caminho de logits somente tensores para exportação.
 - `3419166`: exportador de checkpoint para grafo `torch.export`.
+- `3ce2252`: benchmark reproduzível do tokenizer BPE contra o baseline byte-level, com hashes, round-trip, compressão e tempo de codificação.
 
 HEAD auditado: [commit 3419166](https://github.com/ar2233789-oss/Kellvyn/commit/3419166d2d1c6e900ed127532b07bf813709e150).
 
@@ -191,3 +192,29 @@ Verificação realizada nesta sessão:
 5. O workflow do GitHub passa para o commit que contém conjuntamente código, testes e esta atualização da auditoria.
 
 Este incremento prepara a medição do corpus real; não substitui o inventário de licenças, o pré-treinamento, o ajuste de instruções, a avaliação de raciocínio ou a prova de runtime Android. Cada próxima etapa deverá ser registrada com evidência própria.
+
+
+## 12. Resultado do primeiro incremento autorizado — 2026-11-20
+
+Commit de implementação: [3ce2252](https://github.com/ar2233789-oss/Kellvyn/commit/3ce225287f64b8ed33b7e120c6ee0e27dae07b33).
+
+Arquivos adicionados/alterados:
+- `brain-lab/src/kellvyn_brain/tokenizer_benchmark.py`
+- `brain-lab/tests/test_tokenizer_benchmark.py`
+- `brain-lab/README.md`
+- `brain-lab/pyproject.toml`
+- esta auditoria.
+
+Evidências do GitHub Actions para o mesmo commit:
+- Audit Gate: execução [44799232794](https://github.com/ar2233789-oss/Kellvyn/actions/runs/44799232794), conclusão `success`.
+- Kellvyn Brain Lab: execução [44799232788](https://github.com/ar2233789-oss/Kellvyn/actions/runs/44799232788), conclusão `success`.
+- O job `foundation-tests` concluiu com sucesso e o passo `Run foundation tests` passou.
+- O passo `Run a tiny from-random-init training smoke test` também passou.
+
+O benchmark pode ser executado com `kellvyn-tokenizer-benchmark --checkpoint ... --data ... --output ...`. Ele compara o tokenizer BPE contido no checkpoint contra a baseline byte-level, preserva as fronteiras entre documentos e grava hashes do checkpoint, corpus e vocabulário.
+
+**Limite do resultado:** os testes usam fixtures/corpus sintético. Nenhum resultado de compressão em corpus real foi produzido nesta execução; nenhum pré-treinamento de escala ocorreu; nenhum runtime Android foi executado. Não declarar essas capacidades como concluídas.
+
+### Próxima dependência técnica autorizada
+
+Criar validação de manifesto de corpus antes de iniciar treino de produção. Cada fonte precisa declarar arquivo relativo, origem/referência, licença ou base de direitos, idioma, domínio, data de coleta, SHA-256, tamanho e quantidade de documentos. A validação deve impedir caminhos fora da raiz, hashes divergentes e campos de proveniência ausentes. Não adicionar corpora ao repositório. O treino de brinquedo do CI deve continuar separado e explicitamente identificado como sintético.
