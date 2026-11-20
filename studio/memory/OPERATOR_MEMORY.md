@@ -45,3 +45,32 @@ A referência oficial da POCO informa painel de 6,67 polegadas, 2712 × 1220 pix
 Consultar studio/device-lab/README.md. O workflow .github/workflows/studio-poco-f6-lab.yml inicializa um emulador Android 15, instala um APK de release já existente e recolhe screenshot, hierarquia de UI, logs e uso de memória. Não compila o APK.
 
 A página do resultado identifica o APK e seu SHA-256; usar a evidência correspondente à execução, nunca assumir que uma captura antiga valida um novo commit.
+
+## Registro operacional — atualização de 2026-11-20
+
+### Escopo vigente do trabalho
+
+- O único foco de desenvolvimento autorizado neste ciclo é o **cérebro da Kellvyn** e sua fundação própria. Preservar o trabalho existente e aprimorá-lo; não substituir a implementação existente por uma arquitetura inventada sem inspeção.
+- Não desenvolver agentes, sistemas multiagente, laboratório de agentes ou orquestrador. Esse caminho foi explicitamente suspenso pelo usuário.
+- Não retomar Copiloto.
+- Não usar Gemma nem pesos, APIs de inferência ou modelos pré-treinados de terceiros como substitutos. A fundação própria deve manter inicialização/treinamento próprios e comprovação verificável.
+- Na conversa, usar “cérebro da Kellvyn”; não chamar o projeto de “Brain” ou “Brian”.
+- Não modificar a interface aprovada enquanto o escopo vigente for o cérebro. Mudanças visuais só com pedido explícito.
+
+### Protocolo obrigatório de memória e auditoria
+
+1. Antes de cada sessão, ler este arquivo e localizar a branch e os documentos ativos do trabalho atual no GitHub. Não assumir que a branch principal contém o trabalho mais recente.
+2. Depois de cada decisão, correção de escopo ou marco real informado pelo usuário, atualizar este registro ou o diário de trabalho correspondente no mesmo ciclo. Não esperar uma “finalização” para registrar.
+3. Cada entrada deve conter data, pedido/decisão do usuário, estado confirmado, alteração realmente executada, evidência (arquivo, commit, teste ou link) e próximo passo pendente.
+4. Separar claramente: pedido do usuário, hipótese, trabalho planejado, alteração feita e teste comprovado. Nunca registrar intenção como progresso concluído.
+5. A auditoria GitHub é documentação versionada, não captura automática da conversa. O operador deve reler e atualizar os arquivos manualmente usando o contexto da sessão; nunca afirmar que a conversa foi salva sem commit confirmado.
+6. Não apagar decisões anteriores. Registrar correções como novas entradas datadas e marcar explicitamente o que foi substituído.
+7. Se houver ambiguidade entre repositórios ou branches, inspecionar os arquivos e commits antes de escolher; não inferir pelo nome de arquivo ou usar snapshots antigos como estado atual.
+
+### Diagnóstico da falha de continuidade em 2026-11-20
+
+- O operador consultou apenas a branch principal de repositórios antigos e não abriu esta memória na branch `studio-production-suite`; por isso confundiu fontes antigas do app Android com o trabalho atual da fundação própria.
+- O registro de progresso visual em `MainActivity.kt` usa estado temporário de UI e não substitui esta memória persistente.
+- A rotina de auditoria inicial em `AssistantAgent.kt` é um preflight acionado por pedidos de finalização; não é um diário contínuo das decisões do usuário.
+- A implementação `UserMemoryStore.kt` declara memória explícita, sem extração automática do chat. Ela também não substitui o registro operacional do GitHub.
+- Correção permanente: consultar esta memória e os documentos/branches do trabalho antes de responder; registrar decisões e mudanças manualmente com commits confirmados.
