@@ -11,6 +11,7 @@ from typing import Sequence
 
 import torch
 
+from .corpus_manifest import validate_corpus_manifest
 from .model import KellvynConfig, KellvynDecoderLM, save_checkpoint
 from .tokenizer import ByteBPETokenizer
 
@@ -133,6 +134,21 @@ def estimate_loss(
 
 
 def train(args: argparse.Namespace) -> None:
+    manifest_report = None
+    if args.manifest:
+        if args.allow_unverified_data:
+            raise ValueError("--manifest and --allow-unverified-data cannot be used together")
+        manifest_root = Path(args.manifest_root) if args.manifest_root else Path(args.manifest).parent
+        manifest_report = validate_corpus_manifest(args.manifest, root_dir=manifest_root)
+        expected_data = (manifest_root / manifest_report["training_corpus"]["file"]).resolve()
+        if Path(args.data).resolve() != expected_data:
+            raise ValueError("--data must match the exact training_corpus.file in --manifest")
+    elif not args.allow_unverified_data:
+        raise ValueError(
+            "production training requires --manifest; use --allow-unverified-data only "
+            "for synthetic smoke tests and local pipeline checks"
+        )
+
     if args.steps <= 0 or args.batch_size <= 0 or args.seq_len <= 1:
         raise ValueError("steps/batch-size must be positive and seq-len must exceed 1")
     if args.eval_every <= 0 or args.learning_rate <= 0 or args.grad_clip <= 0:
@@ -149,6 +165,9 @@ def train(args: argparse.Namespace) -> None:
     if not source.is_file():
         raise FileNotFoundError(f"training text file not found: {source}")
     raw_data = source.read_bytes()
+    actual_dataset_sha256 = hashlib.sha256(raw_data).hexdigest()
+    if manifest_report is not None and actual_dataset_sha256 != manifest_report["training_corpus"]["sha256"]:
+        raise ValueError("training data changed after manifest validation")
     text = raw_data.decode("utf-8")
 
     train_documents, validation_documents, duplicate_count = split_documents(
@@ -233,7 +252,14 @@ def train(args: argparse.Namespace) -> None:
         "initialization": "random",
         "external_pretrained_weights": False,
         "dataset_filename": source.name,
-        "dataset_sha256": hashlib.sha256(raw_data).hexdigest(),
+        "dataset_sha256": actual_dataset_sha256,
+        "corpus_manifest_verified": manifest_report is not None,
+        "corpus_manifest_sha256": manifest_report["manifest_sha256"] if manifest_report else None,
+        "corpus_id": manifest_report["corpus_id"] if manifest_report else None,
+        "corpus_source_ids": (
+            [item["source_id"] for item in manifest_report["sources"]]
+            if manifest_report else []
+        ),
         "document_count_before_deduplication": len(train_documents) + len(validation_documents) + duplicate_count,
         "duplicate_document_count_removed": duplicate_count,
         "train_document_count": len(train_documents),
@@ -265,7 +291,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Train the Kellvyn prototype from random initialization"
     )
-    parser.add_argument("--data", required=True, help="UTF-8 documents separated by blank lines; use authorized text")
+    parser.add_argument("--data", required=True, help="UTF-8 prepared corpus; documents separated by blank lines")
+    parser.add_argument("--manifest", default=None, help="required provenance manifest for production training")
+    parser.add_argument("--manifest-root", default=None, help="root used to resolve files in the manifest")
+    parser.add_argument(
+        "--allow-unverified-data",
+        action="store_true",
+        help="TEST ONLY: bypass the manifest requirement for synthetic smoke tests",
+    )
     parser.add_argument("--checkpoint", default="./runs/kellvyn-prototype.pt")
     parser.add_argument("--steps", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=8)

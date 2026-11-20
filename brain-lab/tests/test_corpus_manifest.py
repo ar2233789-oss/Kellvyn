@@ -32,6 +32,14 @@ def _write_manifest(tmp_path, *, content: bytes | None = None, **overrides):
         "schema_version": 1,
         "corpus_id": "kellvyn-evaluation-pt-v1",
         "sources": [source],
+        "training_corpus": {
+            "file": "prepared.txt",
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "bytes": len(payload),
+            "document_count": 2,
+            "derived_from": ["pt-education-001"],
+            "preparation_notes": "Deduplicated and normalized fixture",
+        },
     }
     manifest_file = root / "manifest.json"
     manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
@@ -45,6 +53,8 @@ def test_manifest_validates_provenance_hash_bytes_and_documents(tmp_path) -> Non
     assert result["source_count"] == 1
     assert result["total_bytes"] == len("primeiro documento\n\nsegundo documento".encode("utf-8"))
     assert result["total_documents"] == 2
+    assert result["training_corpus"]["file"] == "prepared.txt"
+    assert result["training_corpus"]["integrity_verified"] is True
     assert result["sources"][0]["integrity_verified"] is True
     assert len(result["manifest_sha256"]) == 64
 
@@ -83,3 +93,39 @@ def test_manifest_rejects_invalid_utf8_source(tmp_path) -> None:
     manifest, root = _write_manifest(tmp_path, content=b"valid\xffinvalid")
     with pytest.raises(ValueError, match="valid UTF-8"):
         validate_corpus_manifest(manifest, root_dir=root)
+
+
+
+def test_manifest_requires_training_corpus(tmp_path) -> None:
+    manifest, root = _write_manifest(tmp_path)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload.pop("training_corpus")
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="training_corpus must be an object"):
+        validate_corpus_manifest(manifest, root_dir=root)
+
+
+def test_manifest_rejects_unknown_training_source(tmp_path) -> None:
+    manifest, root = _write_manifest(tmp_path)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["training_corpus"]["derived_from"] = ["not-a-source"]
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="unknown sources"):
+        validate_corpus_manifest(manifest, root_dir=root)
+
+
+def test_manifest_rejects_training_file_hash_mismatch(tmp_path) -> None:
+    manifest, root = _write_manifest(tmp_path)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["training_corpus"]["sha256"] = "f" * 64
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="training_corpus: sha256 mismatch"):
+        validate_corpus_manifest(manifest, root_dir=root)
+
+
+def test_production_training_requires_manifest_by_default(tmp_path) -> None:
+    from kellvyn_brain.train import build_parser, train
+
+    args = build_parser().parse_args(["--data", str(tmp_path / "missing.txt")])
+    with pytest.raises(ValueError, match="production training requires --manifest"):
+        train(args)

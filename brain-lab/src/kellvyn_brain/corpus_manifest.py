@@ -148,6 +148,55 @@ def validate_corpus_manifest(
             "integrity_verified": True,
         })
 
+    training = manifest.get("training_corpus")
+    if not isinstance(training, dict):
+        raise ValueError("manifest training_corpus must be an object")
+    training_file = _required_text(training, "file", "training_corpus")
+    preparation_notes = _required_text(training, "preparation_notes", "training_corpus")
+    derived_from = training.get("derived_from")
+    if not isinstance(derived_from, list) or not derived_from:
+        raise ValueError("training_corpus derived_from must list source IDs")
+    if not all(isinstance(item, str) and item.strip() for item in derived_from):
+        raise ValueError("training_corpus derived_from must list source IDs")
+    if len(set(derived_from)) != len(derived_from):
+        raise ValueError("training_corpus derived_from contains duplicate source IDs")
+    unknown_sources = set(derived_from).difference(source_ids)
+    if unknown_sources:
+        raise ValueError(f"training_corpus derived_from references unknown sources: {sorted(unknown_sources)}")
+
+    training_relative = Path(training_file)
+    if training_relative.is_absolute() or ".." in training_relative.parts:
+        raise ValueError("training_corpus file must be a relative path inside the corpus root")
+    training_path = (resolved_root / training_relative).resolve()
+    if training_path != resolved_root and resolved_root not in training_path.parents:
+        raise ValueError("training_corpus file resolves outside the corpus root")
+    if not training_path.is_file():
+        raise FileNotFoundError(f"training_corpus file not found: {training_path}")
+    training_hash = _required_text(training, "sha256", "training_corpus").lower()
+    if not _SHA256_RE.fullmatch(training_hash):
+        raise ValueError("training_corpus sha256 must contain exactly 64 hexadecimal characters")
+    training_raw = training_path.read_bytes()
+    actual_training_hash = hashlib.sha256(training_raw).hexdigest()
+    if actual_training_hash != training_hash:
+        raise ValueError("training_corpus: sha256 mismatch")
+    expected_training_bytes = training.get("bytes")
+    if isinstance(expected_training_bytes, bool) or not isinstance(expected_training_bytes, int) or expected_training_bytes <= 0:
+        raise ValueError("training_corpus bytes must be a positive integer")
+    if expected_training_bytes != len(training_raw):
+        raise ValueError("training_corpus: byte count mismatch")
+    try:
+        decoded_training = training_raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError("training_corpus file must be valid UTF-8") from error
+    expected_training_documents = training.get("document_count")
+    if isinstance(expected_training_documents, bool) or not isinstance(expected_training_documents, int) or expected_training_documents <= 0:
+        raise ValueError("training_corpus document_count must be a positive integer")
+    actual_training_documents = sum(
+        1 for part in re.split(r"\\n\\s*\\n", decoded_training) if part.strip()
+    )
+    if expected_training_documents != actual_training_documents:
+        raise ValueError("training_corpus: document count mismatch")
+
     return {
         "schema_version": 1,
         "corpus_id": corpus_id.strip(),
@@ -155,6 +204,15 @@ def validate_corpus_manifest(
         "source_count": len(verified_sources),
         "total_bytes": total_bytes,
         "total_documents": total_documents,
+        "training_corpus": {
+            "file": training_relative.as_posix(),
+            "sha256": actual_training_hash,
+            "bytes": len(training_raw),
+            "document_count": actual_training_documents,
+            "derived_from": derived_from,
+            "preparation_notes": preparation_notes,
+            "integrity_verified": True,
+        },
         "verified": True,
         "sources": verified_sources,
         "legal_note": (

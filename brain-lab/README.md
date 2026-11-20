@@ -32,10 +32,10 @@ pytest
 
 ## Primeiro treino
 
-Prepare um arquivo UTF-8 de texto cujo uso seja autorizado e documente a origem/licença. Para validar o pipeline, comece com um texto pequeno e repetitivo:
+Prepare um corpus UTF-8 a partir de fontes cuja licença foi revisada. O manifesto declara as fontes e o arquivo consolidado em `training_corpus`; o trainer exige esse manifesto no treino normal. O bypass `--allow-unverified-data` é exclusivamente para smoke tests sintéticos:
 
 ```bash
-python -m kellvyn_brain.train --data ./data/toy_corpus.txt --steps 200 --seq-len 64 --batch-size 8 --bpe-merges 64 --checkpoint ./runs/kellvyn-toy.pt
+python -m kellvyn_brain.train --data ./data/prepared_train.txt --manifest ./data/manifest.json --steps 200 --seq-len 64 --batch-size 8 --bpe-merges 64 --checkpoint ./runs/kellvyn-toy.pt
 ```
 
 O BPE desta primeira versão é intencionalmente simples e legível; treinar/encodar é caro para corpus grande. Antes de pré-treinamento sério, precisaremos de uma implementação otimizada e validada em corpus documentado.
@@ -106,3 +106,6 @@ kellvyn-validate-corpus --manifest ./data/manifest.json --root ./data --output .
 ```
 
 O validador confere campos de proveniência, datas, caminhos relativos sem escape da raiz, UTF-8, SHA-256, tamanho e quantidade de documentos. Ele **não decide juridicamente** se uma licença permite treinamento; essa revisão permanece obrigatória. Nenhum conjunto de dados é incluído neste repositório.
+
+
+O objeto `training_corpus` do manifesto identifica exatamente o arquivo passado em `--data`, seu SHA-256, tamanho, quantidade de documentos, fontes de origem (`derived_from`) e notas de preparação. O trainer rejeita arquivo diferente, hash divergente ou fonte não declarada. O bypass `--allow-unverified-data` deve ficar restrito aos testes sintéticos e nunca ser usado em produção.

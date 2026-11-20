@@ -64,6 +64,7 @@ jobs:
           PY
           kellvyn-train \
             --data /tmp/kellvyn-brain-smoke/toy.txt \
+            --allow-unverified-data \
             --checkpoint /tmp/kellvyn-brain-smoke/checkpoint.pt \
             --steps 3 --batch-size 2 --seq-len 32 \
             --width 32 --layers 2 --heads 4 --eval-every 1 \

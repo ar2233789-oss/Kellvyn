@@ -3,7 +3,7 @@
 **Atualizada em:** 2026-11-20  
 **Repositório de trabalho:** `ar2233789-oss/Kellvyn`  
 **Branch de trabalho:** `brain/from-scratch-foundation`  
-**HEAD auditado:** `f574a9e558e51724d22f377100054dbb57c4a239` (inclui benchmark de tokenizer e validador de manifesto)  
+**HEAD auditado:** `8e09285478bd8bc5f2c75b9adf5529db38869cca` (estado anterior à integração obrigatória do manifesto no trainer)  
 **Memória do operador:** `studio/memory/OPERATOR_MEMORY.md`, branch `studio-production-suite`  
 **Regra para qualquer sessão nova:** ler esta auditoria e a memória do operador antes de responder sobre o projeto, pesquisar arquivos ou editar código. Não usar somente a branch `main`.
 
@@ -256,3 +256,16 @@ O validador verifica proveniência declarada, licenças/base de direitos declara
 ### Próximo passo técnico
 
 Integrar o manifesto ao comando de treinamento de modo que treinos de produção só aceitem o arquivo preparado descrito no manifesto; manter o smoke test sintético do CI em um caminho explicitamente separado. Depois, tornar o treinamento retomável com checkpoint periódico, estado do otimizador, estado aleatório e métricas por etapa. Só então preparar o primeiro experimento com corpus real e licenças revisadas.
+
+
+## 15. Integração do manifesto ao treinamento — 2026-11-20
+
+O trainer passa a exigir `--manifest` para treinos normais. O manifesto identifica o arquivo consolidado em `training_corpus`, com SHA-256, tamanho, quantidade de documentos, fontes de origem e observações de preparação.
+
+- O trainer valida o manifesto antes de ler o dataset, exige que `--data` seja exatamente o arquivo declarado e compara novamente o SHA-256 imediatamente antes do treino.
+- O checkpoint registra hash e ID do manifesto, ID do corpus e IDs das fontes.
+- `--allow-unverified-data` é um bypass explícito, rotulado TEST ONLY, destinado exclusivamente ao smoke test sintético do CI.
+- O validador confere hash/tamanho/UTF-8/document count também para o arquivo preparado e rejeita fontes de origem desconhecidas.
+- O workflow de CI usa o bypass somente para seu corpus sintético temporário.
+
+Critério de aceitação: testes unitários do manifesto e da regra de treino, Audit Gate e smoke test devem passar. Ainda não existe corpus de produção licenciado/validado, logo nenhum treino de escala pode começar nesta etapa.
