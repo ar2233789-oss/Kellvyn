@@ -267,6 +267,7 @@ def test_checkpoint_round_trip_and_optimizer_resume(tmp_path) -> None:
         "duplicate_document_count_removed": 2,
     }
     checkpoint = tmp_path / "kellvyn-test.pt"
+    expected_rng_state = torch.get_rng_state().clone()
     save_checkpoint(
         checkpoint,
         model,
@@ -280,7 +281,7 @@ def test_checkpoint_round_trip_and_optimizer_resume(tmp_path) -> None:
             "rng": {
                 "version": 1,
                 "python_random": __import__("random").getstate(),
-                "torch_cpu": torch.get_rng_state(),
+                "torch_cpu": expected_rng_state,
                 "torch_cuda_all": [],
                 "torch_mps": None,
             },
@@ -297,7 +298,7 @@ def test_checkpoint_round_trip_and_optimizer_resume(tmp_path) -> None:
     assert saved_training_state["step"] == 7
     assert saved_training_state["rng"]["version"] == 1
     assert isinstance(saved_training_state["rng"]["python_random"], tuple)
-    assert torch.equal(saved_training_state["rng"]["torch_cpu"], torch.get_rng_state())
+    assert torch.equal(saved_training_state["rng"]["torch_cpu"], expected_rng_state)
 
     restored_optimizer = torch.optim.AdamW(restored.parameters(), lr=1e-3)
     restore_optimizer_state(checkpoint, restored_optimizer)

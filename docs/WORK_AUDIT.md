@@ -314,3 +314,10 @@ O trainer recebe:
 - teste de retomada em CPU comparando quatro passos contínuos com dois passos + retomada até quatro.
 
 Critérios de aceitação: testes completos, comparação exata de pesos na retomada CPU, smoke test de treino aleatório e Audit Gate aprovados. Não generalizar determinismo bit-a-bit para GPUs/backend diferentes sem testes próprios.
+
+
+## 19. Correção da asserção do teste RNG — 2026-11-20
+
+O primeiro CI do checkpoint v3 executou 32 testes: 31 passaram e um falhou porque o teste comparava o RNG salvo com o estado global atual **depois** de carregar outro modelo. A construção desse modelo consome números aleatórios antes de carregar os pesos, portanto a comparação temporal era inválida; a falha não indicava corrupção do RNG do checkpoint.
+
+O teste foi corrigido para capturar uma cópia do RNG exatamente no momento da gravação e comparar o valor persistido com essa cópia. A nova CI deve confirmar o resultado; não declarar a retomada como aprovada até então.
