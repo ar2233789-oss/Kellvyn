@@ -3,7 +3,7 @@
 **Atualizada em:** 2026-11-20  
 **Repositório de trabalho:** `ar2233789-oss/Kellvyn`  
 **Branch de trabalho:** `brain/from-scratch-foundation`  
-**HEAD auditado:** `b4ea661341b495d77d4ac95834936ba9db3699c3` (registro de evidência do benchmark)  
+**HEAD auditado:** `f574a9e558e51724d22f377100054dbb57c4a239` (inclui benchmark de tokenizer e validador de manifesto)  
 **Memória do operador:** `studio/memory/OPERATOR_MEMORY.md`, branch `studio-production-suite`  
 **Regra para qualquer sessão nova:** ler esta auditoria e a memória do operador antes de responder sobre o projeto, pesquisar arquivos ou editar código. Não usar somente a branch `main`.
 
@@ -233,3 +233,26 @@ Critérios:
 - adicionar testes para manifesto válido e entradas inválidas.
 
 Limite: validar campos não equivale a parecer jurídico nem a comprovar permissão legal para treinamento. A ferramenta deve deixar essa limitação explícita.
+
+
+## 14. Resultado do validador de manifesto — 2026-11-20
+
+Commit: [f574a9e](https://github.com/ar2233789-oss/Kellvyn/commit/f574a9e558e51724d22f377100054dbb57c4a239).
+
+Arquivos:
+- `brain-lab/src/kellvyn_brain/corpus_manifest.py`
+- `brain-lab/tests/test_corpus_manifest.py`
+- `brain-lab/README.md`
+- `brain-lab/pyproject.toml`
+- esta auditoria.
+
+CI do mesmo commit:
+- Audit Gate: execução [44799783419](https://github.com/ar2233789-oss/Kellvyn/actions/runs/44799783419), conclusão `success`.
+- Kellvyn Brain Lab: execução [44799783664](https://github.com/ar2233789-oss/Kellvyn/actions/runs/44799783664), job `foundation-tests` concluído com `success`.
+- O passo `Run foundation tests` passou, assim como `Run a tiny from-random-init training smoke test`.
+
+O validador verifica proveniência declarada, licenças/base de direitos declaradas, caminhos relativos, ausência de escape da raiz, hash, tamanho, UTF-8 e contagem de documentos. Não valida juridicamente a licença e ainda não força o treinamento a exigir um manifesto; a integração obrigatória com o trainer continua pendente.
+
+### Próximo passo técnico
+
+Integrar o manifesto ao comando de treinamento de modo que treinos de produção só aceitem o arquivo preparado descrito no manifesto; manter o smoke test sintético do CI em um caminho explicitamente separado. Depois, tornar o treinamento retomável com checkpoint periódico, estado do otimizador, estado aleatório e métricas por etapa. Só então preparar o primeiro experimento com corpus real e licenças revisadas.
