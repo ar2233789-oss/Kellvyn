@@ -92,3 +92,12 @@ A página do resultado identifica o APK e seu SHA-256; usar a evidência corresp
 - Primeiro concluir e consultar `docs/WORK_AUDIT.md` na branch `brain/from-scratch-foundation`; depois conferir as decisões anteriores registradas e só então retomar implementação conforme o pedido concreto.
 - Todo chat novo deve começar pela leitura da auditoria e desta memória, antes de responder ou escolher arquivos/projetos.
 - A última correção de escopo está registrada no commit `719474793f54156daec146e888858a11ae4b61c7`.
+
+
+## Trava de auditoria no repositório — 2026-11-20
+
+- Ponto de entrada único criado em `AUDIT_START_HERE.md`, na branch `brain/from-scratch-foundation`.
+- Workflow `.github/workflows/audit-gate.yml` criado na mesma branch. Ele confere a existência da auditoria e o marcador de fase; sinaliza como falha qualquer alteração técnica durante `AUDIT_ONLY`; quando houver autorização explícita, exige atualização da auditoria no mesmo conjunto de mudanças.
+- A fase registrada atualmente em `docs/WORK_AUDIT.md` é `AUDIT_ONLY`. Nenhum código técnico está autorizado nesta etapa.
+- Limite obrigatório: GitHub Actions valida commits/pushes/PRs; não consegue abrir arquivos dentro de uma nova conversa do ChatGPT. O operador precisa consultar explicitamente a auditoria e esta memória no início de cada sessão. Nunca afirmar que existe carregamento automático.
+- O status de CI reprovado não impede sozinho push direto enquanto uma regra de proteção de branch que exija esse status não estiver ativada e verificada. Não alegar que a branch está protegida sem prova.
