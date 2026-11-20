@@ -122,3 +122,22 @@ O usuário corrigiu o operador: **a tarefa executada neste momento é atualizar 
 - **Ainda não autorizado nesta etapa:** qualquer alteração nos arquivos técnicos do cérebro.
 
 Esta correção prevalece sobre qualquer frase anterior desta auditoria que possa ser interpretada como autorização para começar uma implementação imediatamente.
+
+
+## 9. Trava operacional e estado da fase — 2026-11-20
+
+**Fase atual:** `AUDIT_ONLY` — a tarefa presente é completar e tornar confiável a auditoria. Nenhum arquivo técnico do cérebro está autorizado para edição nesta fase.
+
+Foi criado o ponto de entrada `AUDIT_START_HERE.md` e o workflow `.github/workflows/audit-gate.yml`.
+
+O workflow **Audit Gate**:
+- verifica se esta auditoria existe e declara uma fase válida;
+- reprova alterações técnicas enquanto a fase estiver em `AUDIT_ONLY`;
+- quando a fase for explicitamente autorizada pelo usuário como `IMPLEMENTATION_AUTHORIZED`, exige que a auditoria também seja atualizada no mesmo push/PR;
+- executa em pushes e pull requests direcionados à branch `brain/from-scratch-foundation`.
+
+Limite técnico: o workflow valida alterações no GitHub; não tem como disparar a abertura desta auditoria dentro de uma conversa do ChatGPT. Em cada chat novo, o assistente ainda precisa consultar os dois arquivos diretamente antes de trabalhar. Não declarar carregamento automático nem consulta feita sem executar a leitura.
+
+A trava do workflow não substitui regras de proteção de branch do GitHub. Sem uma regra de proteção que exija o status check, o workflow consegue marcar uma alteração como reprovada, mas não impede por si só que alguém faça push direto na branch. O operador não deve afirmar que a proteção de branch está ativada sem verificar isso.
+
+Para sair de `AUDIT_ONLY`, é necessária autorização explícita do usuário e uma atualização desta auditoria com a tarefa específica, limites e critérios de aceitação. A existência de código ou documentação no repositório não equivale a autorização.
