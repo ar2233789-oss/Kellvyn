@@ -3,7 +3,7 @@
 **Atualizada em:** 2026-11-20  
 **Repositório de trabalho:** `ar2233789-oss/Kellvyn`  
 **Branch de trabalho:** `brain/from-scratch-foundation`  
-**HEAD auditado:** `3ce225287f64b8ed33b7e120c6ee0e27dae07b33` (inclui o primeiro incremento de avaliação do tokenizer)  
+**HEAD auditado:** `b4ea661341b495d77d4ac95834936ba9db3699c3` (registro de evidência do benchmark)  
 **Memória do operador:** `studio/memory/OPERATOR_MEMORY.md`, branch `studio-production-suite`  
 **Regra para qualquer sessão nova:** ler esta auditoria e a memória do operador antes de responder sobre o projeto, pesquisar arquivos ou editar código. Não usar somente a branch `main`.
 
@@ -218,3 +218,18 @@ O benchmark pode ser executado com `kellvyn-tokenizer-benchmark --checkpoint ...
 ### Próxima dependência técnica autorizada
 
 Criar validação de manifesto de corpus antes de iniciar treino de produção. Cada fonte precisa declarar arquivo relativo, origem/referência, licença ou base de direitos, idioma, domínio, data de coleta, SHA-256, tamanho e quantidade de documentos. A validação deve impedir caminhos fora da raiz, hashes divergentes e campos de proveniência ausentes. Não adicionar corpora ao repositório. O treino de brinquedo do CI deve continuar separado e explicitamente identificado como sintético.
+
+
+## 13. Segundo incremento autorizado — manifesto de dados
+
+A próxima dependência registrada na seção 12 foi convertida em tarefa de implementação. Objetivo: impedir que fontes sem proveniência mínima, arquivos adulterados ou caminhos fora da raiz sejam aceitos como corpus preparado para treinamento.
+
+Critérios:
+- validar JSON versionado e um conjunto não vazio de fontes;
+- exigir referência, licença, base de direitos, idioma, domínio e data de coleta;
+- validar caminho relativo e impedir traversal/symlink para fora da raiz;
+- comparar SHA-256, bytes e quantidade real de documentos UTF-8;
+- produzir relatório verificável sem incluir os dados de origem no repositório;
+- adicionar testes para manifesto válido e entradas inválidas.
+
+Limite: validar campos não equivale a parecer jurídico nem a comprovar permissão legal para treinamento. A ferramenta deve deixar essa limitação explícita.

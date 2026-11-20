@@ -15,6 +15,7 @@ dev = ["pytest>=8.0"]
 [project.scripts]
 kellvyn-train = "kellvyn_brain.train:main"
 kellvyn-tokenizer-benchmark = "kellvyn_brain.tokenizer_benchmark:main"
+kellvyn-validate-corpus = "kellvyn_brain.corpus_manifest:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

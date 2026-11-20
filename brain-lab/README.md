@@ -69,3 +69,40 @@ kellvyn-tokenizer-benchmark \
 O relatório registra hashes do checkpoint, corpus e vocabulário; bytes UTF-8 úteis; quantidade de tokens; redução percentual frente ao baseline; reconstrução exata por documento; e tempos medianos de codificação. Os documentos são medidos separadamente para não criar merges artificiais entre fronteiras.
 
 Use dados com origem e licença documentadas. O relatório é uma medição do tokenizer, não uma avaliação de raciocínio ou qualidade conversacional. Tempos só são comparáveis em máquinas e condições equivalentes.
+
+
+## Validar proveniência e integridade do corpus
+
+Antes de usar dados em treinamento de produção, prepare um manifesto JSON com uma entrada por fonte. Cada entrada precisa incluir `source_id`, `file` relativo à raiz, `reference`, `license`, `rights_basis`, `language`, `domain`, `collected_at`, `sha256`, `bytes` e `document_count`.
+
+Exemplo mínimo de estrutura:
+
+```json
+{
+  "schema_version": 1,
+  "corpus_id": "kellvyn-pt-v1",
+  "sources": [
+    {
+      "source_id": "fonte-pt-001",
+      "file": "fontes/texto.txt",
+      "reference": "https://exemplo.org/dataset-card",
+      "license": "CC-BY-4.0",
+      "rights_basis": "Atribuição mantida conforme a licença",
+      "language": "pt-BR",
+      "domain": "educacao",
+      "collected_at": "2026-11-20",
+      "sha256": "HASH_SHA256_DO_ARQUIVO",
+      "bytes": 12345,
+      "document_count": 250
+    }
+  ]
+}
+```
+
+Valide antes de preparar o corpus:
+
+```bash
+kellvyn-validate-corpus --manifest ./data/manifest.json --root ./data --output ./runs/corpus-validation.json
+```
+
+O validador confere campos de proveniência, datas, caminhos relativos sem escape da raiz, UTF-8, SHA-256, tamanho e quantidade de documentos. Ele **não decide juridicamente** se uma licença permite treinamento; essa revisão permanece obrigatória. Nenhum conjunto de dados é incluído neste repositório.
