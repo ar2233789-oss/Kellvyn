@@ -110,3 +110,15 @@ A página do resultado identifica o APK e seu SHA-256; usar a evidência corresp
 - A execução hospedada do workflow ainda precisa ser conferida em GitHub Actions. Não marcar como aprovada antes de ver o resultado real.
 - A proteção da branch não foi configurada/verificada; uma falha de CI ainda não impede push direto sem regra de proteção que exija esse status.
 - O GitHub não pode forçar o ChatGPT a abrir o arquivo em cada conversa. A consulta precisa ser executada explicitamente no início de cada sessão.
+
+
+### Retomada efetiva do cérebro — 2026-11-20, 19:04 UTC
+
+- Pedido explícito do usuário: analisar e estudar todo o trabalho existente no cérebro da Kellvyn e continuar a implementação, sem desviar para tarefas paralelas.
+- A auditoria da branch `brain/from-scratch-foundation` foi atualizada para `IMPLEMENTATION_AUTHORIZED` com escopo inicial concreto.
+- Incremento implementado no commit `3ce225287f64b8ed33b7e120c6ee0e27dae07b33`: benchmark de tokenizer BPE contra baseline byte-level, relatório JSON com hashes do corpus/checkpoint/tokenizer, compressão, round-trip e tempo de codificação.
+- Arquivos alterados: `brain-lab/src/kellvyn_brain/tokenizer_benchmark.py`, `brain-lab/tests/test_tokenizer_benchmark.py`, `brain-lab/README.md`, `brain-lab/pyproject.toml` e `docs/WORK_AUDIT.md`.
+- GitHub Actions Audit Gate passou para o commit citado (execução `44799232794`). Na última consulta, o workflow Kellvyn Brain Lab ainda estava instalando PyTorch; não registrar seus testes como aprovados até conferir o resultado final.
+- Próxima ação: confirmar os testes do laboratório; corrigir qualquer falha encontrada; então executar a medição com um corpus de avaliação real, autorizado e separado do treino. Não inventar resultados usando corpus sintético.
+- O estudo de referências registrado em `docs/BRAIN_RESEARCH.md` inclui nanochat, OLMo-core/OLMo 3 e Qwen3 para treinamento/arquitetura; Android Studio/Gemini Agent Mode, Gemini CLI, OpenHands, Aider, SWE-agent e OpenCode para estudar contratos de execução e ferramentas; HELM para avaliação; ExecuTorch e MLC LLM para runtime Android. Isso é estudo de métodos e infraestrutura, não autorização para adotar modelos/pesos pré-treinados nem implementar agentes/orquestrador.
+- Continuam proibidos: modelos/pesos/API de inferência externos como substitutos, agentes, orquestrador, Copiloto e alterações na interface Android não solicitadas.
