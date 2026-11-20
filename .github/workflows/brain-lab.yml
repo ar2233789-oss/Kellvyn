@@ -75,10 +75,12 @@ jobs:
           path = Path("/tmp/kellvyn-brain-smoke/checkpoint.pt")
           assert path.is_file() and path.stat().st_size > 0
           payload = torch.load(path, map_location="cpu", weights_only=True)
-          assert payload["format"] == "kellvyn-brain-lab-v2"
+          assert payload["format"] == "kellvyn-brain-lab-v3"
           assert payload["step"] == 3
           assert payload["config"]["d_model"] == 32
           assert payload["optimizer_state"] is not None
+          assert payload["training_state"]["step"] == 3
+          assert payload["training_state"]["rng"]["version"] == 1
           assert payload["weights_origin"] == "random_initialization_and_kellvyn_training_only"
           metadata = payload["metadata"]
           assert metadata["external_pretrained_weights"] is False

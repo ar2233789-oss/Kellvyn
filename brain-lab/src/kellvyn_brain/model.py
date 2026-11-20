@@ -7,7 +7,9 @@ This is an experimental baseline, not a claim of a novel Transformer design.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import os
 from pathlib import Path
+import tempfile
 from typing import Any
 
 import torch
@@ -258,28 +260,46 @@ def save_checkpoint(
     tokenizer_state: dict[str, Any],
     optimizer_state: dict[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
+    training_state: dict[str, Any] | None = None,
 ) -> None:
-    """Persist weights, tokenizer, optimizer and auditable training provenance."""
+    """Persist a resumable checkpoint with an atomic destination replace."""
     if step < 0:
         raise ValueError("checkpoint step cannot be negative")
     if not isinstance(tokenizer_state, dict) or not isinstance(tokenizer_state.get("format"), str):
         raise ValueError("a valid tokenizer state is required")
     if metadata is not None and not isinstance(metadata, dict):
         raise TypeError("metadata must be a dictionary")
+    if training_state is not None and not isinstance(training_state, dict):
+        raise TypeError("training_state must be a dictionary")
 
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
-        "format": "kellvyn-brain-lab-v2",
+        "format": "kellvyn-brain-lab-v3",
         "step": int(step),
         "config": asdict(model.config),
         "tokenizer": tokenizer_state,
         "state_dict": model.state_dict(),
         "optimizer_state": optimizer_state,
         "metadata": metadata or {},
+        "training_state": training_state,
         "weights_origin": "random_initialization_and_kellvyn_training_only",
     }
-    torch.save(payload, destination)
+
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            dir=destination.parent,
+            delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+        torch.save(payload, temporary_path)
+        os.replace(temporary_path, destination)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
 
 
 def _read_checkpoint(
@@ -290,6 +310,7 @@ def _read_checkpoint(
     if not isinstance(payload, dict) or payload.get("format") not in {
         "kellvyn-brain-lab-v1",
         "kellvyn-brain-lab-v2",
+        "kellvyn-brain-lab-v3",
     }:
         raise ValueError("unsupported or invalid Kellvyn checkpoint")
     return payload
@@ -342,3 +363,16 @@ def load_checkpoint_metadata(
     if not isinstance(metadata, dict):
         raise ValueError("checkpoint metadata is malformed")
     return metadata
+
+
+def load_training_state(
+    path: str | Path,
+    *,
+    map_location: str | torch.device = "cpu",
+) -> dict[str, Any]:
+    """Load resumable step/RNG state; old checkpoints without it are rejected."""
+    payload = _read_checkpoint(path, map_location)
+    state = payload.get("training_state")
+    if not isinstance(state, dict):
+        raise ValueError("checkpoint does not contain a resumable training state")
+    return state

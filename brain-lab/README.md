@@ -109,3 +109,22 @@ O validador confere campos de proveniência, datas, caminhos relativos sem escap
 
 
 O objeto `training_corpus` do manifesto identifica exatamente o arquivo passado em `--data`, seu SHA-256, tamanho, quantidade de documentos, fontes de origem (`derived_from`) e notas de preparação. O trainer rejeita arquivo diferente, hash divergente ou fonte não declarada. O bypass `--allow-unverified-data` deve ficar restrito aos testes sintéticos e nunca ser usado em produção.
+
+
+## Retomar treinamento interrompido
+
+O trainer grava um checkpoint recuperável a cada \`--checkpoint-every\` passos (padrão: 1000), substituindo o arquivo de forma atômica. O checkpoint contém pesos, estado do AdamW, tokenizer, configuração, proveniência, passo global e estados aleatórios do Python/PyTorch; também salva CUDA/MPS quando esses dispositivos estão em uso. As métricas são acrescentadas em JSONL.
+
+Exemplo de continuação do mesmo experimento:
+
+\`\`\`bash
+kellvyn-train \\
+  --data ./data/prepared_train.txt \\
+  --manifest ./data/manifest.json \\
+  --checkpoint ./runs/kellvyn-latest.pt \\
+  --resume-from ./runs/kellvyn-latest.pt \\
+  --steps 50000 \\
+  --checkpoint-every 1000
+\`\`\`
+
+\`--steps\` é o alvo total, não a quantidade adicional. A retomada rejeita mudanças no hash do corpus/manifesto, tokenizer, arquitetura, hiperparâmetros essenciais ou dispositivo. Para iniciar outro experimento, omita \`--resume-from\` e use outro caminho de checkpoint. Checkpoints antigos sem estado RNG completo não são aceitos para retomada exata.

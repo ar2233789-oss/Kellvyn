@@ -10,6 +10,7 @@ from kellvyn_brain.model import (
     load_checkpoint,
     load_checkpoint_metadata,
     load_tokenizer_state,
+    load_training_state,
     restore_optimizer_state,
     save_checkpoint,
 )
@@ -273,6 +274,17 @@ def test_checkpoint_round_trip_and_optimizer_resume(tmp_path) -> None:
         tokenizer_state=tokenizer.to_dict(),
         optimizer_state=optimizer.state_dict(),
         metadata=metadata,
+        training_state={
+            "version": 1,
+            "step": 7,
+            "rng": {
+                "version": 1,
+                "python_random": __import__("random").getstate(),
+                "torch_cpu": torch.get_rng_state(),
+                "torch_cuda_all": [],
+                "torch_mps": None,
+            },
+        },
     )
 
     restored, step = load_checkpoint(checkpoint)
@@ -281,6 +293,11 @@ def test_checkpoint_round_trip_and_optimizer_resume(tmp_path) -> None:
         actual, _ = restored(inputs)
     assert step == 7
     torch.testing.assert_close(expected, actual)
+    saved_training_state = load_training_state(checkpoint)
+    assert saved_training_state["step"] == 7
+    assert saved_training_state["rng"]["version"] == 1
+    assert isinstance(saved_training_state["rng"]["python_random"], tuple)
+    assert torch.equal(saved_training_state["rng"]["torch_cpu"], torch.get_rng_state())
 
     restored_optimizer = torch.optim.AdamW(restored.parameters(), lr=1e-3)
     restore_optimizer_state(checkpoint, restored_optimizer)
@@ -306,3 +323,84 @@ def test_generate_returns_prompt_and_new_tokens() -> None:
     generated = model.generate(prompt, max_new_tokens=4, temperature=1.0, top_k=8)
     assert generated.shape == (1, 7)
     assert torch.equal(generated[:, :3], prompt)
+
+
+
+def test_checkpoint_without_training_state_is_not_resumable(tmp_path) -> None:
+    model, _, _, tokenizer = make_bpe_fixture()
+    checkpoint = tmp_path / "non-resumable.pt"
+    save_checkpoint(
+        checkpoint,
+        model,
+        step=0,
+        tokenizer_state=tokenizer.to_dict(),
+        metadata={"external_pretrained_weights": False},
+    )
+    try:
+        load_training_state(checkpoint)
+    except ValueError as error:
+        assert "resumable training state" in str(error)
+    else:
+        raise AssertionError("expected checkpoint without RNG state to be rejected")
+
+
+def test_interrupted_training_resumes_to_same_cpu_weights_as_continuous_run(tmp_path) -> None:
+    import json
+    from kellvyn_brain.train import build_parser, train
+
+    corpus = tmp_path / "toy.txt"
+    corpus.write_text(
+        "alpha document with several words\n\n"
+        "beta document with several words\n\n"
+        "gamma document with several words\n\n"
+        "delta document with several words\n\n"
+        "epsilon document with several words",
+        encoding="utf-8",
+    )
+
+    common = [
+        "--data", str(corpus),
+        "--allow-unverified-data",
+        "--batch-size", "1",
+        "--seq-len", "4",
+        "--width", "16",
+        "--layers", "1",
+        "--heads", "2",
+        "--learning-rate", "0.001",
+        "--weight-decay", "0.0",
+        "--grad-clip", "1.0",
+        "--eval-every", "1",
+        "--checkpoint-every", "2",
+        "--validation-fraction", "0.2",
+        "--bpe-merges", "8",
+        "--seed", "13",
+        "--device", "cpu",
+    ]
+
+    continuous_path = tmp_path / "continuous.pt"
+    train(build_parser().parse_args(common + [
+        "--checkpoint", str(continuous_path),
+        "--steps", "4",
+    ]))
+
+    resumed_path = tmp_path / "resumed.pt"
+    train(build_parser().parse_args(common + [
+        "--checkpoint", str(resumed_path),
+        "--steps", "2",
+    ]))
+    train(build_parser().parse_args(common + [
+        "--checkpoint", str(resumed_path),
+        "--resume-from", str(resumed_path),
+        "--steps", "4",
+    ]))
+
+    continuous_model, continuous_step = load_checkpoint(continuous_path)
+    resumed_model, resumed_step = load_checkpoint(resumed_path)
+    assert continuous_step == resumed_step == 4
+    for expected, actual in zip(continuous_model.parameters(), resumed_model.parameters()):
+        torch.testing.assert_close(expected, actual, rtol=0, atol=0)
+
+    metrics = resumed_path.with_suffix(resumed_path.suffix + ".metrics.jsonl")
+    records = [json.loads(line) for line in metrics.read_text(encoding="utf-8").splitlines()]
+    assert records[-1]["step"] == 4
+    assert records[-1]["tokens_seen"] == 16

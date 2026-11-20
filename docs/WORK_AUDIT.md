@@ -301,3 +301,16 @@ Limites: o CI usa apenas um corpus sintético temporário. Nenhum corpus real fo
 ### Próximo passo técnico
 
 Tornar o treinamento recuperável e reprodutível em execuções longas: snapshots periódicos, estado do otimizador, estado RNG Python/PyTorch/CUDA, etapa atual, configuração/tokenizer/dataset/manifesto vinculados, métricas de treino/validação e um comando de retomada que rejeite incompatibilidades. A retomada deve continuar os mesmos pesos, sem reinicializar a rede.
+
+
+## 18. Treinamento retomável e checkpoint atômico — incremento implementado
+
+O trainer recebe:
+- checkpoint v3 gravado por arquivo temporário + substituição atômica;
+- checkpoint periódico por \`--checkpoint-every\`;
+- estado do AdamW, passo global e estado aleatório Python/PyTorch CPU; CUDA/MPS quando aplicável;
+- \`--resume-from\` com verificação de hash do dataset/manifesto, fingerprint de hiperparâmetros/dispositivo, configuração do modelo e hash do tokenizer;
+- log JSONL com perda de treino/validação, tokens vistos e velocidade estimada;
+- teste de retomada em CPU comparando quatro passos contínuos com dois passos + retomada até quatro.
+
+Critérios de aceitação: testes completos, comparação exata de pesos na retomada CPU, smoke test de treino aleatório e Audit Gate aprovados. Não generalizar determinismo bit-a-bit para GPUs/backend diferentes sem testes próprios.
