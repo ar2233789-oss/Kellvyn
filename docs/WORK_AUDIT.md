@@ -269,3 +269,12 @@ O trainer passa a exigir `--manifest` para treinos normais. O manifesto identifi
 - O workflow de CI usa o bypass somente para seu corpus sintético temporário.
 
 Critério de aceitação: testes unitários do manifesto e da regra de treino, Audit Gate e smoke test devem passar. Ainda não existe corpus de produção licenciado/validado, logo nenhum treino de escala pode começar nesta etapa.
+
+
+## 16. Correção de revisão estática da integração do manifesto — 2026-11-20
+
+Na revisão do commit `4bd544b`, antes de considerar a integração validada, foram identificados dois defeitos nos testes/validação do arquivo consolidado:
+- o fixture de teste declarava `prepared.txt`, mas não criava esse arquivo;
+- a expressão regular usada para contar documentos no arquivo consolidado tinha escape duplicado.
+
+Ambos foram corrigidos nesta revisão. A execução de CI do commit anterior ainda estava em andamento quando os defeitos foram identificados; seu resultado não será usado para declarar esta revisão aprovada. A aprovação depende de uma nova execução para o commit corretivo.

@@ -14,6 +14,8 @@ def _write_manifest(tmp_path, *, content: bytes | None = None, **overrides):
     payload = content if content is not None else "primeiro documento\n\nsegundo documento".encode("utf-8")
     data_file = root / "source.txt"
     data_file.write_bytes(payload)
+    prepared_file = root / "prepared.txt"
+    prepared_file.write_bytes(payload)
     source = {
         "source_id": "pt-education-001",
         "file": "source.txt",

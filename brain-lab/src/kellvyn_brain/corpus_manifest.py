@@ -192,7 +192,7 @@ def validate_corpus_manifest(
     if isinstance(expected_training_documents, bool) or not isinstance(expected_training_documents, int) or expected_training_documents <= 0:
         raise ValueError("training_corpus document_count must be a positive integer")
     actual_training_documents = sum(
-        1 for part in re.split(r"\\n\\s*\\n", decoded_training) if part.strip()
+        1 for part in re.split(r"\n\s*\n", decoded_training) if part.strip()
     )
     if expected_training_documents != actual_training_documents:
         raise ValueError("training_corpus: document count mismatch")
