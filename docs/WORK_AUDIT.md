@@ -141,3 +141,20 @@ Limite técnico: o workflow valida alterações no GitHub; não tem como dispara
 A trava do workflow não substitui regras de proteção de branch do GitHub. Sem uma regra de proteção que exija o status check, o workflow consegue marcar uma alteração como reprovada, mas não impede por si só que alguém faça push direto na branch. O operador não deve afirmar que a proteção de branch está ativada sem verificar isso.
 
 Para sair de `AUDIT_ONLY`, é necessária autorização explícita do usuário e uma atualização desta auditoria com a tarefa específica, limites e critérios de aceitação. A existência de código ou documentação no repositório não equivale a autorização.
+
+
+## 10. Registro da instalação da trava — 2026-11-20
+
+Arquivos e commits registrados:
+- Auditoria com fase explícita e descrição da trava: `70d0ac465c262e36f90b64aa33a5aad09b4232eb`.
+- Ponto de entrada `AUDIT_START_HERE.md`: `7f55528f798c530630fd5d211ef406a3b04a50dc`.
+- Workflow `.github/workflows/audit-gate.yml`: criação `cebddcf4771a32b2c46396b1d85c3918a028b421`, ajuste do leitor da declaração mais recente de fase `074608549c26ed74e0bb97b6c37496a601d5cce7`.
+- Memória operacional na branch `studio-production-suite`: `f90b731108262309df43b1a31de66c278ec080f1`.
+
+Verificação realizada nesta sessão:
+- Os três arquivos da branch de trabalho foram consultados novamente após os commits e estavam presentes.
+- O arquivo YAML foi analisado localmente: `yaml_parse=PASS`.
+- O bloco Bash do workflow passou por `bash -n`: `bash_syntax=PASS`.
+- **Execução hospedada do GitHub Actions:** ainda não confirmada nesta sessão; não declarar o workflow como aprovado até consultar uma execução real.
+- **Proteção da branch:** não ativada nem verificada. Sem exigir o status check nas regras da branch, a falha do workflow é um alerta/verificação, não um bloqueio absoluto de push direto.
+- **Carregamento em novo chat:** não é disparado pelo GitHub. O operador deve consultar explicitamente a auditoria e a memória no início de cada nova sessão.
