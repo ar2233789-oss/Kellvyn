@@ -122,3 +122,13 @@ A página do resultado identifica o APK e seu SHA-256; usar a evidência corresp
 - Próxima ação: confirmar os testes do laboratório; corrigir qualquer falha encontrada; então executar a medição com um corpus de avaliação real, autorizado e separado do treino. Não inventar resultados usando corpus sintético.
 - O estudo de referências registrado em `docs/BRAIN_RESEARCH.md` inclui nanochat, OLMo-core/OLMo 3 e Qwen3 para treinamento/arquitetura; Android Studio/Gemini Agent Mode, Gemini CLI, OpenHands, Aider, SWE-agent e OpenCode para estudar contratos de execução e ferramentas; HELM para avaliação; ExecuTorch e MLC LLM para runtime Android. Isso é estudo de métodos e infraestrutura, não autorização para adotar modelos/pesos pré-treinados nem implementar agentes/orquestrador.
 - Continuam proibidos: modelos/pesos/API de inferência externos como substitutos, agentes, orquestrador, Copiloto e alterações na interface Android não solicitadas.
+
+
+### Continuação após validar o manifesto — 2026-11-20, 19:12 UTC
+
+- O benchmark de tokenizer do commit `3ce225287f64b8ed33b7e120c6ee0e27dae07b33` passou no GitHub Actions: Audit Gate `44799232794` e Kellvyn Brain Lab `44799232788`, ambos `success`.
+- Segundo incremento implementado no commit `f574a9e558e51724d22f377100054dbb57c4a239`: validador `kellvyn-validate-corpus` para manifesto de fontes de treinamento. Testa presença de campos de proveniência, data ISO, paths sem traversal/escape via symlink, SHA-256, tamanho, UTF-8 e quantidade real de documentos.
+- Evidência: Audit Gate `44799783419` = `success`; Kellvyn Brain Lab `44799783664` = `success`, incluindo testes da fundação e smoke test de treinamento aleatório.
+- Auditoria atualizada no commit `8e09285478bd8bc5f2c75b9adf5529db38869cca`.
+- Limitações: nenhum corpus real foi fornecido ou medido; o validador ainda não está integrado como exigência no trainer; não ocorreu pré-treinamento de escala ou inferência Android.
+- Próxima sequência: integrar manifesto ao trainer; separar de forma explícita o caminho de dados sintéticos para CI; tornar treino retomável com checkpoint periódico/estado aleatório/logs; só depois executar experimentos com corpus real cuja licença foi revisada.
