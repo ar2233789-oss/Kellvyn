@@ -40,14 +40,15 @@ jobs:
             exit 1
           fi
 
-          if grep -Fq '**Fase atual:** `AUDIT_ONLY`' "$audit"; then
-            phase="AUDIT_ONLY"
-          elif grep -Fq '**Fase atual:** `IMPLEMENTATION_AUTHORIZED`' "$audit"; then
-            phase="IMPLEMENTATION_AUTHORIZED"
-          else
-            echo "::error::A auditoria precisa declarar Fase atual como AUDIT_ONLY ou IMPLEMENTATION_AUTHORIZED."
-            exit 1
-          fi
+          phase_line="$(grep -F '**Fase atual:**' "$audit" | tail -n 1 || true)"
+          case "$phase_line" in
+            *'`AUDIT_ONLY`'*) phase="AUDIT_ONLY" ;;
+            *'`IMPLEMENTATION_AUTHORIZED`'*) phase="IMPLEMENTATION_AUTHORIZED" ;;
+            *)
+              echo "::error::A última declaração de Fase atual deve ser AUDIT_ONLY ou IMPLEMENTATION_AUTHORIZED."
+              exit 1
+              ;;
+          esac
 
           changed=""
           case "$EVENT_NAME" in
