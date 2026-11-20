@@ -3,7 +3,7 @@
 **Atualizada em:** 2026-11-20  
 **Repositório de trabalho:** `ar2233789-oss/Kellvyn`  
 **Branch de trabalho:** `brain/from-scratch-foundation`  
-**HEAD auditado:** `2fb135bfe296f0ca5e9606e845b489f1f9f2217b` (integração do manifesto no trainer e revisão corretiva)  
+**HEAD auditado:** `2c832074073cc0542228b9ad85aa4196743e1338` (checkpoints recuperáveis, retomada e leitura única do pacote)  
 **Memória do operador:** `studio/memory/OPERATOR_MEMORY.md`, branch `studio-production-suite`  
 **Regra para qualquer sessão nova:** ler esta auditoria e a memória do operador antes de responder sobre o projeto, pesquisar arquivos ou editar código. Não usar somente a branch `main`.
 
@@ -326,3 +326,25 @@ O teste foi corrigido para capturar uma cópia do RNG exatamente no momento da g
 ## 20. Leitura única do checkpoint na retomada
 
 A retomada passa a recuperar modelo, estado do AdamW, metadados, tokenizer, RNG e origem dos pesos por uma única leitura do arquivo. Isso evita abrir e desserializar várias vezes um checkpoint grande. A rotina também rejeita arquivos sem estado de treinamento ou sem declaração reconhecível da origem dos pesos. Um teste específico valida o pacote retornado.
+
+
+## 21. Checkpoint recuperável e retomada — evidência aprovada
+
+Commits:
+- Implementação de checkpoint/retomada: [d994319](https://github.com/ar2233789-oss/Kellvyn/commit/d9943198bfaef2ff907dae59b0a5d931e203a925).
+- Correção da comparação temporal do RNG no teste: [453cf6a](https://github.com/ar2233789-oss/Kellvyn/commit/453cf6abf5ce1a9322c21566614d6ff856593b4a).
+- Carregamento do pacote de retomada em uma única leitura: [2c83207](https://github.com/ar2233789-oss/Kellvyn/commit/2c832074073cc0542228b9ad85aa4196743e1338).
+
+Evidências:
+- O primeiro CI do v3 revelou uma asserção inválida que comparava RNG após criar outro modelo; foi corrigida para comparar com snapshot capturado no momento da gravação. Não ocultar a falha inicial.
+- Audit Gate do commit final: [44801701609](https://github.com/ar2233789-oss/Kellvyn/actions/runs/44801701609), `success`.
+- Kellvyn Brain Lab do commit final: [44801701677](https://github.com/ar2233789-oss/Kellvyn/actions/runs/44801701677), `success`. Todos os testes da fundação e smoke test de treino passaram.
+- Um teste adicional confirma que treino CPU de quatro passos contínuos gera pesos exatamente iguais a dois passos + checkpoint + retomada até quatro passos.
+- Checkpoint v3 é gravado com substituição atômica, pesos, estado AdamW, tokenizer, configuração, passo e estado RNG; métricas são registradas em JSONL.
+- A retomada verifica hash do corpus/manifesto, origem dos pesos, configuração, fingerprint de hiperparâmetros/dispositivo e integridade do tokenizer.
+
+Limites: equivalência bit-a-bit comprovada apenas no teste CPU determinístico e pequeno; não extrapolar para GPU/MPS. Nenhum experimento de produção foi rodado.
+
+### Próxima etapa
+
+Criar avaliação independente do checkpoint usando um conjunto de teste separado do treino. O manifesto deve registrar separação explícita train/test, impedir reutilização de IDs/fontes entre eles e verificar hashes. Avaliar perplexidade/loss em texto retido sem alterar pesos e produzir relatório JSON com checkpoint, corpus, tokenizer, tokens, loss e limites da medição. Incluir inferência de amostras de texto como inspeção qualitativa, sem declarar qualidade a partir de uma única amostra.
