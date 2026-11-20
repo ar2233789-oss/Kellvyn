@@ -3,7 +3,7 @@
 **Atualizada em:** 2026-11-20  
 **Repositório de trabalho:** `ar2233789-oss/Kellvyn`  
 **Branch de trabalho:** `brain/from-scratch-foundation`  
-**HEAD auditado:** `3419166d2d1c6e900ed127532b07bf813709e150`  
+**HEAD auditado:** `bd55b8bf3d398266f2a2681b6ae8a614f57ba646` (último commit de documentação; a fundação neural permanece no commit `3419166d2d1c6e900ed127532b07bf813709e150`)  
 **Memória do operador:** `studio/memory/OPERATOR_MEMORY.md`, branch `studio-production-suite`  
 **Regra para qualquer sessão nova:** ler esta auditoria e a memória do operador antes de responder sobre o projeto, pesquisar arquivos ou editar código. Não usar somente a branch `main`.
 
@@ -158,3 +158,36 @@ Verificação realizada nesta sessão:
 - **Execução hospedada do GitHub Actions:** ainda não confirmada nesta sessão; não declarar o workflow como aprovado até consultar uma execução real.
 - **Proteção da branch:** não ativada nem verificada. Sem exigir o status check nas regras da branch, a falha do workflow é um alerta/verificação, não um bloqueio absoluto de push direto.
 - **Carregamento em novo chat:** não é disparado pelo GitHub. O operador deve consultar explicitamente a auditoria e a memória no início de cada nova sessão.
+
+
+## 11. Retomada da implementação autorizada pelo usuário — 2026-11-20
+
+**Fase atual:** `IMPLEMENTATION_AUTHORIZED`
+
+Às 19:04 UTC, o usuário solicitou explicitamente que o operador analisasse e estudasse todo o trabalho já feito no cérebro da Kellvyn e continuasse a implementação. Esta autorização substitui a fase `AUDIT_ONLY` estabelecida anteriormente, sem alterar as restrições permanentes do escopo.
+
+### Escopo desta retomada
+
+- Preservar a fundação neural já existente; não substituir o modelo nem reiniciar o projeto.
+- Primeiro incremento autorizado: criar uma avaliação reproduzível do tokenizer BPE treinado no projeto, comparando-o com o baseline byte-level em corpus UTF-8 fornecido pelo operador.
+- Medir bytes úteis, quantidade de tokens, redução relativa de tokens, reconstrução exata do texto e tempo de codificação; registrar hashes do corpus, checkpoint e tokenizer.
+- Exigir declaração explícita de ausência de pesos pré-treinados no metadado do checkpoint utilizado.
+- Adicionar testes automatizados e instruções de uso. Não incorporar corpus de terceiros nem dados privados ao repositório.
+
+### Limites que continuam vigentes
+
+- Um único modelo neural principal, inicializado e treinado do zero.
+- Sem pesos ou APIs de inferência de Gemma, Llama, Qwen, GPT, Claude, Gemini ou qualquer outro modelo pré-treinado.
+- Sem agentes, sistema multiagente, orquestrador ou Copiloto.
+- Sem mudanças na interface Android nesta etapa.
+- Não declarar que o modelo é conversacionalmente competente, treinado em escala ou executável no Android apenas porque o benchmark do tokenizer passar.
+
+### Critérios de aceitação deste incremento
+
+1. A ferramenta carrega o tokenizer do checkpoint Kellvyn e recusa metadados que não declarem explicitamente `external_pretrained_weights=false`.
+2. A comparação byte-level/BPE preserva os limites entre documentos e verifica round-trip exato para todo o texto avaliado.
+3. O relatório JSON inclui hashes do corpus, checkpoint e vocabulário, contagem de bytes/tokens, redução relativa e tempos de codificação.
+4. Testes cobrem resultado válido, reconstrução, corpus vazio e checkpoint sem proveniência permitida.
+5. O workflow do GitHub passa para o commit que contém conjuntamente código, testes e esta atualização da auditoria.
+
+Este incremento prepara a medição do corpus real; não substitui o inventário de licenças, o pré-treinamento, o ajuste de instruções, a avaliação de raciocínio ou a prova de runtime Android. Cada próxima etapa deverá ser registrada com evidência própria.

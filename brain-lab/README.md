@@ -52,3 +52,20 @@ O comando é apenas uma prova de funcionamento. A configuração pequena não re
 6. Somente depois integrar inferência ao app Android nativo.
 
 Não use arquivos de conversas privadas, tokens, senhas ou dados pessoais para treino.
+
+
+## Avaliar o tokenizer de um checkpoint
+
+Depois de treinar um checkpoint, compare o BPE aprendido no projeto com o baseline byte-level usando um corpus de avaliação separado do treino:
+
+```bash
+kellvyn-tokenizer-benchmark \
+  --checkpoint ./runs/kellvyn-toy.pt \
+  --data ./data/heldout_portuguese.txt \
+  --output ./runs/tokenizer-benchmark.json \
+  --repeats 5
+```
+
+O relatório registra hashes do checkpoint, corpus e vocabulário; bytes UTF-8 úteis; quantidade de tokens; redução percentual frente ao baseline; reconstrução exata por documento; e tempos medianos de codificação. Os documentos são medidos separadamente para não criar merges artificiais entre fronteiras.
+
+Use dados com origem e licença documentadas. O relatório é uma medição do tokenizer, não uma avaliação de raciocínio ou qualidade conversacional. Tempos só são comparáveis em máquinas e condições equivalentes.
