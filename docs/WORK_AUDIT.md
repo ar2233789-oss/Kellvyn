@@ -104,3 +104,21 @@ Em toda sessão:
 6. Se nenhuma alteração foi feita, dizer isso claramente. Nunca alegar que o registro foi atualizado sem confirmar o commit e reler o arquivo.
 
 **Esta auditoria é o ponto de retomada. Memória de conversa, resumo automático e indicadores temporários da interface não a substituem.**
+
+## 8. Correção de escopo — 2026-11-20, 15:29
+
+O usuário corrigiu o operador: **a tarefa executada neste momento é atualizar e usar a auditoria, não modificar o cérebro.**
+
+- Não alterar código, arquitetura, tokenizer, treinamento, exportação ou integração Android do cérebro nesta etapa.
+- Não transformar os documentos técnicos existentes em autorização automática para implementar uma solução. Eles são material de referência e estado encontrado no repositório; decisões do usuário prevalecem.
+- O operador ainda não demonstrou compreender com precisão a próxima alteração desejada no cérebro. Portanto, não deve escolher uma melhoria técnica por conta própria nem começar a editar por impulso.
+- A ordem atual é deixar a auditoria confiável, consultar as memórias/decisões anteriores e impedir que conversas novas retomem projetos ou ideias descartadas.
+- Quando a etapa de auditoria estiver concluída, só retomar implementação do cérebro seguindo o objetivo e as instruções concretas já registradas pelo usuário, sem reabrir agentes, orquestrador ou Copiloto.
+
+### Distinção obrigatória no histórico
+
+- **Confirmado pelo usuário:** o foco futuro é o cérebro da Kellvyn; agentes e Copiloto estão fora do escopo; não usar Gemma; não desviar para outros projetos; consultar a auditoria em todo chat novo.
+- **Encontrado no código/documentação:** existem protótipos, documentos de arquitetura e workflows na branch técnica. Isso descreve o conteúdo atual do repositório, não prova que o operador tenha entendido qual é a próxima tarefa pedida.
+- **Ainda não autorizado nesta etapa:** qualquer alteração nos arquivos técnicos do cérebro.
+
+Esta correção prevalece sobre qualquer frase anterior desta auditoria que possa ser interpretada como autorização para começar uma implementação imediatamente.
