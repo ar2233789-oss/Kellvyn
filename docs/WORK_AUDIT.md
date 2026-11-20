@@ -3,7 +3,7 @@
 **Atualizada em:** 2026-11-20  
 **Repositório de trabalho:** `ar2233789-oss/Kellvyn`  
 **Branch de trabalho:** `brain/from-scratch-foundation`  
-**HEAD auditado:** `8e09285478bd8bc5f2c75b9adf5529db38869cca` (estado anterior à integração obrigatória do manifesto no trainer)  
+**HEAD auditado:** `2fb135bfe296f0ca5e9606e845b489f1f9f2217b` (integração do manifesto no trainer e revisão corretiva)  
 **Memória do operador:** `studio/memory/OPERATOR_MEMORY.md`, branch `studio-production-suite`  
 **Regra para qualquer sessão nova:** ler esta auditoria e a memória do operador antes de responder sobre o projeto, pesquisar arquivos ou editar código. Não usar somente a branch `main`.
 
@@ -24,7 +24,7 @@ A pesquisa antiga sobre agentes e ferramentas em `docs/BRAIN_RESEARCH.md` é ref
 
 ## 2. Repositório e estado de versão
 
-A branch correta para a fundação neural é `brain/from-scratch-foundation`. O histórico dessa branch mostra alterações concentradas em **16/11/2026**; não há commits posteriores nessa branch antes desta auditoria de 20/11/2026.
+A branch correta para a fundação neural é `brain/from-scratch-foundation`. A fundação inicial foi criada em **16/11/2026**; em **20/11/2026** foram adicionados o gate de auditoria, benchmark de tokenizer, manifesto de proveniência e integração obrigatória do manifesto ao treino.
 
 Última sequência técnica confirmada:
 - `13126e0`: tokenizer BPE treinável para o projeto.
@@ -36,7 +36,7 @@ A branch correta para a fundação neural é `brain/from-scratch-foundation`. O 
 - `3419166`: exportador de checkpoint para grafo `torch.export`.
 - `3ce2252`: benchmark reproduzível do tokenizer BPE contra o baseline byte-level, com hashes, round-trip, compressão e tempo de codificação.
 
-HEAD auditado: [commit 3419166](https://github.com/ar2233789-oss/Kellvyn/commit/3419166d2d1c6e900ed127532b07bf813709e150).
+HEAD da fundação neural inicial: [commit 3419166](https://github.com/ar2233789-oss/Kellvyn/commit/3419166d2d1c6e900ed127532b07bf813709e150). Os incrementos posteriores e seus testes estão registrados nas seções 12–17.
 
 ## 3. O que existe de fato
 
@@ -44,9 +44,9 @@ HEAD auditado: [commit 3419166](https://github.com/ar2233789-oss/Kellvyn/commit/
 |---|---|---|
 | Modelo neural | Decoder-only causal próprio em PyTorch, parâmetros inicializados aleatoriamente | Baseline minúsculo de engenharia, não um modelo conversacional útil |
 | Configuração padrão | largura 128, 2 camadas, 4 cabeças, contexto de 128 tokens | Valores de prova; não são escala de produção |
-| Tokenizer | Byte tokenizer de referência e BPE byte-level treinável | O código ainda precisa de benchmark em corpus representativo e grande |
+| Tokenizer | Byte tokenizer de referência, BPE treinável e benchmark reproduzível implementado | O benchmark ainda precisa rodar sobre corpus real representativo |
 | Treinamento | Previsão do próximo token, AdamW, clipping, validação e seed | Nenhum pré-treinamento de escala foi comprovado |
-| Dados | Divisão por documento, deduplicação e hash de corpus no checkpoint | Não há corpus de produção versionado no diretório `brain-lab/` |
+| Dados | Deduplicação, hashes, manifesto por fonte e arquivo preparado exigido pelo trainer | Ainda não há corpus de produção real revisado/validado |
 | Checkpoint | Salva configuração, pesos, tokenizer, metadados e estado do otimizador | Não foi encontrado checkpoint treinado e publicado no repositório |
 | Exportação | Exportador `.pt2` por `torch.export`, comparando logits do módulo eager e exportado | Isso ainda não é arquivo ExecuTorch `.pte` nem runtime Android |
 | Android | Existe planejamento de prova de integração em `docs/BRAIN_ARCHITECTURE.md` | Nenhuma inferência dessa fundação própria foi comprovada no APK |
@@ -278,3 +278,26 @@ Na revisão do commit `4bd544b`, antes de considerar a integração validada, fo
 - a expressão regular usada para contar documentos no arquivo consolidado tinha escape duplicado.
 
 Ambos foram corrigidos nesta revisão. A execução de CI do commit anterior ainda estava em andamento quando os defeitos foram identificados; seu resultado não será usado para declarar esta revisão aprovada. A aprovação depende de uma nova execução para o commit corretivo.
+
+
+## 17. Resultado da integração obrigatória do manifesto — 2026-11-20
+
+Commit corretivo: [2fb135b](https://github.com/ar2233789-oss/Kellvyn/commit/2fb135bfe296f0ca5e9606e845b489f1f9f2217b).
+
+Mudanças comprovadas:
+- `corpus_manifest.py` valida o arquivo consolidado `training_corpus`: caminho relativo dentro da raiz, hash, tamanho, UTF-8, contagem de documentos e IDs das fontes que o originaram.
+- `train.py` exige `--manifest` por padrão, verifica se `--data` é exatamente o arquivo descrito e confere novamente o hash antes do treino.
+- O checkpoint registra se houve validação do manifesto, hash do manifesto, ID do corpus e IDs das fontes.
+- O bypass `--allow-unverified-data` é explícito e está usado apenas no smoke test sintético do workflow.
+- O fixture foi corrigido para criar o arquivo consolidado e a expressão de contagem de documentos foi corrigida.
+
+CI no mesmo commit:
+- Audit Gate: [44800616165](https://github.com/ar2233789-oss/Kellvyn/actions/runs/44800616165), `success`.
+- Kellvyn Brain Lab: [44800615316](https://github.com/ar2233789-oss/Kellvyn/actions/runs/44800615316), `success`.
+- No workflow neural passaram `Run foundation tests` e `Run a tiny from-random-init training smoke test`.
+
+Limites: o CI usa apenas um corpus sintético temporário. Nenhum corpus real foi fornecido, nenhum treinamento de produção foi executado e o modelo segue sem prova de competência conversacional ou runtime Android.
+
+### Próximo passo técnico
+
+Tornar o treinamento recuperável e reprodutível em execuções longas: snapshots periódicos, estado do otimizador, estado RNG Python/PyTorch/CUDA, etapa atual, configuração/tokenizer/dataset/manifesto vinculados, métricas de treino/validação e um comando de retomada que rejeite incompatibilidades. A retomada deve continuar os mesmos pesos, sem reinicializar a rede.
