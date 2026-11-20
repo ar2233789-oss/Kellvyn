@@ -132,3 +132,15 @@ A página do resultado identifica o APK e seu SHA-256; usar a evidência corresp
 - Auditoria atualizada no commit `8e09285478bd8bc5f2c75b9adf5529db38869cca`.
 - Limitações: nenhum corpus real foi fornecido ou medido; o validador ainda não está integrado como exigência no trainer; não ocorreu pré-treinamento de escala ou inferência Android.
 - Próxima sequência: integrar manifesto ao trainer; separar de forma explícita o caminho de dados sintéticos para CI; tornar treino retomável com checkpoint periódico/estado aleatório/logs; só depois executar experimentos com corpus real cuja licença foi revisada.
+
+
+### Integração de manifesto ao treinamento aprovada — 2026-11-20, 19:18 UTC
+
+- Commit neural: `2fb135bfe296f0ca5e9606e845b489f1f9f2217b`.
+- O trainer agora exige `--manifest` para treino normal; confere que `--data` é exatamente o arquivo `training_corpus.file` e verifica seu SHA-256 antes do treino. Checkpoints registram manifesto/corpus/fontes.
+- `--allow-unverified-data` é um bypass visível de teste, usado somente no smoke test sintético do GitHub Actions.
+- O validador também verifica o arquivo consolidado do treino, hash, bytes, UTF-8, quantidade de documentos e referências às fontes; uma revisão corrigiu o fixture de teste e a regex de contagem.
+- CI do mesmo commit: Audit Gate `44800616165` = `success`; Kellvyn Brain Lab `44800615316` = `success`. Testes de fundação e smoke test aleatório passaram.
+- Auditoria atualizada no commit `b4a5505341035ebd5eb1a799baef0b2b8db0604f`.
+- Limites: não existe corpus real validado, treinamento de produção, avaliação ampla ou inferência Android.
+- Próximo incremento: checkpoints periódicos e retomada reproduzível do treino, salvando estado do otimizador e RNG, metadados de dados/modelo/tokenizer e métricas.
