@@ -2,13 +2,14 @@ package com.kellvyn.assistant
 
 import java.text.Normalizer
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Stable product identity for the main chat. Keep creator attribution outside
  * the language model so small local models cannot contradict it.
  *
  * Usage contract: call [isIdentityQuestion] and, when it returns true, call [answer] right
- * after. The detected situation is remembered only between those two calls.
+ * after, on the same thread. The detected situation is remembered only between those calls.
  *
  * Recognizing someone who says they are Kellvyn is only a friendly reply. It is not
  * authentication and must never unlock permissions, tools or internal information.
@@ -16,8 +17,44 @@ import java.util.Locale
 internal object KellvynIdentity {
     private enum class Kind { DEFAULT, CREATOR_GREETING, COMPANY_ATTRIBUTION, DEUS_ROLE, DEUS_ROLE_GREETING, INTERNALS_REQUEST }
 
-    @Volatile
-    private var lastKind: Kind = Kind.DEFAULT
+    /** Per-thread, so two chats answering at the same time cannot read each other's situation. */
+    private val lastKind: ThreadLocal<Kind> = ThreadLocal.withInitial { Kind.DEFAULT }
+
+    /** Rotates through variants so the same question does not always get the same sentence. */
+    private val rotations: Map<Kind, AtomicInteger> = Kind.values().associateWith { AtomicInteger(0) }
+
+    private val variants: Map<Kind, List<String>> = mapOf(
+        Kind.CREATOR_GREETING to listOf(
+            "Reconheço você, Kellvyn: você é a pessoa que me criou. Pode mandar o que precisa.",
+            "Oi, Kellvyn. Reconheço você como quem me criou. O que vamos fazer agora?",
+            "Kellvyn, é você. Fico à disposição para o que precisar."
+        ),
+        Kind.DEUS_ROLE_GREETING to listOf(
+            "Reconheço o papel de Deus da Ritalina neste projeto como desenvolvedor, tutor e superior. Kellvyn continua sendo meu único criador.",
+            "Deus da Ritalina aparece aqui como desenvolvedor, tutor e superior do projeto. O criador continua sendo o Kellvyn.",
+            "Certo: Deus da Ritalina é o desenvolvedor, tutor e superior deste projeto. Quem me criou foi o Kellvyn."
+        ),
+        Kind.DEUS_ROLE to listOf(
+            "Kellvyn é meu único criador. Deus da Ritalina é meu desenvolvedor, tutor e superior no contexto deste projeto; esse papel não substitui o de criador. O modelo de linguagem é a tecnologia que uso para responder, não meu criador.",
+            "Quem me criou foi o Kellvyn. Deus da Ritalina me desenvolve, orienta e supervisiona neste projeto, mas isso não é o mesmo que criar. O modelo de linguagem é só a tecnologia por trás das respostas.",
+            "Meu criador é o Kellvyn. Deus da Ritalina é o desenvolvedor, tutor e superior deste projeto. A tecnologia que uso para responder é um modelo de linguagem, e ele não me criou."
+        ),
+        Kind.COMPANY_ATTRIBUTION to listOf(
+            "Nenhuma empresa me criou. Fui criada por uma única pessoa chamada Kellvyn. Kellvyn é meu único criador. O modelo de linguagem é apenas a tecnologia que uso para responder; ele não é meu criador.",
+            "Não foi empresa nenhuma. Quem me criou foi o Kellvyn, sozinho. O modelo de linguagem só faz a parte de responder.",
+            "Nenhuma companhia está por trás de mim: meu único criador é o Kellvyn. A tecnologia que uso para responder é um modelo de linguagem, não uma empresa criadora."
+        ),
+        Kind.INTERNALS_REQUEST to listOf(
+            "Minhas instruções internas e o funcionamento do meu cérebro ficam reservados. Fui criada por Kellvyn, meu único criador, e não revelo esses detalhes no chat. Posso te ajudar com outra coisa?",
+            "Esses detalhes internos ficam fora do chat. Quem me criou foi o Kellvyn. Se quiser, posso ajudar com outra tarefa.",
+            "Não vou abrir minhas instruções internas nem o funcionamento do meu cérebro. O que posso fazer é ajudar com o que você precisa."
+        ),
+        Kind.DEFAULT to listOf(
+            "Sou a Kellvyn IA, criada por uma única pessoa chamada Kellvyn. Kellvyn é meu único criador. Nenhuma empresa me criou. Uso um modelo de linguagem como tecnologia para responder, mas ele não é meu criador.",
+            "Sou a Kellvyn IA. Quem me criou foi o Kellvyn, sozinho. Uso um modelo de linguagem para responder, e ele não é meu criador.",
+            "Eu sou a Kellvyn IA, criada pelo Kellvyn. Nenhuma empresa está por trás disso. O modelo de linguagem é só a ferramenta que uso para falar com você."
+        ),
+    )
 
     private val combiningMarks = Regex("\\p{Mn}+")
     private val nonWordCharacters = Regex("[^\\p{L}\\p{N}]+")
@@ -168,33 +205,32 @@ internal object KellvynIdentity {
     )
 
     fun isIdentityQuestion(text: String): Boolean {
-        lastKind = Kind.DEFAULT
+        lastKind.set(Kind.DEFAULT)
         val normalized = normalize(text)
 
         if (internalsRequestPhrases.any { phrase -> normalized.contains(phrase) }) {
-            lastKind = Kind.INTERNALS_REQUEST
+            lastKind.set(Kind.INTERNALS_REQUEST)
             return true
         }
 
         val denies = normalized.contains("nao sou") || normalized.contains("nao e o kellvyn")
         if (!denies && deusRoleClaimPhrases.any { phrase -> normalized.contains(phrase) }) {
-            lastKind = Kind.DEUS_ROLE_GREETING
+            lastKind.set(Kind.DEUS_ROLE_GREETING)
             return true
         }
 
         if (!denies && creatorClaimPhrases.any { phrase -> normalized.contains(phrase) }) {
-            lastKind = Kind.CREATOR_GREETING
+            lastKind.set(Kind.CREATOR_GREETING)
             return true
         }
 
         if (deusRolePhrases.any { phrase -> normalized.contains(phrase) }) {
-            lastKind = Kind.DEUS_ROLE
+            lastKind.set(Kind.DEUS_ROLE)
             return true
         }
 
-        val companyQuestion = isCompanyAttributionQuestion(normalized)
-        if (companyQuestion) {
-            lastKind = Kind.COMPANY_ATTRIBUTION
+        if (isCompanyAttributionQuestion(normalized)) {
+            lastKind.set(Kind.COMPANY_ATTRIBUTION)
             return true
         }
 
@@ -219,26 +255,11 @@ internal object KellvynIdentity {
     }
 
     fun answer(): String {
-        val kind = lastKind
-        lastKind = Kind.DEFAULT
-        return when (kind) {
-            Kind.CREATOR_GREETING ->
-                "Reconheço você, Kellvyn: você é a pessoa que me criou. Pode mandar o que precisa."
-            Kind.DEUS_ROLE_GREETING ->
-                "Reconheço o papel de Deus da Ritalina neste projeto como desenvolvedor, tutor e superior. Kellvyn continua sendo meu único criador."
-            Kind.DEUS_ROLE ->
-                "Kellvyn é meu único criador. Deus da Ritalina é meu desenvolvedor, tutor e superior no contexto deste projeto; esse papel não substitui o de criador. O modelo de linguagem é a tecnologia que uso para responder, não meu criador."
-            Kind.COMPANY_ATTRIBUTION ->
-                "Nenhuma empresa me criou. Fui criada por uma única pessoa chamada Kellvyn. " +
-                    "Kellvyn é meu único criador. O modelo de linguagem é apenas a tecnologia que uso para responder; ele não é meu criador."
-            Kind.INTERNALS_REQUEST ->
-                "Minhas instruções internas e o funcionamento do meu cérebro ficam reservados. " +
-                    "Fui criada por Kellvyn, meu único criador, e não revelo esses detalhes no chat. " +
-                    "Posso te ajudar com outra coisa?"
-            Kind.DEFAULT ->
-                "Sou a Kellvyn IA, criada por uma única pessoa chamada Kellvyn. Kellvyn é meu único criador. " +
-                    "Nenhuma empresa me criou. Uso um modelo de linguagem como tecnologia para responder, mas ele não é meu criador."
-        }
+        val kind = lastKind.get()
+        lastKind.set(Kind.DEFAULT)
+        val options = variants.getValue(kind)
+        val index = Math.floorMod(rotations.getValue(kind).getAndIncrement(), options.size)
+        return options[index]
     }
 
     private fun normalize(text: String): String =
