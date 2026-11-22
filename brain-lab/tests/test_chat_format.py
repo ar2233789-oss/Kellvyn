@@ -89,10 +89,11 @@ def test_seed_corpus_is_well_formed_and_canonical():
     assert len(set(documents)) == len(documents), "o corpus semente não pode ter conversas repetidas"
     markers = set(ROLE_MARKERS.values())
     for document in documents:
-        turns = parse_conversation(document.strip("\n"))
+        body = document.strip("\n")
+        turns = parse_conversation(body)
         assert turns[0].role == "usuario" and turns[-1].role == "kellvyn"
-        assert format_conversation(turns) == document.strip("\n"), document
-        assert document.count(USER) >= 1 and document.count(ASSISTANT) >= 1
+        assert format_conversation(turns) == body, body
+        assert USER in body and ASSISTANT in body
     # Nenhum marcador solto fora das linhas de papel.
     for line in text.split("\n"):
         if "<|" in line:
@@ -102,6 +103,7 @@ def test_seed_corpus_is_well_formed_and_canonical():
 def test_seed_corpus_never_claims_to_be_a_third_party_model():
     text = SEED.read_text(encoding="utf-8").lower()
     for sentence in re.findall(r"<\|kellvyn\|>\n([^\n]+)", text):
-        assert "sou o chatgpt" not in sentence
-        assert "sou o gemma" not in sentence
+        # "Não sou o ChatGPT" é permitido; afirmar "sou o ChatGPT/Gemma" não.
+        assert not re.search(r"(?<!não )sou o (chatgpt|gemma)", sentence), sentence
         assert "fui criada pela openai" not in sentence
+        assert "fui criada pelo google" not in sentence
